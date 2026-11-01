@@ -1,0 +1,24 @@
+<section class="company-page" aria-labelledby="company-title">
+  <header><p class="vn-eyebrow">Tu espacio de trabajo</p><h1 class="vn-title" id="company-title">Elige una empresa</h1><p>Continúa con la empresa autorizada que selecciones. Cada espacio mantiene sus datos separados.</p></header>
+  <div class="vn-card company-card" [attr.aria-busy]="companies.loading()">
+    @if (companies.loading()) {
+      <p class="company-state" role="status"><span class="vn-spinner" aria-hidden="true"></span> Consultando tus empresas…</p>
+    } @else if (companies.error(); as message) {
+      <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p><button type="button" class="vn-button" (click)="refresh()">Reintentar</button>
+    } @else if (companies.companies().length === 0) {
+      <h2>Sin empresas autorizadas</h2><p>No tienes una pertenencia activa a una empresa disponible. Solicita a la administración que revise tu acceso.</p><button type="button" class="vn-button" (click)="refresh()">Volver a consultar</button>
+    } @else {
+      <form (submit)="$event.preventDefault(); continue()">
+        <label class="vn-field" for="company-choice">Empresa
+          <select id="company-choice" required [value]="candidate()" (change)="candidate.set($any($event.target).value)" aria-describedby="company-choice-hint" [disabled]="navigating()">
+            <option value="" disabled>Selecciona tu empresa</option>
+            @for (company of companies.companies(); track company.id) { <option [value]="company.id">{{ company.nombre }} · {{ roleLabel(company.rol) }}</option> }
+          </select>
+        </label>
+        <p class="company-hint" id="company-choice-hint">La selección se valida con tus permisos actuales y se conserva en esta pestaña. El servidor comprueba cada operación.</p>
+        @if (error(); as message) { <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p> }
+        <div class="company-actions"><button type="submit" class="vn-button vn-button--primary" [disabled]="navigating() || !candidate()">{{ navigating() ? 'Abriendo espacio…' : 'Continuar' }}</button><button type="button" class="vn-button" (click)="refresh()" [disabled]="navigating()">Actualizar accesos</button></div>
+      </form>
+    }
+  </div>
+</section>

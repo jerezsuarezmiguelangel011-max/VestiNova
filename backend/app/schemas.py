@@ -2,9 +2,10 @@ from datetime import datetime, timezone
 from decimal import Decimal
 import re
 from typing import Annotated, Literal
-from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator, model_validator
+
+from app.image_url import validate_image_url
 
 
 def normalizar_correo(value: str) -> str:
@@ -28,6 +29,7 @@ class AdministradorResponse(BaseModel):
     correo: str
     rol: Literal["ADMINISTRADOR"] = "ADMINISTRADOR"
     activo: bool
+    es_superadministrador: bool = False
 
 
 class LoginResponse(BaseModel):
@@ -60,12 +62,7 @@ class CamposProducto(BaseModel):
     @field_validator("imagen_url", check_fields=False)
     @classmethod
     def imagen_valida(cls, value: str | None):
-        if value is None:
-            return None
-        parsed = urlsplit(value)
-        if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
-            raise ValueError("La imagen debe ser una URL http o https sin credenciales.")
-        return value
+        return validate_image_url(value)
 
 
 class ProductoCreate(CamposProducto):

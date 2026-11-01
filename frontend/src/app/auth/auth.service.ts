@@ -1,8 +1,9 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, PLATFORM_ID, inject, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { Observable, catchError, filter, finalize, map, of, shareReplay, tap, throwError } from 'rxjs';
+import { Observable, catchError, defer, filter, finalize, map, of, shareReplay, tap, throwError } from 'rxjs';
 import { Administrator, LoginCredentials, LoginResponse } from './auth.models';
+import { CompanyService } from '../company/company.service';
 
 export const SESSION_KEY = 'vestinova_mvp_session';
 
@@ -10,6 +11,7 @@ export const SESSION_KEY = 'vestinova_mvp_session';
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
+  private readonly companies = inject(CompanyService);
   private readonly currentUser = signal<Administrator | null>(null);
   readonly user = this.currentUser.asReadonly();
   private currentToken = this.readStoredToken();
@@ -28,6 +30,7 @@ export class AuthService {
       map(administrator => {
         if (revision !== this.revision) return null;
         this.currentUser.set(administrator);
+        this.companies.bindUser(administrator.id);
         this.checked = true;
         return administrator;
       }),
@@ -55,6 +58,8 @@ export class AuthService {
         if (revision !== this.revision) return;
         this.currentToken = response.access_token;
         this.currentUser.set(response.administrador);
+        this.companies.clear();
+        this.companies.bindUser(response.administrador.id);
         this.checked = true;
         try { if (this.browser) sessionStorage.setItem(SESSION_KEY, response.access_token); } catch { /* Sesión en memoria. */ }
       }),
@@ -63,7 +68,10 @@ export class AuthService {
   }
 
   logout(): Observable<void> {
-    return this.http.post<void>('/api/auth/logout', null).pipe(tap(() => this.invalidate()));
+    return defer(() => {
+      const revision = this.revision;
+      return this.http.post<void>('/api/auth/logout', null).pipe(filter(() => revision === this.revision), tap(() => this.invalidate()));
+    });
   }
 
   invalidate(): void {
@@ -72,6 +80,7 @@ export class AuthService {
     this.currentUser.set(null);
     this.checked = true;
     this.restoring = undefined;
+    this.companies.clear();
     try { if (this.browser) sessionStorage.removeItem(SESSION_KEY); } catch { /* Storage puede estar bloqueado. */ }
   }
 

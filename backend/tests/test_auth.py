@@ -14,7 +14,7 @@ def test_login_normalizes_email_keeps_password_and_returns_no_hash(client, admin
     assert response.status_code == 200
     data = response.json()
     assert data["token_type"] == "bearer"
-    assert data["administrador"] == {"id": administrator.id, "nombre": administrator.nombre, "correo": administrator.correo, "rol": "ADMINISTRADOR", "activo": True}
+    assert data["administrador"] == {"id": administrator.id, "nombre": administrator.nombre, "correo": administrator.correo, "rol": "ADMINISTRADOR", "activo": True, "es_superadministrador": False}
     assert "password" not in str(data["administrador"])
     assert response.headers["cache-control"] == "no-store"
     claims = jwt.decode(data["access_token"], TEST_SECRET, algorithms=["HS256"], issuer=JWT_ISSUER, audience=JWT_AUDIENCE)

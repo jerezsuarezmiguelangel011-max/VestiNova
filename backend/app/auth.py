@@ -1,14 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Administrador, SesionAdministrador
+from app.models import Administrador, SesionAdministrador, Sucursal
+from app.organizations import EmpresaAccesoResponse, EmpresaResponse, SucursalResponse
 from app.schemas import AdministradorResponse, LoginRequest, LoginResponse
 from app.security import get_current_session, issue_session, require_administrator, verify_password, verify_unknown_password
+from app.tenancy import TenantContext, authorized_branches_statement, require_tenant
 
 
-router = APIRouter(prefix="/api/auth", tags=["Acceso del administrador"])
+router = APIRouter(prefix="/api/auth", tags=["Acceso del personal"])
+
+
+class ContextoAccesoResponse(BaseModel):
+    empresa: EmpresaAccesoResponse
+    sucursales: list[SucursalResponse]
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -28,6 +36,14 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
 def me(response: Response, administrator: Administrador = Depends(require_administrator)):
     response.headers["Cache-Control"] = "no-store"
     return administrator
+
+
+@router.get("/contexto", response_model=ContextoAccesoResponse)
+def context(response: Response, current: TenantContext = Depends(require_tenant), db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "no-store"
+    company = {**EmpresaResponse.model_validate(current.empresa).model_dump(), "rol": current.membresia.rol}
+    branches = db.scalars(authorized_branches_statement(current).order_by(Sucursal.id)).all()
+    return {"empresa": company, "sucursales": branches}
 
 
 @router.post("/logout", status_code=204)

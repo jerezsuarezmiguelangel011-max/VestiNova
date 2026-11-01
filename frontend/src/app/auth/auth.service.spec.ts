@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { AuthService, SESSION_KEY } from './auth.service';
 import { Administrator } from './auth.models';
+import { CompanyService, COMPANY_KEY } from '../company/company.service';
 
 const ADMIN: Administrator = { id: 1, nombre: 'Administración', correo: 'admin@vestinova.test', rol: 'ADMINISTRADOR' };
 const LOGIN = { access_token: 'token-local-prueba', token_type: 'bearer', expires_at: '2026-10-25T12:00:00Z', administrador: ADMIN };
@@ -113,5 +114,37 @@ describe('Sesión del administrador', () => {
     expect(auth.user()).toBeNull();
     expect(auth.token()).toBeNull();
     expect(emitted).not.toHaveBeenCalled();
+  });
+
+  it('un logout tardío no borra la identidad ni empresa de una sesión nueva', () => {
+    const auth = TestBed.inject(AuthService);
+    auth.login({ correo: ADMIN.correo, password: 'clave' }).subscribe();
+    http.expectOne('/api/auth/login').flush(LOGIN);
+    const closed = vi.fn();
+    auth.logout().subscribe(closed);
+    const logout = http.expectOne('/api/auth/logout');
+    auth.login({ correo: ADMIN.correo, password: 'otra' }).subscribe();
+    http.expectOne('/api/auth/login').flush({ ...LOGIN, access_token: 'sesion-nueva' });
+    const companies = TestBed.inject(CompanyService);
+    companies.ensureForUser(ADMIN.id).subscribe();
+    http.expectOne('/api/empresas').flush([{ id: 5, nombre: 'Empresa nueva', slug: 'empresa', activo: true, rol: 'ADMINISTRADOR' }]);
+    logout.flush(null, { status: 204, statusText: 'No Content' });
+    expect(auth.token()).toBe('sesion-nueva');
+    expect(auth.user()).toEqual(ADMIN);
+    expect(companies.active()?.id).toBe(5);
+    expect(closed).not.toHaveBeenCalled();
+  });
+
+  it('invalidar sesión retira también el contexto y su almacenamiento', () => {
+    const auth = TestBed.inject(AuthService);
+    auth.login({ correo: ADMIN.correo, password: 'clave' }).subscribe();
+    http.expectOne('/api/auth/login').flush(LOGIN);
+    const companies = TestBed.inject(CompanyService);
+    companies.ensureForUser(ADMIN.id).subscribe();
+    http.expectOne('/api/empresas').flush([{ id: 5, nombre: 'Empresa', slug: 'empresa', activo: true, rol: 'ADMINISTRADOR' }]);
+    expect(sessionStorage.getItem(COMPANY_KEY)).not.toBeNull();
+    auth.invalidate();
+    expect(companies.active()).toBeNull();
+    expect(sessionStorage.getItem(COMPANY_KEY)).toBeNull();
   });
 });

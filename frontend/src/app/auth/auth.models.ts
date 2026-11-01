@@ -3,6 +3,7 @@ export interface Administrator {
   nombre: string;
   correo: string;
   rol: 'ADMINISTRADOR';
+  es_superadministrador?: boolean;
 }
 
 export interface LoginCredentials { correo: string; password: string; }

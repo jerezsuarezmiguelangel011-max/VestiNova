@@ -9,12 +9,30 @@ import { Product } from './product.model';
 import { ProductService } from './product.service';
 import { FormControl } from '@angular/forms';
 import type { MockInstance } from 'vitest';
+import { CompanyService } from '../company/company.service';
+import { BehaviorSubject, Subject } from 'rxjs';
+
+beforeEach(() => sessionStorage.clear());
+afterEach(() => { sessionStorage.clear(); vi.restoreAllMocks(); });
 
 const PRODUCT: Product = {
   id: 7, nombre: 'Camisa de lino', slug: 'camisa-de-lino', descripcion: 'Lino natural.',
   precio: '149.90', moneda: 'BOB', imagen_url: null, activo: true,
   creado_en: '2026-10-25T12:00:00Z', actualizado_en: '2026-10-25T12:00:00Z',
 };
+
+const COMPANIES = [
+  { id: 1, nombre: 'Empresa A', slug: 'empresa-a', activo: true, rol: 'ADMINISTRADOR' },
+  { id: 2, nombre: 'Empresa B', slug: 'empresa-b', activo: true, rol: 'OPERADOR' },
+];
+
+function selectCompany(http: HttpTestingController) {
+  const companies = TestBed.inject(CompanyService);
+  companies.ensureForUser(1).subscribe();
+  http.expectOne('/api/empresas').flush(COMPANIES);
+  companies.select(1);
+  return companies;
+}
 
 describe('Contrato HTTP de productos', () => {
   let http: HttpTestingController;
@@ -23,6 +41,7 @@ describe('Contrato HTTP de productos', () => {
     TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
     http = TestBed.inject(HttpTestingController);
     service = TestBed.inject(ProductService);
+    selectCompany(http);
   });
   afterEach(() => http.verify());
 
@@ -48,6 +67,34 @@ describe('Contrato HTTP de productos', () => {
     expect(update.request.body).toEqual({ precio: '149.95' });
     update.flush(PRODUCT);
   });
+
+  it('fija la empresa al suscribirse y cancela lecturas cuando cambia el contexto', () => {
+    const emitted = vi.fn();
+    service.get(7).subscribe(emitted);
+    const request = http.expectOne('/api/admin/productos/7');
+    expect(request.request.headers.get('X-Empresa-Id')).toBe('1');
+    TestBed.inject(CompanyService).select(2);
+    expect(request.cancelled).toBe(true);
+    expect(emitted).not.toHaveBeenCalled();
+    service.get(7).subscribe();
+    const next = http.expectOne('/api/admin/productos/7');
+    expect(next.request.headers.get('X-Empresa-Id')).toBe('2');
+    next.flush(PRODUCT);
+  });
+
+  it('no consulta productos sin una empresa validada', () => {
+    TestBed.inject(CompanyService).clear();
+    const error = vi.fn();
+    service.list({ limit: 20, offset: 0 }).subscribe({ error });
+    http.expectNone(request => request.url.startsWith('/api/admin/productos'));
+    expect(error.mock.calls[0][0].status).toBe(403);
+  });
+
+  it('no conserva confirmaciones de otra empresa aunque no haya páginas montadas', () => {
+    service.notice.set('Producto registrado correctamente.');
+    TestBed.inject(CompanyService).select(2);
+    expect(service.notice()).toBeNull();
+  });
 });
 
 describe('Importes de producto sin conversión a float', () => {
@@ -68,17 +115,19 @@ describe('Formulario de producto', () => {
   let http: HttpTestingController;
   let navigate: MockInstance<Router['navigate']>;
   async function setup(id?: string) {
+    const routeParams = new BehaviorSubject(convertToParamMap(id ? { id } : {}));
     await TestBed.configureTestingModule({
       imports: [ProductFormPage],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
-        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap(id ? { id } : {}) } } },
+        { provide: ActivatedRoute, useValue: { paramMap: routeParams.asObservable() } },
       ],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
+    selectCompany(http);
     navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     const fixture = TestBed.createComponent(ProductFormPage);
     fixture.detectChanges();
-    return { fixture, component: fixture.componentInstance, root: fixture.nativeElement as HTMLElement };
+    return { fixture, component: fixture.componentInstance, root: fixture.nativeElement as HTMLElement, routeParams };
   }
   afterEach(() => http?.verify());
 
@@ -156,6 +205,83 @@ describe('Formulario de producto', () => {
     expect(root.querySelector('[role="alert"]')?.textContent).toContain('No encontramos este producto');
     expect(root.querySelector('form')).toBeNull();
   });
+
+  it('impide cambiar de contexto durante el guardado y confirma el descarte de cambios', async () => {
+    const { component } = await setup();
+    component.form.patchValue({ nombre: 'Camisa de prueba', precio: '120.00' });
+    component.form.markAsDirty();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    expect(component.canLeave()).toBe(false);
+    expect(confirm).toHaveBeenCalledOnce();
+    confirm.mockReturnValue(true);
+    expect(component.canLeave()).toBe(true);
+    component.submit();
+    expect(component.canLeave()).toBe(false);
+    expect(component.form.disabled).toBe(true);
+    http.expectOne('/api/admin/productos').flush(PRODUCT, { status: 201, statusText: 'Created' });
+  });
+
+  it('no duplica un alta confirmada aunque falle la navegación posterior', async () => {
+    const { component, fixture, root } = await setup();
+    navigate.mockRejectedValue(new Error('Navegación cancelada'));
+    component.form.patchValue({ nombre: 'Camisa de prueba', precio: '120.00' });
+    component.submit();
+    http.expectOne('/api/admin/productos').flush(PRODUCT, { status: 201, statusText: 'Created' });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    component.submit();
+    http.expectNone('/api/admin/productos');
+    expect(root.textContent).toContain('Producto guardado');
+    expect(root.querySelector('form')).toBeNull();
+    expect(component.error()).toContain('se guardó');
+  });
+
+  it('borra el formulario anterior si se invalida su contexto empresarial', async () => {
+    const { component, fixture, root } = await setup('7');
+    const pending = http.expectOne('/api/admin/productos/7');
+    TestBed.inject(CompanyService).select(2);
+    expect(pending.cancelled).toBe(true);
+    fixture.detectChanges();
+    expect(component.original()).toBeNull();
+    expect(root.querySelector('form')).toBeNull();
+    component.submit();
+    http.expectNone('/api/admin/productos/7');
+  });
+
+  it('descarta una respuesta tardía de guardar A al reutilizar la ruta para editar B', async () => {
+    const { component, routeParams } = await setup('7');
+    http.expectOne('/api/admin/productos/7').flush(PRODUCT);
+    const lateSave = new Subject<Product>();
+    vi.spyOn(TestBed.inject(ProductService), 'update').mockReturnValue(lateSave);
+    component.form.controls.precio.setValue('200.00');
+    component.submit();
+    expect(component.saving()).toBe(true);
+
+    // Angular puede reutilizar el componente al cambiar solo :id.
+    routeParams.next(convertToParamMap({ id: '8' }));
+    const productB = { ...PRODUCT, id: 8, nombre: 'Pantalón recto', slug: 'pantalon-recto' };
+    http.expectOne('/api/admin/productos/8').flush(productB);
+    lateSave.next({ ...PRODUCT, precio: '200.00' });
+    lateSave.complete();
+
+    expect(navigate).not.toHaveBeenCalled();
+    expect(component.saved()).toBeNull();
+    expect(component.original()).toEqual(productB);
+    expect(component.form.controls.nombre.value).toBe('Pantalón recto');
+    expect(component.form.enabled).toBe(true);
+    expect(component.saving()).toBe(false);
+    expect(TestBed.inject(ProductService).notice()).toBeNull();
+  });
+
+  it('cancela la carga de A aunque el nuevo identificador sea inválido', async () => {
+    const { component, routeParams } = await setup('7');
+    const pendingA = http.expectOne('/api/admin/productos/7');
+    routeParams.next(convertToParamMap({ id: 'invalido' }));
+    expect(pendingA.cancelled).toBe(true);
+    expect(component.original()).toBeNull();
+    expect(component.loading()).toBe(false);
+    expect(component.loadError()).toContain('no es válida');
+  });
 });
 
 describe('Directorio de productos', () => {
@@ -166,6 +292,7 @@ describe('Directorio de productos', () => {
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
+    selectCompany(http);
     const fixture = TestBed.createComponent(ProductListPage);
     fixture.detectChanges();
     return { fixture, component: fixture.componentInstance, root: fixture.nativeElement as HTMLElement };
@@ -177,7 +304,7 @@ describe('Directorio de productos', () => {
     expect(root.querySelector('[role="status"]')?.textContent).toContain('Cargando productos');
     http.expectOne(request => request.url === '/api/admin/productos').flush({ items: [], total: 0, limit: 20, offset: 0 });
     fixture.detectChanges();
-    expect(root.textContent).toContain('Tu colección empieza aquí');
+    expect(root.textContent).toContain('Esta empresa todavía no tiene productos');
     expect(root.querySelector('table')).toBeNull();
     component.reload();
     http.expectOne(request => request.url === '/api/admin/productos').flush({ items: [PRODUCT], total: 1, limit: 20, offset: 0 });
@@ -207,10 +334,24 @@ describe('Directorio de productos', () => {
     http.expectOne(request => request.url === '/api/admin/productos').flush({ detail: 'SQL interno' }, { status: 500, statusText: 'Error' });
     fixture.detectChanges();
     expect(root.textContent).toContain('No pudimos cargar los productos');
-    expect(root.textContent).not.toContain('Tu colección empieza aquí');
+    expect(root.textContent).not.toContain('Esta empresa todavía no tiene productos');
     expect(root.textContent).not.toContain('SQL interno');
     [...root.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Reintentar')?.click();
     http.expectOne(request => request.url === '/api/admin/productos').flush({ items: [], total: 0, limit: 20, offset: 0 });
+  });
+
+  it('cambiar empresa limpia resultados y oculta escritura al operador', async () => {
+    const { root, fixture } = await setup();
+    const previous = http.expectOne(request => request.url === '/api/admin/productos');
+    TestBed.inject(CompanyService).select(2);
+    expect(previous.cancelled).toBe(true);
+    const next = http.expectOne(request => request.url === '/api/admin/productos');
+    expect(next.request.headers.get('X-Empresa-Id')).toBe('2');
+    next.flush({ items: [PRODUCT], total: 1, limit: 20, offset: 0 });
+    fixture.detectChanges();
+    expect(root.textContent).toContain('Solo consulta');
+    expect(root.querySelector('a[href="/admin/productos/nuevo"]')).toBeNull();
+    expect(root.querySelector('a[href="/admin/productos/7/editar"]')).toBeNull();
   });
 });
 

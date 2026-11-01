@@ -13,9 +13,10 @@
     <div class="access__form-wrap">
       <p class="vn-eyebrow">Acceso privado</p>
       <h1 id="access-title" class="vn-title">Bienvenido<br />a VestiNova.</h1>
-      <p class="access__description">Ingresa con tu cuenta de administrador.</p>
+      <p class="access__description">Ingresa con tu cuenta de personal. Después podrás acceder a tus empresas autorizadas.</p>
       @if (notice) { <p class="vn-alert" role="status">{{ notice }}</p> }
       @if (error(); as message) { <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p> }
+      @if (canRetrySession()) { <button type="button" class="vn-button" (click)="retrySession()" [disabled]="sending()">Reintentar verificación de sesión</button> }
       <form [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="sending()">
         <div class="vn-field">
           <label for="login-email">Correo electrónico</label>

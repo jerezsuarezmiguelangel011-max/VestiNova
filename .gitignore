@@ -12,10 +12,13 @@
 *.p12
 *.pfx
 *.jks
+*.jks.*
 *.keystore
+*.keystore.*
 *.mobileprovision
 *.provisionprofile
 key.properties
+key.properties.*
 !key.properties.example
 credentials.json
 service-account*.json
@@ -52,6 +55,7 @@ xcuserdata/
 *.xcuserstate
 DerivedData/
 local.properties
+local.properties.*
 android/app/debug/
 android/app/profile/
 android/app/release/
@@ -82,3 +86,12 @@ Thumbs.db
 .vscode/
 
 # Se versionan migraciones, requirements, package-lock.json y pubspec.lock.
+
+# Solo documentación compartida; informes y evidencias permanecen locales.
+/docs/*.md
+!/docs/CASOS_DE_USO.md
+!/docs/CONTRATO_CATALOGO.md
+!/docs/CONTRATO_CU01_CUENTAS.md
+!/docs/BASE_BACKEND_EMPRESAS_INVENTARIO.md
+!/docs/CONTRATO_DESCARGA_MOVIL.md
+/mobile/ios/Runner/Assets.xcassets/LaunchImage.imageset/README.md

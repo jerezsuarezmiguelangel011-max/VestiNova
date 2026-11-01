@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
+import { CompanyService } from '../company/company.service';
 
 @Component({
   selector: 'vn-admin-layout',
@@ -12,6 +13,7 @@ import { AuthService } from '../auth/auth.service';
 })
 export class AdminLayout {
   readonly auth = inject(AuthService);
+  readonly companies = inject(CompanyService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   readonly signingOut = signal(false);

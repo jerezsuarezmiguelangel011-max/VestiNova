@@ -22,7 +22,7 @@ def main() -> None:
     config.set_main_option("script_location", str(BACKEND_ROOT / "migrations"))
     command.upgrade(config, "head")
     print("Migraciones de vestinova_mvp aplicadas. La base vestinova no se modificó.")
-    print("Siguiente paso: python -m scripts.create_admin")
+    print("Si todavía no tienes una cuenta, ejecuta python -m scripts.create_admin. Al actualizar, conserva tu administrador actual.")
 
 
 if __name__ == "__main__":

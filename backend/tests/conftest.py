@@ -2,13 +2,13 @@ from collections.abc import Iterator
 
 from fastapi.testclient import TestClient
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.pool import StaticPool
 
 from app.config import Settings
 from app.db import Base, build_session_factory
 from app.main import create_app
-from app.models import Administrador
+from app.models import Administrador, Empresa, MembresiaEmpresa
 from app.security import hash_password
 
 
@@ -19,6 +19,9 @@ TEST_SECRET = "solo-pruebas-aisladas-no-usar-para-la-api-real-123456"
 @pytest.fixture
 def engine():
     database_engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
+    @event.listens_for(database_engine, "connect")
+    def enforce_foreign_keys(connection, _):
+        connection.execute("PRAGMA foreign_keys=ON")
     # create_all es solo para estas pruebas unitarias; la instalación usa Alembic.
     Base.metadata.create_all(database_engine)
     yield database_engine
@@ -35,6 +38,10 @@ def administrator(session_factory):
     with session_factory() as db:
         administrator = Administrador(nombre="Administrador de prueba", correo="admin@vestinova.test", password_hash=hash_password(TEST_PASSWORD), activo=True)
         db.add(administrator)
+        empresa = Empresa(slug="empresa-prueba", nombre="Empresa de prueba", activo=True)
+        db.add(empresa)
+        db.flush()
+        db.add(MembresiaEmpresa(administrador_id=administrator.id, empresa_id=empresa.id, rol="ADMINISTRADOR", activo=True))
         db.commit()
         return administrator
 

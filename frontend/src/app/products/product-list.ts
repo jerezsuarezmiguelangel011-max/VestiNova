@@ -2,7 +2,8 @@ import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { Subject, catchError, of, switchMap, tap } from 'rxjs';
+import { Subject, catchError, defer, finalize, of, switchMap } from 'rxjs';
+import { CompanyService } from '../company/company.service';
 import { productError } from './product-errors';
 import { ProductList, ProductQuery } from './product.model';
 import { ProductService } from './product.service';
@@ -14,6 +15,7 @@ import { ProductService } from './product.service';
   styleUrl: './products.css',
 })
 export class ProductListPage {
+  readonly companies = inject(CompanyService);
   private readonly products = inject(ProductService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly requests = new Subject<ProductQuery>();
@@ -29,14 +31,26 @@ export class ProductListPage {
 
   constructor() {
     this.requests.pipe(
-      tap(() => { this.loading.set(true); this.error.set(null); }),
-      switchMap(query => this.products.list(query).pipe(
+      switchMap(query => defer(() => {
+        this.loading.set(true); this.error.set(null);
+        return this.products.list(query).pipe(
         catchError(error => { this.error.set(productError(error)); return of(null); }),
-      )),
+        finalize(() => this.loading.set(false)),
+      ); })),
       takeUntilDestroyed(this.destroyRef),
     ).subscribe(response => {
-      this.loading.set(false);
       if (response) this.result.set(response);
+    });
+    let revision = this.companies.revision();
+    this.companies.changes$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(next => {
+      if (revision === next) return;
+      revision = next;
+      this.notice.set(null);
+      this.filters.reset();
+      this.currentQuery = { limit: 20, offset: 0 };
+      this.result.set({ items: [], total: 0, limit: 20, offset: 0 });
+      this.error.set(null);
+      if (this.companies.active()) this.reload();
     });
   }
 

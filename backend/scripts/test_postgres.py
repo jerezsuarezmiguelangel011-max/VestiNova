@@ -15,12 +15,16 @@ ROOT = Path(__file__).resolve().parents[1]
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--pg-bin', required=True, type=Path)
+    parser.add_argument('--mobile-http', action='store_true', help='Incluye cliente Dart/Flutter contra la API HTTP y PostgreSQL aislados.')
+    parser.add_argument('--flutter-bin', type=Path, help='Ruta a flutter.bat o flutter; necesaria con --mobile-http.')
     args = parser.parse_args()
     extension = '.exe' if os.name == 'nt' else ''
     initdb = args.pg_bin / f'initdb{extension}'
     pg_ctl = args.pg_bin / f'pg_ctl{extension}'
     if not initdb.is_file() or not pg_ctl.is_file():
         parser.error('--pg-bin debe contener initdb y pg_ctl.')
+    if args.mobile_http and (args.flutter_bin is None or not args.flutter_bin.is_file()):
+        parser.error('--mobile-http requiere --flutter-bin con una ruta existente.')
 
     runtime = ROOT / '.runtime'
     runtime.mkdir(exist_ok=True)
@@ -61,9 +65,12 @@ def main() -> int:
             'MVP_ISOLATED_POSTGRES': '1',
             'PYTHONUTF8': '1',
         })
+        if args.mobile_http:
+            env['MVP_MOBILE_HTTP_CHECK'] = '1'
+            env['MVP_FLUTTER_BIN'] = str(args.flutter_bin.resolve())
         print('Pruebas sobre PostgreSQL temporal. No se usa .env ni la base operativa.', flush=True)
         result = run([sys.executable, '-m', 'pytest', 'tests_postgres', '-q', '--tb=short'],
-                     env=env, capture_output=True, text=True, encoding='utf-8', timeout=180)
+                     env=env, capture_output=True, text=True, encoding='utf-8', timeout=300 if args.mobile_http else 180)
         (work / 'tests.log').write_text(result.stdout + result.stderr, encoding='utf-8')
         print(result.stdout, end='', flush=True)
         if result.stderr:

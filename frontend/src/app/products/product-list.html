@@ -1,12 +1,12 @@
 <section class="products-page" aria-labelledby="products-title">
   <header class="products-heading">
     <div><p class="products-eyebrow">Colección · Administración</p><h1 id="products-title">Productos</h1><p class="products-description">Organiza las prendas que darán forma al catálogo de VestiNova.</p></div>
-    <a class="vn-button vn-button--primary" routerLink="/admin/productos/nuevo">Registrar producto <span aria-hidden="true">＋</span></a>
+    @if (companies.canManage()) { <a class="vn-button vn-button--primary" routerLink="/admin/productos/nuevo">Registrar producto <span aria-hidden="true">＋</span></a> }
   </header>
   @if (notice(); as message) { <p class="vn-alert products-notice" role="status">{{ message }}<button type="button" (click)="notice.set(null)" aria-label="Cerrar confirmación">×</button></p> }
 
   <form class="products-filters vn-card" [formGroup]="filters" (ngSubmit)="search()" novalidate aria-label="Buscar productos">
-    <label class="vn-field products-search" for="products-search">Buscar por nombre o identificador
+    <label class="vn-field products-search" for="products-search">Buscar por nombre
       <input id="products-search" type="search" formControlName="q" maxlength="120" placeholder="Escribe para encontrar una prenda" />
     </label>
     <label class="vn-field" for="products-active">Visibilidad
@@ -23,7 +23,7 @@
     } @else if (error(); as message) {
       <div class="products-state"><h3>No pudimos cargar los productos</h3><p class="vn-alert vn-alert--error" role="alert">{{ message }}</p><button class="vn-button" type="button" (click)="reload()">Reintentar</button></div>
     } @else if (result().items.length === 0) {
-      <div class="products-state"><span class="products-empty-mark" aria-hidden="true">VN</span><h3>{{ hasFilters() ? 'Sin coincidencias' : 'Tu colección empieza aquí' }}</h3><p>{{ hasFilters() ? 'Prueba otra búsqueda o elimina los filtros.' : 'Registra tu primer producto con sus datos, precio e imagen.' }}</p>@if (hasFilters()) { <button type="button" class="vn-button" (click)="clear()">Limpiar filtros</button> } @else { <a class="vn-button vn-button--primary" routerLink="/admin/productos/nuevo">Registrar producto</a> }</div>
+      <div class="products-state"><span class="products-empty-mark" aria-hidden="true">VN</span><h3>{{ hasFilters() ? 'Sin coincidencias' : 'Esta empresa todavía no tiene productos' }}</h3><p>{{ hasFilters() ? 'Prueba otra búsqueda o elimina los filtros.' : companies.canManage() ? 'Registra el primer producto con sus datos, precio e imagen.' : 'Los productos registrados por la administración aparecerán aquí.' }}</p>@if (hasFilters()) { <button type="button" class="vn-button" (click)="clear()">Limpiar filtros</button> } @else if (companies.canManage()) { <a class="vn-button vn-button--primary" routerLink="/admin/productos/nuevo">Registrar producto</a> }</div>
     } @else {
       <div class="products-table-region" role="region" tabindex="0" aria-label="Listado de productos; desplaza horizontalmente para ver todos los datos">
         <table class="products-table"><caption class="products-sr-only">Productos registrados, precio, visibilidad y acciones</caption>
@@ -32,7 +32,7 @@
             <td><div class="products-identity">@if (product.imagen_url) { <img class="products-thumb" [src]="product.imagen_url" alt="" loading="lazy" width="48" height="60" /> } @else { <span class="products-thumb products-thumb--empty" aria-hidden="true">VN</span> }<div><strong>{{ product.nombre }}</strong><span class="products-slug">{{ product.slug }}</span></div></div></td>
             <td class="products-price">Bs {{ product.precio }}</td>
             <td><span class="products-badge" [class.products-badge--muted]="!product.activo">{{ product.activo ? 'Activo' : 'Inactivo' }}</span></td>
-            <td><a class="products-edit" [routerLink]="['/admin/productos', product.id, 'editar']" [attr.aria-label]="'Editar ' + product.nombre">Editar <span aria-hidden="true">↗</span></a></td>
+            <td><a class="products-edit" [routerLink]="['/admin/productos', product.id, 'variantes']" [attr.aria-label]="'Variantes de ' + product.nombre">Variantes</a>@if (companies.canManage()) { <a class="products-edit" [routerLink]="['/admin/productos', product.id, 'editar']" [attr.aria-label]="'Editar ' + product.nombre">Editar <span aria-hidden="true">↗</span></a> } @else { <span class="products-slug">Solo consulta</span> }</td>
           </tr> }</tbody>
         </table>
       </div>

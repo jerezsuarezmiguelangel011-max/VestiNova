@@ -1,0 +1,45 @@
+<section class="products-page" aria-labelledby="variants-title">
+  <a class="products-back" routerLink="/admin/productos">← Volver a productos</a>
+  <header class="products-heading"><div><p class="products-eyebrow">Catálogo de prendas · {{ companies.active()?.nombre }}</p><h1 id="variants-title">Variantes por talla y color</h1><p class="products-description">Organiza las combinaciones de cada prenda.</p></div></header>
+  @if (contextChanged()) {
+    <div class="vn-card products-state"><p role="status">La empresa o sus permisos cambiaron. Abre nuevamente el listado para continuar.</p><a class="vn-button" routerLink="/admin/productos">Volver a productos</a></div>
+  } @else if (loading()) {
+    <div class="vn-card products-state" role="status"><span class="products-spinner" aria-hidden="true"></span><p>Cargando la prenda y sus variantes…</p></div>
+  } @else if (loadError(); as message) {
+    <div class="vn-card products-state"><p class="vn-alert vn-alert--error" role="alert">{{ message }}</p><button type="button" class="vn-button" (click)="load()">Reintentar</button></div>
+  } @else if (product(); as parent) {
+    <div class="vn-card variant-parent"><div><h2>{{ parent.nombre }}</h2><p>Precio de la prenda: <strong>Bs {{ parent.precio }}</strong> · BOB</p><p>Las variantes conservan este precio.</p></div><button type="button" class="vn-button" (click)="load()" [disabled]="saving()">Volver a consultar</button></div>
+    @if (notice(); as message) { <p class="vn-alert" role="status">{{ message }}</p> }
+    <div class="variant-workspace">
+      @if (companies.canManage()) {
+        <form class="vn-card variant-editor" [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="saving()" aria-labelledby="variant-editor-title">
+          <h2 id="variant-editor-title">{{ editing() ? 'Editar variante' : 'Nueva variante' }}</h2>
+          <p class="products-hint">Talla y color son obligatorios. Los espacios exteriores se eliminan y el texto se guarda en mayúsculas.</p>
+          @if (error(); as message) { <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p> }
+          <label class="vn-field" for="variant-size">Talla <span class="products-required">Obligatorio</span>
+            <input id="variant-size" type="text" formControlName="talla" maxlength="30" aria-required="true" [attr.aria-invalid]="fieldError('talla') !== null" aria-describedby="variant-size-hint variant-size-error" />
+          </label><p id="variant-size-hint" class="products-hint">Hasta 30 caracteres.</p><p id="variant-size-error" class="products-field-error">{{ fieldError('talla') }}</p>
+          <label class="vn-field" for="variant-color">Color <span class="products-required">Obligatorio</span>
+            <input id="variant-color" type="text" formControlName="color" maxlength="60" aria-required="true" [attr.aria-invalid]="fieldError('color') !== null" aria-describedby="variant-color-hint variant-color-error" />
+          </label><p id="variant-color-hint" class="products-hint">Hasta 60 caracteres. Puedes describir una combinación de colores.</p><p id="variant-color-error" class="products-field-error">{{ fieldError('color') }}</p>
+          <label class="products-toggle" for="variant-active"><input id="variant-active" type="checkbox" formControlName="activo" /><span>Variante activa</span></label>
+          @if (editing()) { <p class="products-hint">Si ya tiene existencias o movimientos asociados, su talla y color se conservan. Puedes desactivarla y registrar otra variante.</p> }
+          <div class="variant-actions"><button type="submit" class="vn-button vn-button--primary" [disabled]="saving()">{{ saving() ? 'Guardando…' : editing() ? 'Guardar cambios' : 'Registrar variante' }}</button>@if (editing()) { <button type="button" class="vn-button" (click)="newVariant()" [disabled]="saving()">Cancelar edición</button> }</div>
+        </form>
+      }
+      <div class="vn-card products-directory variant-directory">
+        <div class="products-directory-head"><h2>Variantes registradas</h2><span>{{ variants().length }} {{ variants().length === 1 ? 'variante' : 'variantes' }}</span></div>
+        @if (!companies.canManage()) { <p class="variant-readonly" role="status">Solo consulta. La administración de la empresa puede registrar y editar variantes.</p> }
+        @if (variants().length === 0) {
+          <div class="products-state"><h3>Sin variantes registradas</h3><p>{{ companies.canManage() ? 'Completa talla y color para registrar la primera combinación de esta prenda.' : 'Las variantes registradas aparecerán aquí.' }}</p></div>
+        } @else {
+          <div class="products-table-region" role="region" tabindex="0" aria-label="Variantes de la prenda; desplaza horizontalmente si es necesario">
+            <table class="products-table"><caption class="products-sr-only">Talla, color y estado de las variantes de {{ parent.nombre }}</caption><thead><tr><th scope="col">Talla</th><th scope="col">Color</th><th scope="col">Estado</th>@if (companies.canManage()) { <th scope="col">Acciones</th> }</tr></thead>
+              <tbody>@for (variant of variants(); track variant.id) { <tr [class.variant-selected]="editing()?.id === variant.id"><td>{{ variant.talla }}</td><td>{{ variant.color }}</td><td><span class="products-badge" [class.products-badge--muted]="!variant.activo">{{ variant.activo ? 'Activa' : 'Inactiva' }}</span></td>@if (companies.canManage()) { <td><button type="button" class="vn-button variant-edit" (click)="edit(variant)" [disabled]="saving()" [attr.aria-label]="'Editar variante ' + variant.talla + ' ' + variant.color">Editar variante</button></td> }</tr> }</tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</section>

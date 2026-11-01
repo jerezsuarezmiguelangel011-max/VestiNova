@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { authInterceptor } from './auth.interceptor';
 import { AuthService, SESSION_KEY } from './auth.service';
+import { CompanyService } from '../company/company.service';
 
 describe('Autorización HTTP del MVP', () => {
   let http: HttpTestingController;
@@ -44,5 +45,38 @@ describe('Autorización HTTP del MVP', () => {
     client.get('/api/admin/productos').subscribe({ error: () => undefined });
     http.expectOne('/api/admin/productos').flush({}, { status: 403, statusText: 'Forbidden' });
     expect(TestBed.inject(AuthService).token()).toBe('token-de-prueba');
+  });
+
+  it('envía empresa solo a recursos operacionales privados y conserva público/externos sin cabeceras', () => {
+    const companies = TestBed.inject(CompanyService);
+    companies.ensureForUser(1).subscribe();
+    const companiesRequest = http.expectOne('/api/empresas');
+    expect(companiesRequest.request.headers.get('Authorization')).toBe('Bearer token-de-prueba');
+    expect(companiesRequest.request.headers.has('X-Empresa-Id')).toBe(false);
+    companiesRequest.flush([{ id: 8, nombre: 'Empresa', slug: 'empresa', activo: true, rol: 'ADMINISTRADOR' }]);
+    for (const url of ['/api/admin/productos?limit=20', '/api/movil/descarga']) {
+      client.get(url).subscribe();
+      const request = http.expectOne(url);
+      expect(request.request.headers.get('X-Empresa-Id')).toBe('8');
+      expect(request.request.headers.get('Authorization')).toBe('Bearer token-de-prueba');
+      request.flush({});
+    }
+    for (const url of ['/api/catalogo/productos', '/api/empresas-falso', 'https://externo.test/api/admin/productos', '//externo.test/api/admin/productos']) {
+      client.get(url).subscribe();
+      const request = http.expectOne(url);
+      expect(request.request.headers.has('X-Empresa-Id')).toBe(false);
+      expect(request.request.headers.has('Authorization')).toBe(false);
+      request.flush({});
+    }
+  });
+
+  it('un 401 anterior no invalida el token de un login posterior', () => {
+    const auth = TestBed.inject(AuthService);
+    client.get('/api/admin/productos').subscribe({ error: () => undefined });
+    const previous = http.expectOne('/api/admin/productos');
+    auth.login({ correo: 'admin@vestinova.test', password: 'clave' }).subscribe();
+    http.expectOne('/api/auth/login').flush({ access_token: 'nuevo-token', administrador: { id: 1, nombre: 'Admin', correo: 'admin@vestinova.test', rol: 'ADMINISTRADOR' } });
+    previous.flush({}, { status: 401, statusText: 'Unauthorized' });
+    expect(auth.token()).toBe('nuevo-token');
   });
 });

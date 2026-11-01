@@ -1,0 +1,21 @@
+name: vestinova_mobile
+description: "Cuenta y acceso de VestiNova: aplicación propia para personal y clientes."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: 1.6.0
+  flutter_secure_storage: 11.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

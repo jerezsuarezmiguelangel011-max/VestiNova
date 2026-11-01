@@ -12,7 +12,7 @@ describe('Pantalla de acceso VestiNova', () => {
     const login = vi.fn(() => response);
     await TestBed.configureTestingModule({
       imports: [LoginPage],
-      providers: [provideRouter([]), { provide: AuthService, useValue: { login } },
+      providers: [provideRouter([]), { provide: AuthService, useValue: { login, token: () => null } },
         { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({}) } } }],
     }).compileComponents();
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);

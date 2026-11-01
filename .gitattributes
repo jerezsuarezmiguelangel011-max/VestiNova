@@ -7,3 +7,9 @@
 *.md text eol=lf
 *.toml text eol=lf
 *.ini text eol=lf
+*.dart text eol=lf
+*.yaml text eol=lf
+*.kts text eol=lf
+*.sh text eol=lf
+gradlew text eol=lf
+*.bat text eol=crlf

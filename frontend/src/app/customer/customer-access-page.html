@@ -1,0 +1,23 @@
+﻿<main class="customer-shell">
+  <div class="customer-brand"><span aria-hidden="true">VN</span> VestiNova</div>
+  <section class="customer-card vn-card" aria-labelledby="customer-title" [attr.aria-busy]="loading() || sending()">
+    <p class="vn-eyebrow">Tu cuenta en la tienda</p><h1 id="customer-title" class="vn-title">{{ store()?.nombre ?? 'Acceso de cliente' }}</h1>
+    @if (loading()) { <p role="status"><span class="vn-spinner" aria-hidden="true"></span> Comprobando tienda y sesión…</p> }
+    @else if (loadError(); as message) { <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p><button type="button" class="vn-button" (click)="load()">Reintentar</button> }
+    @else if (store()) {
+      <div class="customer-modes" aria-label="Acceso a tu cuenta">
+        <button type="button" class="vn-button" [class.vn-button--primary]="!registering()" [attr.aria-pressed]="!registering()" (click)="mode(false)" [disabled]="sending()">Iniciar sesión</button>
+        <button type="button" class="vn-button" [class.vn-button--primary]="registering()" [attr.aria-pressed]="registering()" (click)="mode(true)" [disabled]="sending()">Crear cuenta</button>
+      </div>
+      <p>{{ registering() ? 'Tu cuenta será exclusiva de esta tienda.' : 'Usa la cuenta que registraste en esta tienda.' }}</p>
+      @if (error(); as message) { <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p> }
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        @if (registering()) { <div class="vn-field"><label for="customer-name">Nombre</label><input id="customer-name" formControlName="nombre" autocomplete="name" aria-required="true" [readOnly]="sending()" [attr.aria-invalid]="!!fieldError('nombre')" aria-describedby="customer-name-error">@if (fieldError('nombre'); as message) { <p id="customer-name-error" class="vn-field__error">{{ message }}</p> }</div> }
+        <div class="vn-field"><label for="customer-email">Correo electrónico</label><input id="customer-email" type="email" formControlName="correo" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="254" [readOnly]="sending()" [attr.aria-invalid]="!!fieldError('correo')" aria-describedby="customer-email-error">@if (fieldError('correo'); as message) { <p id="customer-email-error" class="vn-field__error">{{ message }}</p> }</div>
+        <div class="vn-field"><label for="customer-password">Contraseña</label><div class="customer-password"><input id="customer-password" [type]="showPassword() ? 'text' : 'password'" formControlName="password" [autocomplete]="registering() ? 'new-password' : 'current-password'" required [readOnly]="sending()" [attr.aria-invalid]="!!fieldError('password')" [attr.aria-describedby]="registering() ? 'customer-password-policy customer-password-error' : 'customer-password-error'"><button type="button" class="vn-button" [attr.aria-pressed]="showPassword()" aria-controls="customer-password" (click)="showPassword.set(!showPassword())">{{ showPassword() ? 'Ocultar' : 'Mostrar' }}</button></div>@if (registering()) { <p id="customer-password-policy" class="vn-field__hint">{{ passwordPolicy }}</p> }@if (fieldError('password'); as message) { <p id="customer-password-error" class="vn-field__error">{{ message }}</p> }</div>
+        @if (registering()) { <div class="vn-field"><label for="customer-confirm">Confirmar contraseña</label><input id="customer-confirm" type="password" formControlName="confirmacion" autocomplete="new-password" aria-required="true" [readOnly]="sending()" [attr.aria-invalid]="!!fieldError('confirmacion')" aria-describedby="customer-confirm-error">@if (fieldError('confirmacion'); as message) { <p id="customer-confirm-error" class="vn-field__error">{{ message }}</p> }</div> }
+        <button type="submit" class="vn-button vn-button--primary customer-submit" [disabled]="sending()">{{ sending() ? 'Comprobando…' : registering() ? 'Registrar mi cuenta' : 'Entrar a mi cuenta' }}</button>
+      </form>
+    }
+  </section><p class="customer-footer">VestiNova · Una cuenta para tu tienda</p>
+</main>

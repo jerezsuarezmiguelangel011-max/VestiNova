@@ -1,8 +1,12 @@
 <section class="products-page products-form-page" aria-labelledby="product-form-title">
   <a class="products-back" routerLink="/admin/productos">← Volver a productos</a>
-  <header class="products-heading"><div><p class="products-eyebrow">Colección · {{ editing ? 'Edición' : 'Nuevo registro' }}</p><h1 id="product-form-title">{{ editing ? 'Editar producto' : 'Una nueva prenda' }}</h1><p class="products-description">{{ editing ? 'Actualiza los datos que verá el catálogo.' : 'Añade los datos esenciales de tu producto.' }}</p></div></header>
+  <header class="products-heading"><div><p class="products-eyebrow">Colección · {{ editing ? 'Edición' : 'Nuevo registro' }}</p><h1 id="product-form-title">{{ editing ? 'Editar producto' : 'Una nueva prenda' }}</h1><p class="products-description">Empresa: {{ companies.active()?.nombre }}. {{ editing ? 'Actualiza los datos que verá el catálogo.' : 'Añade los datos esenciales de tu producto.' }}</p></div>@if (original(); as product) { <a class="vn-button" [routerLink]="['/admin/productos', product.id, 'variantes']">Variantes</a> }</header>
 
-  @if (loading()) {
+  @if (contextChanged() || !companies.canManage()) {
+    <div class="vn-card products-state"><p class="vn-alert" role="status">El contexto de empresa cambió o ya no tienes permiso de edición. Abre nuevamente el listado para continuar.</p><a class="vn-button" routerLink="/admin/productos">Volver a productos</a></div>
+  } @else if (saved(); as product) {
+    <div class="vn-card products-state"><h2>Producto guardado</h2><p role="status">{{ product.nombre }} se guardó correctamente en {{ companies.active()?.nombre }}.</p>@if (error(); as message) { <p class="vn-alert" role="alert">{{ message }}</p> }<a class="vn-button vn-button--primary" routerLink="/admin/productos">Volver al listado</a></div>
+  } @else if (loading()) {
     <div class="vn-card products-state" role="status"><span class="products-spinner" aria-hidden="true"></span><p>Cargando producto…</p></div>
   } @else if (loadError(); as message) {
     <div class="vn-card products-state"><p class="vn-alert vn-alert--error" role="alert">{{ message }}</p><button type="button" class="vn-button" (click)="load()">Reintentar</button><a class="vn-button" routerLink="/admin/productos">Volver a productos</a></div>
