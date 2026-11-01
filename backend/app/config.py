@@ -23,7 +23,13 @@ class Settings:
         values = {**dotenv_values(BACKEND_ROOT / ".env", interpolate=False), **os.environ}
         database_url = values.get("DATABASE_URL", "") or ""
         secret = values.get("JWT_SECRET", "") or ""
-        validate_local_database_url(database_url)
+        deploy_environment = (values.get("APP_ENV", "local") or "local").strip().lower()
+        if deploy_environment == "production":
+            validate_supabase_database_url(database_url)
+        elif deploy_environment == "local":
+            validate_local_database_url(database_url)
+        else:
+            raise ValueError("APP_ENV solo admite local o production.")
         if len(secret) < 32 or secret.startswith("GENERAR_"):
             raise ValueError("Configura JWT_SECRET con scripts.configure_local; se necesitan al menos 32 caracteres.")
         try:
@@ -43,6 +49,34 @@ def validate_local_database_url(value: str) -> None:
         raise ValueError("Configura DATABASE_URL mediante python -m scripts.configure_local.") from None
     if url.drivername != "postgresql+psycopg" or url.database != "vestinova_mvp" or url.host not in {"localhost", "127.0.0.1", "::1"} or url.query:
         raise ValueError("Este MVP solo permite PostgreSQL local, controlador postgresql+psycopg y base vestinova_mvp.")
+
+
+def validate_supabase_database_url(value: str) -> None:
+    """Conecta únicamente a PostgreSQL de Supabase mediante TLS.
+
+    El modo de conexión se habilita explícitamente con APP_ENV=production.
+    Nunca registra contraseñas ni URLs completas en errores.
+    """
+    try:
+        url = make_url(value)
+    except Exception:
+        raise ValueError("Configura DATABASE_URL de Supabase con el controlador postgresql+psycopg.") from None
+
+    host = (url.host or "").lower()
+    is_session_pooler = host.endswith(".pooler.supabase.com") and host != ".pooler.supabase.com"
+    is_direct = host.startswith("db.") and host.endswith(".supabase.co")
+    sslmode = url.query.get("sslmode")
+
+    if (url.drivername != "postgresql+psycopg" or url.database != "postgres"
+            or url.port != 5432 or not (is_session_pooler or is_direct)
+            or not url.username or not url.password):
+        raise ValueError("DATABASE_URL debe señalar al PostgreSQL de Supabase (sesión o directo, puerto 5432).")
+    if sslmode not in {"require", "verify-full"}:
+        raise ValueError("La conexión PostgreSQL en producción requiere sslmode=require o verify-full.")
+    if set(url.query) - {"sslmode", "sslrootcert"}:
+        raise ValueError("DATABASE_URL contiene parámetros de conexión no permitidos.")
+    if sslmode == "verify-full" and not url.query.get("sslrootcert"):
+        raise ValueError("Con verify-full debes indicar sslrootcert.")
 
 
 @lru_cache
