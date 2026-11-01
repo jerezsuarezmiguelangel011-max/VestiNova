@@ -4,6 +4,8 @@
 
 ## Terminado
 
+- Incremento limitado de CU10: selección temporal de prendas, API y persistencia propia de compras mediante `cu10_01_compras`; confirmación productiva bloqueada sin proveedores reales de autorización e inventario. [Contrato y recorrido](CU10_CU15_INCREMENTOS.md).
+- Incremento limitado de CU15: cola IndexedDB de actualización del catálogo público, con UUID, estados persistidos, procesamiento/reintento manual y conflicto ante cambios en la fecha local. Sin sincronización de escrituras privadas ni reservas; [alcance y comprobación manual](CU10_CU15_INCREMENTOS.md).
 - Primer incremento limitado de CU08: dominio inmutable, ajuste por recuento y contratos de autorización/unidad de trabajo verificables con adaptadores en memoria solo de pruebas. Sin conexión con API, UI, PostgreSQL o autenticación actual; [contrato y alcance pendiente](CONTRATO_INVENTARIO.md).
 - Estructura independiente Angular/FastAPI/SQLAlchemy/PostgreSQL, configuraciones y dependencias fijadas.
 - Base nueva `vestinova_mvp`, con Alembic `0001_base`; inicialización repetible sin borrar registros.
@@ -79,12 +81,44 @@ Reglas y límites en [CONTRATO_INVENTARIO.md](CONTRATO_INVENTARIO.md).
 
 Fuente, reglas y límites en [CONTRATO_RESERVAS.md](CONTRATO_RESERVAS.md).
 
+## Verificación de los incrementos mínimos de CU10 y CU15
+
+Comprobaciones ejecutadas el 25 de octubre de 2026 en `miguel`, con Node.js 24.15.0:
+
+| Comprobación | Resultado |
+| --- | --- |
+| `python -m pytest tests -q --tb=short` | 461 pruebas backend correctas; 94 corresponden a compras. Incluyen autorización, aislamiento, idempotencia, reenvío concurrente, persistencia y rollback conjunto con inventario de pruebas. |
+| `python -m scripts.test_postgres --pg-bin 'D:\PostgreSQL\bin'` | 6 pruebas correctas sobre un clúster temporal: migraciones repetibles, precisión decimal, FK interna por empresa y rollback, además de la regresión administrativa. |
+| `npm.cmd test` | 233 pruebas frontend correctas en 19 archivos, incluidas selección, comprobantes, IndexedDB, procesamiento de cola, reintentos, conflictos y Web Locks. |
+| `npm.cmd run build` | Compilación de producción correcta. |
+| `npm.cmd run test:pwa:config` | 22 recursos precargados; las respuestas API siguen fuera de CacheStorage. |
+| `npm.cmd run test:pwa` | 14 comprobaciones correctas en Edge: selección sin confirmaciones artificiales, cola pública real, actualización exitosa, conflicto, persistencia offline y regresión completa de CU14. API temporal sin utilizar PostgreSQL operativo. |
+
+La revisión visual de las capturas de compra y sincronización confirma el uso de
+la tipografía y los colores actuales de VestiNova. Los archivos generados de prueba
+quedan en `frontend/.angular/`, fuera del código versionado.
+
+La base local `vestinova_mvp` quedó actualizada mediante la revisión aditiva
+`cu10_01_compras`; `alembic current` confirma esa revisión como `head`. Solo se
+añadieron `compras_digitales` y `compras_digitales_lineas`, sin crear maestros,
+insertar compras de demostración ni modificar las tablas de otros módulos.
+CU15 conserva únicamente metadatos del catálogo público en IndexedDB y no añade
+tablas PostgreSQL. La confirmación productiva de CU10 sigue bloqueada mientras
+no se conecten los proveedores reales; los escenarios confirmados de pruebas no
+habilitan ventas en la aplicación.
+
+No se cambiaron autenticación, pantallas administrativas, núcleos de CU08/CU11 ni
+diagramas ICONIX. No se hicieron commits, push ni integración de ramas. El
+[recorrido manual y alcance pendiente](CU10_CU15_INCREMENTOS.md) explica cómo
+comprobar ambas pantallas sin atribuirles integraciones todavía inexistentes.
+
 ## Pendiente
 
+- CU10/CU15 completos: conectar clientes, empresas, sucursales, variantes e inventario reales para confirmar compras; integrar contexto por empresa/usuario y sincronización de escrituras privadas. La selección y cola pública implementadas no sustituyen esas dependencias.
 - CU11 completo: conectar el núcleo ya probado con persistencia y autorización reales, API/UI, almacenamiento local y sincronización de CU15, automatización de vencimientos y atención de CU16. Alcance del incremento en [CONTRATO_RESERVAS.md](CONTRATO_RESERVAS.md).
 - CU09 académico completo: integración con categorías/variantes de CU05, promociones de CU06, disponibilidad por variante/sucursal de CU08, aislamiento empresarial y copia local autorizada por empresa/usuario de CU14. La copia pública del incremento limitado de CU14 no cubre esas integraciones.
 - Prueba manual con productos reales: crear, editar, recargar, salir y comprobar que una URL privada exige nuevo acceso. No se insertaron registros de muestra en la base operativa.
-- Funciones fuera del alcance inicial: cambio/recuperación de contraseña, altas de administradores desde la web, gestión de roles, carga de archivos, stock, compras, ventas, reservas y SaaS. No aparecen como disponibles.
+- Funciones pendientes como flujos productivos completos: cambio/recuperación de contraseña, altas de administradores desde la web, gestión de roles, carga de archivos, inventario integrado, compras con proveedores reales, ventas, reservas integradas y SaaS. Los núcleos y pantallas parciales se describen en sus respectivos incrementos.
 
 ## Commits y entregas
 

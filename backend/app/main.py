@@ -11,6 +11,7 @@ from app.auth import router as auth_router
 from app.config import Settings, get_settings
 from app.db import build_engine, build_session_factory, get_db
 from app.products import admin_router, catalog_router
+from app.purchases.router import router as purchases_router
 
 
 def create_app(settings: Settings | None = None, *, engine=None) -> FastAPI:
@@ -44,6 +45,7 @@ def create_app(settings: Settings | None = None, *, engine=None) -> FastAPI:
     app.include_router(auth_router)
     app.include_router(admin_router)
     app.include_router(catalog_router)
+    app.include_router(purchases_router)
     return app
 
 

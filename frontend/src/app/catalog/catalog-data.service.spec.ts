@@ -72,6 +72,43 @@ describe('Descarga y consulta del catálogo público', () => {
     return http.expectOne(request => request.url === ENDPOINT);
   }
 
+  it('detecta una copia modificada desde el registro sin descargar ni sobrescribirla', async () => {
+    expect(await data.download(null)).toBe(false);
+    expect(data.downloadConflict()).toBe(true);
+    expect(data.downloadError()).toContain('cambió');
+    expect(local.replace).not.toHaveBeenCalled();
+    expect(persisted).toEqual(PREVIOUS);
+    http.expectNone(request => request.url === ENDPOINT);
+  });
+
+  it('actualiza cuando coincide la fecha base y limpia un conflicto previo', async () => {
+    expect(await data.download(null)).toBe(false);
+    const pending = data.download(PREVIOUS.downloadedAt);
+    await Promise.resolve();
+    await flushPage([PRODUCT], 1, 0);
+    expect(await pending).toBe(true);
+    expect(data.downloadConflict()).toBe(false);
+    expect(local.replace).toHaveBeenCalledTimes(1);
+    expect(persisted?.products).toEqual([PRODUCT]);
+  });
+
+  it('comprueba la fecha base dentro del bloqueo de descarga compartido con CU14', async () => {
+    const request = vi.fn(async (
+      _name: string, _options: unknown, callback: (lock: object | null) => Promise<boolean>,
+    ) => {
+      persisted = { ...PREVIOUS, downloadedAt: '2026-10-25T13:00:00.000Z' };
+      return callback({});
+    });
+    vi.stubGlobal('navigator', { locks: { request } });
+    expect(await data.download(PREVIOUS.downloadedAt)).toBe(false);
+    expect(request).toHaveBeenCalledWith(
+      'vestinova-public-catalog-download', { mode: 'exclusive', ifAvailable: true }, expect.any(Function),
+    );
+    expect(data.downloadConflict()).toBe(true);
+    expect(local.replace).not.toHaveBeenCalled();
+    http.expectNone(request => request.url === ENDPOINT);
+  });
+
   it('descarga 205 prendas en tres páginas sin filtros y solo guarda al completar el recorrido', async () => {
     const all = products(205);
     const started = Date.now();

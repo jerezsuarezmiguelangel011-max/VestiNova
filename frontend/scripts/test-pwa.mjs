@@ -79,6 +79,19 @@ const readSnapshot = `new Promise((resolve, reject) => {
   };
 })`;
 
+const readOperations = `new Promise((resolve, reject) => {
+  const request = indexedDB.open('vestinova-public-sync', 1);
+  request.onerror = () => reject(new Error('Cola local inaccesible'));
+  request.onsuccess = () => {
+    const db = request.result;
+    const tx = db.transaction('operations');
+    let value;
+    tx.objectStore('operations').getAll().onsuccess = event => { value = event.target.result; };
+    tx.oncomplete = () => { db.close(); resolve(value); };
+    tx.onabort = () => { db.close(); reject(new Error('Lectura de cola abortada')); };
+  };
+})`;
+
 async function listen(server) {
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   return `http://127.0.0.1:${server.address().port}`;
@@ -106,14 +119,21 @@ async function run() {
     let denied = false;
     let leakedAuthorization = false;
     let privateRequests = 0;
+    let capabilitiesRequests = 0;
+    let purchasePosts = 0;
     const downloadOffsets = [];
     api = createServer((request, response) => {
       const url = new URL(request.url, 'http://127.0.0.1');
       if (/^\/api\/(?:auth|admin)(?:\/|$)/.test(url.pathname)) privateRequests++;
       if (request.headers.authorization) leakedAuthorization = true;
+      if (url.pathname === '/api/compras' && request.method === 'POST') purchasePosts++;
       let status = 200;
       let result;
       if (denied) { status = 403; result = { detail: 'Permiso denegado para la prueba.' }; }
+      else if (url.pathname === '/api/compras/capacidades') {
+        capabilitiesRequests++;
+        result = { habilitado: false, detail: 'Faltan los adaptadores autorizados para confirmar compras.' };
+      }
       else if (url.pathname === '/api/catalogo/productos') {
         const limit = Number(url.searchParams.get('limit') ?? 20);
         const offset = Number(url.searchParams.get('offset') ?? 0);
@@ -183,6 +203,7 @@ async function run() {
     assert.equal(original.products[0].precio, '149.90');
     assert.ok(original.downloadedAt);
     assert.ok(original.products.every(product => !('access_token' in product)));
+    let currentSnapshot = original;
     passed('Descarga completa de 121 productos en dos páginas y persistencia pública en IndexedDB.');
 
     failUpdate = true;
@@ -202,6 +223,66 @@ async function run() {
     await tools.until(sessionId, "document.querySelectorAll('.catalog-card').length === 20", 'consulta autorizada de nuevo');
     passed('El rechazo de autorización del servidor no muestra productos de la copia.');
 
+    await tools.evaluate(sessionId, "document.querySelector('.catalog-card').click()");
+    await tools.until(sessionId, "document.querySelector('.catalog-detail__product')", 'detalle para preparar compra');
+    const selectedName = await tools.evaluate(sessionId, "document.querySelector('.catalog-detail h1').textContent");
+    await tools.evaluate(sessionId, "document.querySelector('.catalog-detail__content a').click()");
+    await tools.until(sessionId, "document.querySelector('.purchase-line') && document.querySelector('.purchase-dependency')", 'selección con compras no disponibles');
+    assert.equal(await tools.evaluate(sessionId, "document.querySelector('.purchase-line h3').textContent"), selectedName);
+    assert.equal(await tools.evaluate(sessionId, "document.querySelector('.purchase-confirm').disabled"), true);
+    await tools.evaluate(sessionId, "document.querySelector('.purchase-confirm').click()");
+    assert.equal(await tools.evaluate(sessionId, "document.querySelector('.purchase-receipt') !== null"), false);
+    assert.equal(capabilitiesRequests, 1);
+    assert.equal(purchasePosts, 0);
+    const checkoutMetrics = await tools.send('Page.getLayoutMetrics', {}, sessionId);
+    await tools.send('Page.captureScreenshot', {
+      format: 'png', captureBeyondViewport: true,
+      clip: { x: 0, y: 0, width: 1280, height: Math.ceil(checkoutMetrics.cssContentSize.height), scale: 1 },
+    }, sessionId).then(result => writeFile(resolve(runtime, 'cu10-compra-desktop.png'), Buffer.from(result.data, 'base64')));
+    await tools.evaluate(sessionId, "document.querySelector('.purchase-page > .purchase-back').click()");
+    await tools.until(sessionId, "document.querySelectorAll('.catalog-card').length === 20", 'volver de selección al catálogo');
+    passed('CU10 conserva la selección con capacidades bloqueadas, confirmación desactivada y ningún recibo ni POST.');
+
+    await tools.evaluate(sessionId, "document.querySelector('.catalog-header a[href=\"/catalogo/acciones/sincronizacion\"]').click()");
+    await tools.until(sessionId, "document.querySelector('.sync-page')?.getAttribute('aria-busy') === 'false'", 'pantalla de sincronización');
+    await tools.evaluate(sessionId, "document.querySelector('.sync-enqueue').click()");
+    await tools.until(sessionId, "document.querySelectorAll('.sync-operation[data-state=PENDIENTE]').length === 1", 'operación registrada en cola real');
+    const firstOperation = (await tools.evaluate(sessionId, readOperations))[0];
+    assert.equal(firstOperation.expectedDownloadedAt, currentSnapshot.downloadedAt);
+    await tools.evaluate(sessionId, "document.querySelector('.sync-process').click()");
+    await tools.until(sessionId, "document.querySelector('.sync-operation[data-state=SINCRONIZADA]') && !document.querySelector('.sync-process').disabled", 'sincronización completada');
+    currentSnapshot = await tools.evaluate(sessionId, readSnapshot);
+    assert.notEqual(currentSnapshot.downloadedAt, original.downloadedAt);
+    assert.deepEqual(currentSnapshot.products, original.products);
+    assert.equal((await tools.evaluate(sessionId, readOperations)).find(operation => operation.id === firstOperation.id).state, 'SINCRONIZADA');
+    passed('CU15 procesa una actualización pendiente con API temporal y cola IndexedDB reales.');
+
+    await tools.evaluate(sessionId, "document.querySelector('.sync-enqueue').click()");
+    await tools.until(sessionId, "document.querySelectorAll('.sync-operation[data-state=PENDIENTE]').length === 1", 'nueva operación antes del cambio manual');
+    const conflictOperation = (await tools.evaluate(sessionId, readOperations)).find(operation => operation.state === 'PENDIENTE');
+    assert.equal(conflictOperation.expectedDownloadedAt, currentSnapshot.downloadedAt);
+    await tools.evaluate(sessionId, "document.querySelector('.catalog-download button').click()");
+    await tools.until(sessionId, `(() => {
+      const time = document.querySelector('.catalog-download time');
+      return time && time.getAttribute('datetime') !== ${JSON.stringify(currentSnapshot.downloadedAt)}
+        && !document.querySelector('.catalog-download button').disabled;
+    })()`, 'descarga manual posterior al registro');
+    currentSnapshot = await tools.evaluate(sessionId, readSnapshot);
+    const offsetsBeforeConflict = downloadOffsets.length;
+    await tools.evaluate(sessionId, "document.querySelector('.sync-process').click()");
+    await tools.until(sessionId, "document.querySelector('.sync-operation[data-state=CONFLICTO]') && !document.querySelector('.sync-process').disabled", 'conflicto de copia local');
+    assert.deepEqual(await tools.evaluate(sessionId, readSnapshot), currentSnapshot);
+    assert.equal(downloadOffsets.length, offsetsBeforeConflict);
+    assert.equal((await tools.evaluate(sessionId, readOperations)).find(operation => operation.id === conflictOperation.id).state, 'CONFLICTO');
+    const syncMetrics = await tools.send('Page.getLayoutMetrics', {}, sessionId);
+    await tools.send('Page.captureScreenshot', {
+      format: 'png', captureBeyondViewport: true,
+      clip: { x: 0, y: 0, width: 1280, height: Math.ceil(syncMetrics.cssContentSize.height), scale: 1 },
+    }, sessionId).then(result => writeFile(resolve(runtime, 'cu15-sincronizacion-desktop.png'), Buffer.from(result.data, 'base64')));
+    await tools.evaluate(sessionId, "document.querySelector('.sync-page > .sync-back').click()");
+    await tools.until(sessionId, "document.querySelectorAll('.catalog-card').length === 20", 'volver al catálogo antes del corte');
+    passed('CU15 detecta una actualización manual posterior y conserva la copia sin forzar el conflicto.');
+
     // Cortar también el origen real impide que un fetch del worker oculte una
     // simulación offline limitada únicamente al target de DevTools.
     preview.closeAllConnections();
@@ -210,7 +291,7 @@ async function run() {
     await tools.send('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 }, sessionId);
     await tools.send('Page.reload', {}, sessionId);
     await tools.until(sessionId, "document.querySelector('.catalog-local-notice time') && document.querySelectorAll('.catalog-card').length === 20", 'recarga de catálogo offline');
-    assert.equal(await tools.evaluate(sessionId, "document.querySelector('.catalog-local-notice time').getAttribute('datetime')"), original.downloadedAt);
+    assert.equal(await tools.evaluate(sessionId, "document.querySelector('.catalog-local-notice time').getAttribute('datetime')"), currentSnapshot.downloadedAt);
     passed('Recarga sin conexión: shell del Service Worker y productos de IndexedDB con su fecha.');
 
     await tools.evaluate(sessionId, `(() => {
@@ -254,7 +335,26 @@ async function run() {
     assert.ok(cachedUrls.every(url => !/^\/api(?:\/|$)/.test(new URL(url).pathname)));
     assert.equal(leakedAuthorization, false);
     assert.equal(privateRequests, 0);
+    assert.equal(purchasePosts, 0);
     passed('CacheStorage sin respuestas API y ninguna petición con credenciales ni a módulos privados.');
+
+    await tools.send('Page.navigate', { url: `${origin}/catalogo/acciones/sincronizacion` }, sessionId);
+    await tools.until(sessionId, "document.querySelectorAll('.sync-operation').length === 2 && document.querySelector('.sync-page')?.getAttribute('aria-busy') === 'false'", 'cola reabierta offline');
+    await tools.evaluate(sessionId, "document.querySelector('.sync-enqueue').click()");
+    await tools.until(sessionId, "document.querySelectorAll('.sync-operation[data-state=PENDIENTE]').length === 1", 'operación registrada sin conexión');
+    const offlineOperation = (await tools.evaluate(sessionId, readOperations)).find(operation => operation.state === 'PENDIENTE');
+    await tools.send('Page.reload', {}, sessionId);
+    await tools.until(sessionId, "document.querySelectorAll('.sync-operation[data-state=PENDIENTE]').length === 1", 'operación offline persistida tras recargar');
+    assert.equal((await tools.evaluate(sessionId, readOperations)).find(operation => operation.id === offlineOperation.id).state, 'PENDIENTE');
+    await tools.evaluate(sessionId, "document.querySelector('.sync-process').click()");
+    await tools.until(sessionId, "document.querySelector('.sync-operation[data-state=ERROR]') && !document.querySelector('.sync-process').disabled", 'error de actualización sin conexión');
+    const failedOffline = (await tools.evaluate(sessionId, readOperations)).find(operation => operation.id === offlineOperation.id);
+    assert.equal(failedOffline.state, 'ERROR');
+    assert.equal(failedOffline.expectedDownloadedAt, currentSnapshot.downloadedAt);
+    assert.deepEqual(await tools.evaluate(sessionId, readSnapshot), currentSnapshot);
+    passed('CU15 registra y recupera la cola offline; el error de red conserva la copia y el UUID de la operación.');
+    await tools.send('Page.navigate', { url: `${origin}${detailPath}` }, sessionId);
+    await tools.until(sessionId, "document.querySelector('.catalog-detail__product') && document.querySelector('.catalog-local-notice time')", 'volver al detalle antes de eliminar la copia de prueba');
 
     await tools.evaluate(sessionId, `new Promise((resolve, reject) => {
       const request = indexedDB.deleteDatabase('vestinova-public-catalog');

@@ -9,6 +9,7 @@ import {
 } from './catalog.models';
 
 class IncompleteDownloadError extends Error {}
+class CatalogCopyConflict extends Error {}
 
 @Injectable({ providedIn: 'root' })
 export class CatalogDataService {
@@ -20,6 +21,7 @@ export class CatalogDataService {
   readonly downloading = signal(false);
   readonly progress = signal<{ received: number; total: number } | null>(null);
   readonly downloadError = signal<string | null>(null);
+  readonly downloadConflict = signal(false);
   readonly downloadNotice = signal<string | null>(null);
   readonly storageError = signal<string | null>(null);
   readonly revision = signal(0);
@@ -71,11 +73,12 @@ export class CatalogDataService {
   }
 
   /** Solo una descarga explícita reemplaza la copia; navegar no la modifica. */
-  async download(): Promise<boolean> {
+  async download(expectedDownloadedAt?: string | null): Promise<boolean> {
     if (this.downloading()) return false;
     this.downloading.set(true);
     this.progress.set(null);
     this.downloadError.set(null);
+    this.downloadConflict.set(false);
     this.downloadNotice.set(null);
     try {
       const locks = globalThis.navigator?.locks;
@@ -85,13 +88,16 @@ export class CatalogDataService {
             this.downloadError.set('Otra pestaña está descargando el catálogo. Espera a que termine y vuelve a intentarlo.');
             return Promise.resolve(false);
           }
-          return this.downloadCatalog();
+          return this.downloadCatalog(expectedDownloadedAt);
         });
       }
       // Sin Web Locks, la exclusión se limita a esta instancia del servicio.
-      return await this.downloadCatalog();
+      return await this.downloadCatalog(expectedDownloadedAt);
     } catch (error: unknown) {
-      if (error instanceof HttpErrorResponse && [401, 403].includes(error.status)) {
+      if (error instanceof CatalogCopyConflict) {
+        this.downloadConflict.set(true);
+        this.downloadError.set('La copia local cambió después de registrar la operación. Revisa los datos y registra una nueva actualización.');
+      } else if (error instanceof HttpErrorResponse && [401, 403].includes(error.status)) {
         this.rememberDenial(error);
         this.downloadError.set('No tienes autorización para descargar el catálogo. La copia anterior se conserva.');
       } else if (error instanceof HttpErrorResponse) {
@@ -107,8 +113,14 @@ export class CatalogDataService {
     }
   }
 
-  private async downloadCatalog(): Promise<boolean> {
+  private async downloadCatalog(expectedDownloadedAt?: string | null): Promise<boolean> {
     const revision = this.accessRevision;
+    // La comparación comparte el mismo Web Lock que las descargas manuales de CU14.
+    if (expectedDownloadedAt !== undefined) {
+      const current = await this.store.read();
+      if ((current?.downloadedAt ?? null) !== expectedDownloadedAt) throw new CatalogCopyConflict();
+      this.checkAccess(revision);
+    }
     const limit = 100;
     const products: CatalogProduct[] = [];
     const ids = new Set<number>();

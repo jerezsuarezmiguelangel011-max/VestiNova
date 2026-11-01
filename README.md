@@ -10,11 +10,13 @@ Repositorio acordado: **`saletty/VestiNova`**; colaborador: `jerezsuarezmiguelan
 
 Implementado: inicio/restauración/cierre de sesión de administrador; protección de rutas y API; listado, registro y edición de productos; catálogo público con búsqueda por nombre, paginación y detalle; migración inicial versionada y creación local del administrador con hash Argon2.
 
-El primer incremento de CU09 ofrece las pantallas públicas `/catalogo` y `/catalogo/{slug}`, conforme a [docs/CONTRATO_CATALOGO.md](docs/CONTRATO_CATALOGO.md). Muestra datos publicados, precios BOB e imágenes cuando existen, con estados de carga, vacío, error y producto no disponible. La raíz del frontend conserva su redirección administrativa. Siguen pendientes variantes, empresas, promociones, disponibilidad por sucursal y consulta sin conexión por empresa y usuario; este incremento no completa el CU09 académico. No se presentan compras, inventario, pagos, reservas ni SaaS como funciones del MVP.
+El primer incremento de CU09 ofrece las pantallas públicas `/catalogo` y `/catalogo/{slug}`, conforme a [docs/CONTRATO_CATALOGO.md](docs/CONTRATO_CATALOGO.md). Muestra datos publicados, precios BOB e imágenes cuando existen, con estados de carga, vacío, error y producto no disponible. La raíz del frontend conserva su redirección administrativa. Siguen pendientes variantes, empresas, promociones, disponibilidad por sucursal y consulta sin conexión por empresa y usuario; este incremento no completa el CU09 académico. La confirmación productiva de compras y los flujos integrados de inventario, pagos, reservas y SaaS siguen sujetos a las dependencias de cada incremento.
 
 El incremento limitado de CU14 permite descargar explícitamente el catálogo público completo en IndexedDB y consultarlo sin conexión, con búsqueda, paginación, detalle y fecha de descarga. La PWA prepara la apertura y recarga del catálogo en el mismo navegador y origen. No implementa el alcance académico de datos autorizados por empresa y usuario. La preparación en Windows, las comprobaciones manuales y las limitaciones están en [docs/CU14_OFFLINE.md](docs/CU14_OFFLINE.md).
 
 - Primer incremento limitado de CU08: reglas de stock y ajuste por recuento, contratos de autorización y unidad de trabajo, con adaptadores en memoria exclusivos de pruebas. Sin API, UI ni persistencia integradas; alcance en [docs/CONTRATO_INVENTARIO.md](docs/CONTRATO_INVENTARIO.md).
+
+CU10 incorpora selección temporal de prendas en `/catalogo/acciones/compra?slug=SLUG_REAL`, API y dos tablas propias de compras mediante la revisión `cu10_01_compras`. La confirmación permanece bloqueada (`503`) sin proveedores reales de contexto autorizado e inventario. CU15 ofrece una cola persistente de actualizaciones del catálogo público en `/catalogo/acciones/sincronizacion`, con procesamiento manual y detección de conflictos de la copia local. Alcance, dependencias y recorrido PWA en [docs/CU10_CU15_INCREMENTOS.md](docs/CU10_CU15_INCREMENTOS.md).
 
 ## Estructura
 
@@ -92,6 +94,8 @@ npm.cmd start
 | --- | --- |
 | Catálogo público | http://127.0.0.1:4201/catalogo |
 | Detalle público | `http://127.0.0.1:4201/catalogo/SLUG_REAL` |
+| Preparar compra | `http://127.0.0.1:4201/catalogo/acciones/compra?slug=SLUG_REAL` |
+| Cola pública de sincronización | http://127.0.0.1:4201/catalogo/acciones/sincronizacion |
 | Acceso del administrador | http://127.0.0.1:4201/admin/login |
 | Listado | http://127.0.0.1:4201/admin/productos |
 | Registro | http://127.0.0.1:4201/admin/productos/nuevo |

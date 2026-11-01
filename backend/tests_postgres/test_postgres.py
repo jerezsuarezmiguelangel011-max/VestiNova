@@ -1,5 +1,7 @@
 """Solo para scripts.test_postgres y su instancia temporal, jamás para la base operativa."""
 import os
+from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
 
@@ -9,12 +11,16 @@ from alembic.migration import MigrationContext
 from fastapi.testclient import TestClient
 import pytest
 from sqlalchemy import create_engine, inspect, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.engine import make_url
 
 from app.config import BACKEND_ROOT, Settings, validate_local_database_url
 from app.db import build_session_factory
 from app.main import create_app
 from app.models import Administrador, Producto, SesionAdministrador
+from app.inventory.domain import InventoryKey
+from app.purchases.domain import Purchase, PurchaseCommand, PurchaseContext, PurchaseItem, PurchaseLine, identifier_token
+from app.purchases.persistence import PurchaseLineRecord, PurchaseRecord, add_purchase, find_purchase
 from app.security import hash_password
 
 
@@ -62,13 +68,16 @@ def administrator_credentials(client, factory):
 
 
 def test_alembic_initialization_is_complete_and_repeatable(engine):
-    assert set(inspect(engine).get_table_names()) == {"alembic_version", "administradores", "sesiones_administrador", "productos"}
+    assert set(inspect(engine).get_table_names()) == {
+        "alembic_version", "administradores", "sesiones_administrador", "productos",
+        "compras_digitales", "compras_digitales_lineas",
+    }
     config = Config(str(BACKEND_ROOT / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND_ROOT / "migrations"))
     with engine.begin() as connection:
         config.attributes["connection"] = connection
         command.upgrade(config, "head")
-        assert MigrationContext.configure(connection).get_current_revision() == "0001_base"
+        assert MigrationContext.configure(connection).get_current_revision() == "cu10_01_compras"
 
 
 def test_logout_revokes_persisted_session(client, factory):
@@ -96,3 +105,55 @@ def test_products_persist_between_requests_and_sessions(client, factory):
         assert str(another.get(Producto, product_id).precio) == "55.50"
     assert client.get(f"/api/catalogo/productos/{slug}").status_code == 404
     assert client.get(f"/api/admin/productos/{product_id}", headers=headers).json()["activo"] is False
+
+
+def postgres_purchase():
+    identifier = uuid4()
+    context = PurchaseContext("actor-pg", f"empresa-{uuid4().hex}", "cliente-pg", "sucursal-pg")
+    item = PurchaseItem(7, 2147483647)
+    line = PurchaseLine(
+        InventoryKey(context.empresa_id, context.sucursal_id, "variante-pg"),
+        item.producto_id, "Snapshot de precio PostgreSQL", item.cantidad, Decimal("99999999.99"),
+    )
+    return Purchase(identifier, context, PurchaseCommand(identifier, (item,)).fingerprint, (line,), datetime.now(timezone.utc))
+
+
+def test_purchase_snapshot_precision_and_context_persist_across_postgres_sessions(factory):
+    original = postgres_purchase()
+    with factory() as session:
+        add_purchase(session, original)
+        session.commit()
+    with factory() as session:
+        restored = find_purchase(session, original.context, original.id)
+        assert restored == original
+        assert restored.total == original.lines[0].precio_unitario * original.lines[0].cantidad
+        assert session.get(PurchaseRecord, str(original.id)).total == original.total
+
+
+def test_purchase_composite_foreign_key_and_rollback_are_enforced_in_postgres(factory):
+    original = postgres_purchase()
+    with factory() as session:
+        add_purchase(session, original)
+        session.commit()
+    with factory() as session:
+        session.add(PurchaseLineRecord(
+            compra_id=str(original.id), posicion=1, empresa_clave=identifier_token("otra-empresa"),
+            producto_id=9, variante_ref="otra-variante", nombre="Referencia cruzada", cantidad=1,
+            precio_unitario=Decimal("10.00"),
+        ))
+        with pytest.raises(IntegrityError):
+            session.flush()
+        session.rollback()
+    with factory() as session:
+        assert find_purchase(session, original.context, original.id) == original
+
+
+def test_purchase_rollback_does_not_persist_uncommitted_header_or_lines_in_postgres(factory):
+    original = postgres_purchase()
+    with factory() as session:
+        add_purchase(session, original)
+        session.flush()
+        session.rollback()
+    with factory() as session:
+        assert find_purchase(session, original.context, original.id) is None
+        assert session.scalar(select(PurchaseLineRecord).where(PurchaseLineRecord.compra_id == str(original.id))) is None

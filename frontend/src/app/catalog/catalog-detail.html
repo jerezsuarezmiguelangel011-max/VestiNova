@@ -39,6 +39,7 @@
         <h1 id="catalog-detail-title">{{ item.nombre }}</h1>
         <p class="catalog-detail__price">Bs {{ item.precio }} <span>{{ item.moneda }}</span></p>
         <p class="catalog-detail__description">{{ item.descripcion }}</p>
+        <a class="vn-button vn-button--primary" routerLink="/catalogo/acciones/compra" [queryParams]="{ slug: item.slug }">Seleccionar para comprar</a>
       </div>
     </article>
   }

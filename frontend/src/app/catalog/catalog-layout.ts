@@ -17,6 +17,8 @@ import { CatalogPwaService, type CatalogPwaState } from './catalog-pwa.service';
         </a>
         <nav aria-label="Navegación del catálogo">
           <a routerLink="/catalogo">Catálogo de prendas</a>
+          <a routerLink="/catalogo/acciones/compra">Mi selección</a>
+          <a routerLink="/catalogo/acciones/sincronizacion">Sincronización</a>
         </nav>
       </header>
       <main id="catalog-content" class="catalog-main" tabindex="-1">

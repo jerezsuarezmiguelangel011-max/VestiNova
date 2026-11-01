@@ -8,6 +8,8 @@ export const routes: Routes = [
     loadComponent: () => import('./catalog/catalog-layout').then(m => m.CatalogLayout),
     children: [
       { path: '', pathMatch: 'full', loadComponent: () => import('./catalog/catalog-list').then(m => m.CatalogListPage) },
+      { path: 'acciones/compra', loadComponent: () => import('./purchases/purchase-page').then(m => m.PurchasePage) },
+      { path: 'acciones/sincronizacion', loadComponent: () => import('./sync/sync-page').then(m => m.SyncPage) },
       { path: ':slug', loadComponent: () => import('./catalog/catalog-detail').then(m => m.CatalogDetailPage) },
     ],
   },
