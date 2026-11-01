@@ -63,3 +63,55 @@ El runner usa PostgreSQL temporal, separado de la base operativa. Desde `fronten
 Repositorio `saletty/VestiNova`; ramas `main`, `pruebas`, `salet` y `miguel`. Cada integrante trabaja en su rama. Proponer la integración en `pruebas` y después en `main`; no sobrescribir el trabajo del compañero ni publicar otras ramas por accidente.
 
 Se versionan fuentes, migraciones, scripts, pruebas, ejemplos sin secretos y lockfiles. `.env`, entornos, dependencias instaladas, compilados/APK y claves están ignorados. Los informes de avance, auditorías y evidencias permanecen locales: Git contiene solo estos README y los contratos compartidos.
+
+## Incrementos aportados por Miguel
+
+### CU08 - Control de inventario
+
+El paquete `backend/app/inventory/` contiene reglas de stock f?sico, reservado y disponible, ajustes por recuento y contratos de autorizaci?n. Su implementaci?n independiente utiliza adaptadores de prueba; debe integrarse con la API y persistencia de inventario desarrolladas por Salet en `backend/app/inventory_api.py`.
+
+### CU09 - Cat?logo p?blico
+
+Angular incluye b?squeda por nombre, paginaci?n, detalle de productos, precios en BOB, im?genes opcionales y estados de carga, vac?o y error.
+
+Rutas: `/catalogo` y `/catalogo/{slug}`.
+
+El cat?logo todav?a necesita verificaci?n integral de disponibilidad por sucursal y contexto empresarial.
+
+### CU10 - Compras digitales
+
+Incluye una pantalla inicial de selecci?n de prendas, servicios y dominio de compras, pruebas y una migraci?n propia.
+
+Ruta: `/catalogo/acciones/compra?slug=SLUG_REAL`.
+
+La confirmaci?n real permanece bloqueada mientras no est?n integrados los proveedores de inventario y autorizaci?n. La migraci?n de compras debe reconciliarse con las migraciones de empresas y clientes antes de ejecutarse.
+
+### CU11 - Reservas
+
+Existe un n?cleo de reglas de negocio y servicios independientes. No equivale todav?a a un flujo completo de reservas conectado a la API, la base de datos y las interfaces.
+
+### CU14 - Cat?logo offline mediante PWA
+
+Angular incorpora preparaci?n PWA, Service Worker y almacenamiento del cat?logo p?blico en IndexedDB para consulta sin conexi?n.
+
+Consultar `docs/CU14_OFFLINE.md`. No se considera completado el almacenamiento privado por empresa, usuario y sucursal.
+
+### CU15 - Sincronizaci?n parcial
+
+Existe una cola local de sincronizaci?n y pruebas orientadas a actualizaciones del cat?logo p?blico.
+
+Ruta: `/catalogo/acciones/sincronizacion`.
+
+No representa todav?a la sincronizaci?n completa de reservas y ventas offline con confirmaci?n central.
+
+### Documentaci?n de estos incrementos
+
+- [Control de inventario](docs/CONTRATO_INVENTARIO.md).
+- [Reservas](docs/CONTRATO_RESERVAS.md).
+- [PWA y cat?logo offline](docs/CU14_OFFLINE.md).
+- [Compras y sincronizaci?n](docs/CU10_CU15_INCREMENTOS.md).
+- [Historial de avances](docs/AVANCES.md).
+
+## Estado de integraci?n
+
+Los componentes anteriores corresponden a incrementos de desarrollo, no a una certificaci?n de funcionamiento conjunto. Antes de actualizar `main` se deben reconciliar las migraciones Alembic, verificar los contratos de API y ejecutar las pruebas del backend, frontend y m?vil que correspondan.

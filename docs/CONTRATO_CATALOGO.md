@@ -10,7 +10,24 @@ Acuerdo inicial de integración, 25 de octubre de 2026. Este documento propone e
 - Miguel: CU08–CU11; sus pantallas públicas de catálogo y detalle corresponden a CU09 **Consultar catálogo y disponibilidad**, consumiendo los endpoints siguientes. Esta revisión conserva su trabajo sin modificar sus archivos.
 - Ambas partes: conservar nombres, tipos y semántica del contrato. Proponer cambios aquí y actualizar las pruebas antes de modificar respuestas.
 
-La lista exacta de actores/plataformas y el reparto confirmado están en [CASOS_DE_USO.md](CASOS_DE_USO.md). CU14–CU28 permanecen por confirmar. Los nombres técnicos «productos» de rutas/modelos no cambian por corregir los títulos de los casos.
+La lista exacta de actores/plataformas y el reparto confirmado están en [CASOS_DE_USO.md](CASOS_DE_USO.md). CU14 y CU15 tienen incrementos parciales; CU16–CU28 permanecen por confirmar. Los nombres técnicos «productos» de rutas/modelos no cambian por corregir los títulos de los casos.
+
+### Avances de integracion de Miguel
+
+CU09 incluye pantallas Angular en `/catalogo` y `/catalogo/{slug}` con
+busqueda, paginacion, detalle, precios BOB, imagenes opcionales y
+estados de carga, vacio y error.
+
+Incrementos parciales relacionados:
+
+- CU08: reglas independientes de inventario, pendientes de integracion.
+- CU10: pantalla y dominio inicial de compras, sin confirmacion productiva.
+- CU11: nucleo de reservas sin flujo completo de API y persistencia.
+- CU14: consulta offline del catalogo mediante PWA e IndexedDB.
+- CU15: cola local de sincronizacion parcial.
+
+La disponibilidad por sucursal y el contexto empresarial aun requieren
+validacion integral. Estos incrementos no completan los casos de uso.
 
 ## Endpoints públicos
 

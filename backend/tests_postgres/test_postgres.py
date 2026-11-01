@@ -23,6 +23,11 @@ from app.db import Base, build_session_factory
 from app.main import create_app
 from app.mobile_download import download_db
 from app.models import AccesoSucursal, Administrador, Cliente, Empresa, Existencia, MembresiaEmpresa, MovimientoInventario, Producto, SesionAdministrador, SesionCliente, Sucursal, VarianteProducto, utc_now
+from datetime import datetime, timezone
+from decimal import Decimal
+from app.inventory.domain import InventoryKey
+from app.purchases.domain import Purchase, PurchaseCommand, PurchaseContext, PurchaseItem, PurchaseLine, identifier_token
+from app.purchases.persistence import PurchaseLineRecord, PurchaseRecord, add_purchase, find_purchase
 from app.security import hash_password
 
 
@@ -95,7 +100,7 @@ def test_alembic_initialization_is_complete_and_repeatable(engine):
     with engine.begin() as connection:
         config.attributes["connection"] = connection
         command.upgrade(config, "head")
-        assert MigrationContext.configure(connection).get_current_revision() == "0003_cuentas_clientes"
+        assert MigrationContext.configure(connection).get_current_revision() == "fc6ee96d81da"
 
 
 def test_upgrade_preserves_accounts_hashes_products_and_live_sessions(factory):
@@ -473,3 +478,55 @@ def test_cu01_http_real_staff_roles_and_customer_two_stores(engine, factory):
         thread.join(timeout=10)
         listener.close()
         assert not thread.is_alive(), "Revisa la parada del servidor HTTP aislado."
+
+
+def postgres_purchase():
+    identifier = uuid4()
+    context = PurchaseContext("actor-pg", f"empresa-{uuid4().hex}", "cliente-pg", "sucursal-pg")
+    item = PurchaseItem(7, 2147483647)
+    line = PurchaseLine(
+        InventoryKey(context.empresa_id, context.sucursal_id, "variante-pg"),
+        item.producto_id, "Snapshot de precio PostgreSQL", item.cantidad, Decimal("99999999.99"),
+    )
+    return Purchase(identifier, context, PurchaseCommand(identifier, (item,)).fingerprint, (line,), datetime.now(timezone.utc))
+
+
+def test_purchase_snapshot_precision_and_context_persist_across_postgres_sessions(factory):
+    original = postgres_purchase()
+    with factory() as session:
+        add_purchase(session, original)
+        session.commit()
+    with factory() as session:
+        restored = find_purchase(session, original.context, original.id)
+        assert restored == original
+        assert restored.total == original.lines[0].precio_unitario * original.lines[0].cantidad
+        assert session.get(PurchaseRecord, str(original.id)).total == original.total
+
+
+def test_purchase_composite_foreign_key_and_rollback_are_enforced_in_postgres(factory):
+    original = postgres_purchase()
+    with factory() as session:
+        add_purchase(session, original)
+        session.commit()
+    with factory() as session:
+        session.add(PurchaseLineRecord(
+            compra_id=str(original.id), posicion=1, empresa_clave=identifier_token("otra-empresa"),
+            producto_id=9, variante_ref="otra-variante", nombre="Referencia cruzada", cantidad=1,
+            precio_unitario=Decimal("10.00"),
+        ))
+        with pytest.raises(IntegrityError):
+            session.flush()
+        session.rollback()
+    with factory() as session:
+        assert find_purchase(session, original.context, original.id) == original
+
+
+def test_purchase_rollback_does_not_persist_uncommitted_header_or_lines_in_postgres(factory):
+    original = postgres_purchase()
+    with factory() as session:
+        add_purchase(session, original)
+        session.flush()
+        session.rollback()
+    with factory() as session:
+        assert find_purchase(session, original.context, original.id) is None
+        assert session.scalar(select(PurchaseLineRecord).where(PurchaseLineRecord.compra_id == str(original.id))) is None

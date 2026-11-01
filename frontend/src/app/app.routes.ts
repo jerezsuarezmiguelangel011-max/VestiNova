@@ -10,6 +10,16 @@ export const routes: Routes = [
   { path: 'tienda/:tienda/acceso', loadComponent: () => import('./customer/customer-access-page').then(m => m.CustomerAccessPage) },
   { path: 'tienda/:tienda/cuenta', canActivate: [customerGuard], loadComponent: () => import('./customer/customer-account-page').then(m => m.CustomerAccountPage) },
   {
+    path: 'catalogo',
+    loadComponent: () => import('./catalog/catalog-layout').then(m => m.CatalogLayout),
+    children: [
+      { path: '', pathMatch: 'full', loadComponent: () => import('./catalog/catalog-list').then(m => m.CatalogListPage) },
+      { path: 'acciones/compra', loadComponent: () => import('./purchases/purchase-page').then(m => m.PurchasePage) },
+      { path: 'acciones/sincronizacion', loadComponent: () => import('./sync/sync-page').then(m => m.SyncPage) },
+      { path: ':slug', loadComponent: () => import('./catalog/catalog-detail').then(m => m.CatalogDetailPage) },
+    ],
+  },
+  {
     path: 'admin/login', canActivate: [guestGuard],
     loadComponent: () => import('./auth/login-page').then(m => m.LoginPage),
   },

@@ -1,0 +1,92 @@
+<section aria-labelledby="catalog-title">
+  <header class="catalog-heading">
+    <p class="catalog-eyebrow">VestiNova · Colección</p>
+    <h1 id="catalog-title">Catálogo de prendas</h1>
+    <p class="catalog-description">Explora las prendas y consulta sus detalles.</p>
+  </header>
+
+  <form class="catalog-search vn-card" [formGroup]="filters" (ngSubmit)="search()" novalidate aria-label="Buscar prendas">
+    <div class="vn-field">
+      <label for="catalog-search">Buscar por nombre</label>
+      <input id="catalog-search" type="search" formControlName="q" maxlength="120" placeholder="Nombre de la prenda"
+        [attr.aria-invalid]="filters.controls.q.touched && filters.controls.q.invalid"
+        [attr.aria-describedby]="filters.controls.q.touched && filters.controls.q.invalid ? 'catalog-search-error' : null" />
+      @if (filters.controls.q.touched && filters.controls.q.invalid) {
+        <p class="vn-field__error" id="catalog-search-error">La búsqueda admite hasta 120 caracteres.</p>
+      }
+    </div>
+    <button type="submit" class="vn-button vn-button--primary">Buscar</button>
+    <button type="button" class="vn-button" (click)="clear()">Limpiar</button>
+  </form>
+
+  @if (!loading() && source() === 'local') {
+    <aside class="catalog-local-notice" role="status">
+      <strong>Copia local</strong>
+      @if (downloadedAt(); as downloaded) {
+        <span class="catalog-local-date"> · Última descarga:
+          <time [attr.datetime]="downloaded">{{ downloaded | date:'dd/MM/yyyy HH:mm':'-0400' }}</time> (hora de Bolivia).
+        </span>
+      } @else {
+        <span class="catalog-local-date"> · Fecha de descarga no disponible.</span>
+      }
+      <p>La información puede estar desactualizada. Conéctate para consultar el catálogo actual.</p>
+    </aside>
+  }
+
+  <section class="catalog-results" aria-labelledby="catalog-results-title" [attr.aria-busy]="loading()">
+    <h2 id="catalog-results-title" class="catalog-sr-only">Prendas del catálogo</h2>
+    @if (loading()) {
+      <div class="catalog-state" role="status">
+        <span class="vn-spinner" aria-hidden="true"></span>
+        <p>Cargando prendas…</p>
+      </div>
+    } @else if (error(); as message) {
+      <div class="catalog-state">
+        <h3>No pudimos cargar el catálogo</h3>
+        <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p>
+        <button type="button" class="vn-button" (click)="reload()">Reintentar</button>
+      </div>
+    } @else if (result().items.length === 0) {
+      <div class="catalog-state" role="status">
+        @if (result().offset > 0) {
+          <h3>No hay prendas en esta página</h3>
+          <p>Vuelve a la página anterior para seguir explorando.</p>
+        } @else if (hasSearch()) {
+          <h3>Sin coincidencias</h3>
+          <p>Prueba otro nombre o limpia la búsqueda.</p>
+          <button type="button" class="vn-button" (click)="clear()">Limpiar búsqueda</button>
+        } @else if (source() === 'local') {
+          <h3>La copia descargada no contiene prendas</h3>
+          <p>Conéctate para consultar y descargar el catálogo actualizado.</p>
+        } @else {
+          <h3>No hay prendas publicadas</h3>
+          <p>Vuelve más adelante para consultar el catálogo.</p>
+        }
+      </div>
+    } @else {
+      <p role="status">{{ result().total }} {{ result().total === 1 ? 'prenda encontrada' : 'prendas encontradas' }}</p>
+      <div class="catalog-grid">
+        @for (product of result().items; track product.id) {
+          <a class="catalog-card" [routerLink]="['/catalogo', product.slug]" [attr.aria-label]="'Ver detalle de ' + product.nombre">
+            <div class="catalog-card__image"><vn-catalog-image [url]="product.imagen_url" [name]="product.nombre" /></div>
+            <div class="catalog-card__body">
+              <h3 class="catalog-card__name">{{ product.nombre }}</h3>
+              <p class="catalog-price">Bs {{ product.precio }}</p>
+              <span>Ver detalle <span aria-hidden="true">↗</span></span>
+            </div>
+          </a>
+        }
+      </div>
+    }
+
+    @if (!loading() && !error() && (result().total > 0 || result().offset > 0)) {
+      <nav class="catalog-pagination" aria-label="Paginación del catálogo">
+        <p aria-live="polite">{{ first() }}–{{ last() }} de {{ result().total }}</p>
+        <div>
+          <button type="button" class="vn-button" (click)="page(-1)" [disabled]="result().offset === 0">Anterior</button>
+          <button type="button" class="vn-button" (click)="page(1)" [disabled]="result().offset + result().limit >= result().total">Siguiente</button>
+        </div>
+      </nav>
+    }
+  </section>
+</section>

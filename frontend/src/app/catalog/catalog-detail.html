@@ -1,0 +1,46 @@
+<section class="catalog-detail" aria-label="Detalle del producto" [attr.aria-busy]="loading()">
+  <a class="catalog-back" routerLink="/catalogo">← Volver al catálogo</a>
+
+  @if (!loading() && source() === 'local') {
+    <aside class="catalog-local-notice" role="status">
+      <strong>Copia local</strong>
+      @if (downloadedAt(); as downloaded) {
+        <span class="catalog-local-date"> · Última descarga:
+          <time [attr.datetime]="downloaded">{{ downloaded | date:'dd/MM/yyyy HH:mm':'-0400' }}</time> (hora de Bolivia).
+        </span>
+      } @else {
+        <span class="catalog-local-date"> · Fecha de descarga no disponible.</span>
+      }
+      <p>La información puede estar desactualizada. Conéctate para consultar el catálogo actual.</p>
+    </aside>
+  }
+
+  @if (loading()) {
+    <div class="catalog-state" role="status">
+      <span class="catalog-spinner" aria-hidden="true"></span>
+      <p>Cargando producto…</p>
+    </div>
+  } @else if (notFound()) {
+    <div class="catalog-state" role="status">
+      <h1>Producto no disponible</h1>
+      <p>No encontramos este producto en el catálogo. Puede que ya no esté publicado.</p>
+    </div>
+  } @else if (error(); as message) {
+    <div class="catalog-state">
+      <h1>No pudimos cargar el producto</h1>
+      <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p>
+      <button class="vn-button" type="button" (click)="retry()">Reintentar</button>
+    </div>
+  } @else if (product(); as item) {
+    <article class="catalog-detail__product" aria-labelledby="catalog-detail-title">
+      <vn-catalog-image [url]="item.imagen_url" [name]="item.nombre" />
+      <div class="catalog-detail__content">
+        <p class="catalog-eyebrow">VestiNova · Colección</p>
+        <h1 id="catalog-detail-title">{{ item.nombre }}</h1>
+        <p class="catalog-detail__price">Bs {{ item.precio }} <span>{{ item.moneda }}</span></p>
+        <p class="catalog-detail__description">{{ item.descripcion }}</p>
+        <a class="vn-button vn-button--primary" routerLink="/catalogo/acciones/compra" [queryParams]="{ slug: item.slug }">Seleccionar para comprar</a>
+      </div>
+    </article>
+  }
+</section>
