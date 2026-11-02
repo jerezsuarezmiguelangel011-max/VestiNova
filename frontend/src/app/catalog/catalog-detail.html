@@ -63,6 +63,9 @@
             }
           </div>
         }
+        @if (source() === 'network') {
+          <a class="vn-button" routerLink="/catalogo/acciones/reserva" [queryParams]="{ slug: item.slug }">Preparar reserva</a>
+        }
         <a class="vn-button vn-button--primary" routerLink="/catalogo/acciones/compra" [queryParams]="{ slug: item.slug }">Seleccionar para comprar</a>
       </div>
     </article>
