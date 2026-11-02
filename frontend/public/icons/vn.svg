@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">VestiNova</title>
+  <rect width="512" height="512" fill="#116149" />
+  <path d="M126 166 186 346 246 166M286 346V166L386 346V166" fill="none" stroke="#f6f4ed" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

@@ -1,0 +1,32 @@
+{
+  "id": "/catalogo",
+  "name": "VestiNova",
+  "short_name": "VestiNova",
+  "description": "Catálogo de prendas VestiNova.",
+  "lang": "es",
+  "start_url": "/catalogo",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f4ed",
+  "theme_color": "#202a25",
+  "icons": [
+    {
+      "src": "/icons/vn-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/vn-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/vn.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+<section class="reservation-page" aria-labelledby="reservation-title">
+  <a class="reservation-back" routerLink="/catalogo">← Volver al catálogo</a>
+  <header class="reservation-heading">
+    <p class="reservation-eyebrow">VestiNova · CU10</p>
+    <h1 id="reservation-title">Preparar reserva de prenda</h1>
+    <p>Selecciona una prenda, una sucursal y una variante. Este incremento guarda un <strong>borrador local</strong>; todavía no confirma ni separa unidades en inventario.</p>
+  </header>
+
+  <aside class="reservation-warning">
+    <strong>Funcionalidad parcial</strong>
+    La reserva real requiere autenticación de cliente, validación central de stock disponible y una política de vencimiento configurada. No se genera código de retiro.
+  </aside>
+
+  @if (draft(); as saved) {
+    <section class="reservation-card" aria-labelledby="reservation-saved-heading">
+      <div class="reservation-card-header">
+        <h2 id="reservation-saved-heading">Borrador guardado en esta pestaña</h2>
+        <span class="reservation-state">No confirmado</span>
+      </div>
+      <dl class="reservation-detail">
+        <div><dt>Prenda</dt><dd>{{ saved.producto_nombre }}</dd></div>
+        <div><dt>Sucursal</dt><dd>{{ saved.sucursal_nombre }}</dd></div>
+        <div><dt>Variante</dt><dd>{{ saved.talla }} / {{ saved.color }}</dd></div>
+        <div><dt>Cantidad solicitada</dt><dd>{{ saved.cantidad }}</dd></div>
+        <div><dt>Referencia de borrador</dt><dd class="reservation-uuid">{{ saved.id }}</dd></div>
+      </dl>
+      <p>Esta referencia es solo local. No es un código de reserva ni garantiza disponibilidad para el retiro.</p>
+      <button type="button" class="reservation-secondary" (click)="clearDraft()">Eliminar borrador</button>
+    </section>
+  }
+
+  @if (notice(); as message) { <p role="status" class="reservation-alert">{{ message }}</p> }
+  @if (error(); as message) { <p role="alert" class="reservation-alert reservation-alert--error">{{ message }}</p> }
+
+  @if (loading()) {
+    <p role="status">Consultando la prenda y las existencias físicas…</p>
+  } @else if (product(); as selected) {
+    <section class="reservation-card" aria-labelledby="reservation-new-heading">
+      <p class="reservation-eyebrow">Prenda seleccionada</p>
+      <h2 id="reservation-new-heading">{{ selected.nombre }}</h2>
+      <p>Precio referencial: Bs {{ selected.precio }} {{ selected.moneda }}</p>
+      @if (selectable().length === 0) {
+        <p role="status">Por ahora no hay variantes con existencias físicas registradas en sucursales activas.</p>
+      } @else {
+        <form [formGroup]="form" (ngSubmit)="saveDraft()" class="reservation-form">
+          <label for="reservation-variant">Sucursal, talla y color</label>
+          <select id="reservation-variant" formControlName="key" required>
+            <option value="">Selecciona una opción</option>
+            @for (item of selectable(); track item.sucursal_id + ':' + item.variante_id) {
+              <option [value]="item.sucursal_id + ':' + item.variante_id">{{ item.sucursal }} · {{ item.talla }} / {{ item.color }}</option>
+            }
+          </select>
+
+          <label for="reservation-quantity">Cantidad solicitada</label>
+          <input id="reservation-quantity" type="number" formControlName="cantidad" min="1" max="100" step="1" required />
+          <p class="reservation-hint">La existencia física es referencial. Esta acción no compromete stock.</p>
+
+          <button class="reservation-primary" type="submit" [disabled]="form.invalid">Guardar borrador local</button>
+        </form>
+      }
+    </section>
+  } @else {
+    <div class="reservation-card">
+      <p>Abre una prenda publicada desde el catálogo para preparar su solicitud.</p>
+      <a routerLink="/catalogo" class="reservation-secondary">Explorar prendas</a>
+    </div>
+  }
+</section>

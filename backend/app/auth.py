@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import Administrador, SesionAdministrador, Sucursal
-from app.organizations import EmpresaAccesoResponse, EmpresaResponse, SucursalResponse
+from app.organizations import EmpresaAccesoResponse, SucursalResponse, company_access
 from app.schemas import AdministradorResponse, LoginRequest, LoginResponse
 from app.security import get_current_session, issue_session, require_administrator, verify_password, verify_unknown_password
 from app.tenancy import TenantContext, authorized_branches_statement, require_tenant
@@ -41,7 +41,7 @@ def me(response: Response, administrator: Administrador = Depends(require_admini
 @router.get("/contexto", response_model=ContextoAccesoResponse)
 def context(response: Response, current: TenantContext = Depends(require_tenant), db: Session = Depends(get_db)):
     response.headers["Cache-Control"] = "no-store"
-    company = {**EmpresaResponse.model_validate(current.empresa).model_dump(), "rol": current.membresia.rol}
+    company = company_access(current.empresa, current.membresia, current.acceso)
     branches = db.scalars(authorized_branches_statement(current).order_by(Sucursal.id)).all()
     return {"empresa": company, "sucursales": branches}
 

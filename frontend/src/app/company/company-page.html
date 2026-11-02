@@ -12,7 +12,7 @@
         <label class="vn-field" for="company-choice">Empresa
           <select id="company-choice" required [value]="candidate()" (change)="candidate.set($any($event.target).value)" aria-describedby="company-choice-hint" [disabled]="navigating()">
             <option value="" disabled>Selecciona tu empresa</option>
-            @for (company of companies.companies(); track company.id) { <option [value]="company.id">{{ company.nombre }} · {{ roleLabel(company.rol) }}</option> }
+            @for (company of companies.companies(); track company.id) { <option [value]="company.id">{{ company.nombre }} · {{ company.rol_nombre ?? roleLabel(company.rol) }}</option> }
           </select>
         </label>
         <p class="company-hint" id="company-choice-hint">La selección se valida con tus permisos actuales y se conserva en esta pestaña. El servidor comprueba cada operación.</p>

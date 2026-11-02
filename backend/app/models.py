@@ -85,12 +85,41 @@ class Sucursal(Base):
 
 class MembresiaEmpresa(Base):
     __tablename__ = "membresias_empresa"
-    __table_args__ = (CheckConstraint("rol IN ('ADMINISTRADOR', 'OPERADOR', 'ENCARGADO_SUCURSAL', 'CAJERO')", name="ck_membresias_rol"),)
+    __table_args__ = (
+        CheckConstraint("rol IN ('ADMINISTRADOR', 'OPERADOR', 'ENCARGADO_SUCURSAL', 'CAJERO')", name="ck_membresias_rol"),
+        ForeignKeyConstraint(["rol_empresa_id", "empresa_id"], ["roles_empresa.id", "roles_empresa.empresa_id"], name="fk_membresia_rol_empresa"),
+    )
 
     administrador_id: Mapped[int] = mapped_column(ForeignKey("administradores.id"), primary_key=True)
     empresa_id: Mapped[int] = mapped_column(ForeignKey("empresas.id"), primary_key=True)
     rol: Mapped[str] = mapped_column(String(20), nullable=False, default="ADMINISTRADOR")
     activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    nombre: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    rol_empresa_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class RolEmpresa(Base):
+    __tablename__ = "roles_empresa"
+    __table_args__ = (
+        UniqueConstraint("id", "empresa_id", name="uq_roles_id_empresa"),
+        UniqueConstraint("empresa_id", "codigo_sistema", name="uq_roles_empresa_sistema"),
+        UniqueConstraint("empresa_id", "nombre_clave", name="uq_roles_empresa_nombre"),
+        CheckConstraint("codigo_sistema IS NULL OR codigo_sistema IN ('ADMINISTRADOR', 'OPERADOR', 'ENCARGADO_SUCURSAL', 'CAJERO')", name="ck_roles_sistema"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    empresa_id: Mapped[int] = mapped_column(ForeignKey("empresas.id"), nullable=False, index=True)
+    nombre: Mapped[str] = mapped_column(String(120), nullable=False)
+    nombre_clave: Mapped[str] = mapped_column(String(360), nullable=False)
+    descripcion: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    codigo_sistema: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
+class PermisoRol(Base):
+    __tablename__ = "permisos_rol"
+    rol_empresa_id: Mapped[int] = mapped_column(ForeignKey("roles_empresa.id", ondelete="CASCADE"), primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(60), primary_key=True)
 
 
 class AccesoSucursal(Base):

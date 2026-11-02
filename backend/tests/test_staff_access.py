@@ -58,7 +58,10 @@ def test_staff_actor_context_uses_database_membership_and_only_authorized_active
     assert identity["es_superadministrador"] is False
     assert identity["rol"] == "ADMINISTRADOR"  # Etiqueta técnica compatible, nunca autorización de empresa.
     companies = client.get("/api/empresas", headers=headers).json()
-    assert companies == [{"id": access_scope.company.id, "slug": access_scope.company.slug, "nombre": access_scope.company.nombre, "activo": True, "rol": role}]
+    assert len(companies) == 1
+    assert {key: companies[0][key] for key in ("id", "slug", "nombre", "activo", "rol")} == {"id": access_scope.company.id, "slug": access_scope.company.slug, "nombre": access_scope.company.nombre, "activo": True, "rol": role}
+    assert companies[0]["rol_sistema"] == role and companies[0]["rol_id"] is None
+    assert set(companies[0]["permisos"]) == {"catalogo.consultar", "sucursales.consultar", "inventario.consultar", "descarga.consultar"}
     context = client.get("/api/auth/contexto", headers={**headers, "X-Empresa-Id": str(access_scope.company.id)})
     assert context.status_code == 200 and context.headers["cache-control"] == "no-store"
     assert context.json()["empresa"] == companies[0]

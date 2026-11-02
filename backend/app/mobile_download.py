@@ -13,7 +13,7 @@ from app.inventory_schemas import OperationalResponse, VarianteResponse
 from app.models import Existencia, Producto, VarianteProducto, utc_now
 from app.schemas import ProductoResponse
 from app.security import bearer, get_current_session
-from app.tenancy import TenantContext, authorized_branches_statement, require_tenant
+from app.tenancy import TenantContext, authorized_branches_statement, check_permission, require_tenant
 
 
 router = APIRouter(prefix="/api/movil", tags=["Descarga móvil autorizada"])
@@ -78,7 +78,9 @@ def download_tenant(
     db: Session = Depends(download_db),
 ) -> TenantContext:
     usuario, _ = get_current_session(request, credentials, db)
-    return require_tenant(empresa_id, usuario, db)
+    context = require_tenant(empresa_id, usuario, db)
+    check_permission(context, "descarga.consultar")
+    return context
 
 
 @router.get("/descarga", response_model=DescargaResponse)

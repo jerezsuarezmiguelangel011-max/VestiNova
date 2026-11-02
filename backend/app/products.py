@@ -1,15 +1,15 @@
 import re
 import unicodedata
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Empresa, Producto, utc_now
+from app.models import Empresa, Existencia, Producto, Sucursal, VarianteProducto, utc_now
 from app.schemas import ListaProductos, ProductoCreate, ProductoPatch, ProductoResponse
-from app.tenancy import TenantContext, require_tenant, require_tenant_admin
+from app.tenancy import TenantContext, require_permission
 
 
 admin_router = APIRouter(prefix="/api/admin/productos", tags=["Administración de productos"])
@@ -43,12 +43,12 @@ def list_products(db: Session, q: str | None, active: bool | None, limit: int, o
 
 
 @admin_router.get("", response_model=ListaProductos)
-def admin_list(q: str | None = Query(default=None, max_length=120), activo: bool | None = None, limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0), db: Session = Depends(get_db), context: TenantContext = Depends(require_tenant)):
+def admin_list(q: str | None = Query(default=None, max_length=120), activo: bool | None = None, limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0), db: Session = Depends(get_db), context: TenantContext = Depends(require_permission("catalogo.consultar"))):
     return list_products(db, q, activo, limit, offset, context.empresa_id)
 
 
 @admin_router.post("", response_model=ProductoResponse, status_code=201)
-def create_product(payload: ProductoCreate, db: Session = Depends(get_db), context: TenantContext = Depends(require_tenant_admin)):
+def create_product(payload: ProductoCreate, db: Session = Depends(get_db), context: TenantContext = Depends(require_permission("catalogo.gestionar", mutation=True))):
     data = payload.model_dump(exclude={"slug"})
     product = Producto(**data, empresa_id=context.empresa_id, slug=payload.slug or generate_slug(payload.nombre), moneda="BOB")
     db.add(product)
@@ -73,12 +73,12 @@ def get_product(db: Session, product_id: int, empresa_id: int) -> Producto:
 
 
 @admin_router.get("/{producto_id}", response_model=ProductoResponse)
-def admin_detail(producto_id: int, db: Session = Depends(get_db), context: TenantContext = Depends(require_tenant)):
+def admin_detail(producto_id: int, db: Session = Depends(get_db), context: TenantContext = Depends(require_permission("catalogo.consultar"))):
     return get_product(db, producto_id, context.empresa_id)
 
 
 @admin_router.patch("/{producto_id}", response_model=ProductoResponse)
-def update_product(producto_id: int, payload: ProductoPatch, db: Session = Depends(get_db), context: TenantContext = Depends(require_tenant_admin)):
+def update_product(producto_id: int, payload: ProductoPatch, db: Session = Depends(get_db), context: TenantContext = Depends(require_permission("catalogo.gestionar", mutation=True))):
     product = get_product(db, producto_id, context.empresa_id)
     for name, value in payload.model_dump(exclude_unset=True).items():
         setattr(product, name, value)
@@ -92,6 +92,60 @@ def update_product(producto_id: int, payload: ProductoPatch, db: Session = Depen
 def public_list(q: str | None = Query(default=None, max_length=120), limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0), db: Session = Depends(get_db)):
     return list_products(db, q, True, limit, offset)
 
+
+
+
+@catalog_router.get("/{slug}/disponibilidad", tags=["Disponibilidad pública CU09"])
+def public_availability(slug: str, response: Response, db: Session = Depends(get_db)):
+    """Consulta referencial de existencias físicas, sin prometer stock vendible."""
+    response.headers["Cache-Control"] = "no-store"
+    product = db.scalar(
+        select(Producto).join(Empresa, Empresa.id == Producto.empresa_id)
+        .where(Producto.slug == slug, Producto.activo.is_(True), Empresa.activo.is_(True))
+    )
+    if product is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado.")
+
+    branches = db.scalars(
+        select(Sucursal)
+        .where(Sucursal.empresa_id == product.empresa_id, Sucursal.activo.is_(True))
+        .order_by(Sucursal.id)
+    ).all()
+    variants = db.scalars(
+        select(VarianteProducto)
+        .where(
+            VarianteProducto.empresa_id == product.empresa_id,
+            VarianteProducto.producto_id == product.id,
+            VarianteProducto.activo.is_(True),
+        ).order_by(VarianteProducto.id)
+    ).all()
+    quantities = {
+        (row.sucursal_id, row.variante_id): row.cantidad
+        for row in db.scalars(
+            select(Existencia).where(
+                Existencia.empresa_id == product.empresa_id,
+                Existencia.sucursal_id.in_([branch.id for branch in branches]) if branches else False,
+                Existencia.variante_id.in_([variant.id for variant in variants]) if variants else False,
+            )
+        ).all()
+    }
+    return {
+        "producto_id": product.id,
+        "alcance": "STOCK_FISICO_REFERENCIAL",
+        "consultado_en": utc_now().isoformat(),
+        "items": [
+            {
+                "sucursal_id": branch.id,
+                "sucursal": branch.nombre,
+                "variante_id": variant.id,
+                "talla": variant.talla,
+                "color": variant.color,
+                "hay_existencias_fisicas": quantities.get((branch.id, variant.id), 0) > 0,
+                "saldo_registrado": (branch.id, variant.id) in quantities,
+            }
+            for branch in branches for variant in variants
+        ],
+    }
 
 @catalog_router.get("/{slug}", response_model=ProductoResponse)
 def public_detail(slug: str, db: Session = Depends(get_db)):

@@ -117,4 +117,35 @@ describe('Contexto empresarial validado por servidor', () => {
     expect(service.canManage()).toBe(false);
     expect(sessionStorage.getItem(COMPANY_KEY)).toBeNull();
   });
+
+  it('usa permisos explícitos para roles personalizados y no concede permisos por el nombre legado', () => {
+    service.ensureForUser(10).subscribe();
+    http.expectOne('/api/empresas').flush([{ ...A, rol: 'OPERADOR', rol_id: 90, rol_nombre: 'Catálogo local', rol_sistema: null, permisos: ['catalogo.consultar', 'catalogo.gestionar', 'usuarios.consultar'] }]);
+    expect(service.canManage()).toBe(true); expect(service.canViewProducts()).toBe(true); expect(service.canViewUsers()).toBe(true); expect(service.canCreateUsers()).toBe(false); expect(service.canManageRoles()).toBe(false);
+    service.refreshAccess().subscribe();
+    const request = http.expectOne('/api/admin/acceso'); expect(request.request.headers.get('X-Empresa-Id')).toBe('1');
+    request.flush({ empresa_id: 1, usuario_id: 10, nombre: 'Local', rol_id: 90, rol_nombre: 'Sin permisos', rol_sistema: null, permisos: [] });
+    expect(service.canManage()).toBe(false); expect(service.canViewProducts()).toBe(false); expect(service.canViewUsers()).toBe(false);
+  });
+
+  it('conserva la navegación previa para encargado y cajero aunque consulten catálogo en API', () => {
+    service.ensureForUser(10).subscribe();
+    http.expectOne('/api/empresas').flush([{ ...A, rol: 'ENCARGADO_SUCURSAL', permisos: ['catalogo.consultar'] }]);
+    expect(service.canViewProducts()).toBe(false); expect(service.canManage()).toBe(false);
+  });
+
+  it('cancela una revalidación de acceso al cambiar de empresa', () => {
+    service.ensureForUser(10).subscribe(); http.expectOne('/api/empresas').flush([A, B]); service.select(1);
+    const result = vi.fn(); service.refreshAccess().subscribe(result); const pending = http.expectOne('/api/admin/acceso'); service.select(2);
+    expect(pending.cancelled).toBe(true); expect(result).not.toHaveBeenCalled(); expect(service.active()?.id).toBe(2);
+  });
+
+  it('retira permisos cacheados si la revalidación ya no autoriza la pertenencia', () => {
+    service.ensureForUser(10).subscribe(); http.expectOne('/api/empresas').flush([A]);
+    expect(service.canManage()).toBe(true);
+    let status = 0; service.refreshAccess().subscribe({ error: (error: HttpErrorResponse) => status = error.status });
+    http.expectOne('/api/admin/acceso').flush({ detail: 'Acceso revocado' }, { status: 403, statusText: 'Forbidden' });
+    expect(status).toBe(403); expect(service.active()?.id).toBe(1); expect(service.active()?.permisos).toEqual([]);
+    expect(service.canManage()).toBe(false); expect(service.canViewProducts()).toBe(false); expect(service.canViewUsers()).toBe(false);
+  });
 });

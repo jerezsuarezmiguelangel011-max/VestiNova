@@ -11,7 +11,9 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models import AccesoSucursal, Administrador, Empresa, MembresiaEmpresa, Sucursal
 from app.security import require_administrator
-from app.tenancy import TenantContext, authorized_branches_statement, require_superadministrator, require_tenant, require_tenant_admin
+from app.permissions import effective_role, ensure_company_roles
+from app.staff import check_assignable_role, check_target_authority, get_member, protect_last_administrator, replace_branches, validate_branches
+from app.tenancy import TenantContext, authorized_branches_statement, require_permission, require_superadministrator, require_tenant
 
 
 router = APIRouter(tags=["Empresas y sucursales"])
@@ -45,6 +47,10 @@ class EmpresaResponse(BaseModel):
 
 class EmpresaAccesoResponse(EmpresaResponse):
     rol: Literal["ADMINISTRADOR", "OPERADOR", "ENCARGADO_SUCURSAL", "CAJERO"]
+    rol_id: int | None = None
+    rol_nombre: str = ""
+    rol_sistema: str | None = None
+    permisos: list[str] = Field(default_factory=list)
 
 
 class SucursalCreate(Input):
@@ -118,10 +124,20 @@ def commit_organization(db: Session, message: str):
 
 @router.get("/api/empresas", response_model=list[EmpresaAccesoResponse])
 def my_companies(usuario: Administrador = Depends(require_administrator), db: Session = Depends(get_db)):
-    rows = db.execute(select(Empresa, MembresiaEmpresa.rol).join(MembresiaEmpresa, Empresa.id == MembresiaEmpresa.empresa_id).where(
+    rows = db.execute(select(Empresa, MembresiaEmpresa).join(MembresiaEmpresa, Empresa.id == MembresiaEmpresa.empresa_id).where(
         MembresiaEmpresa.administrador_id == usuario.id, MembresiaEmpresa.activo.is_(True), Empresa.activo.is_(True)
     ).order_by(Empresa.id)).all()
-    return [{**EmpresaResponse.model_validate(company).model_dump(), "rol": role} for company, role in rows]
+    result = []
+    for company, member in rows:
+        access = effective_role(db, member)
+        if access is not None:
+            result.append(company_access(company, member, access))
+    return result
+
+
+def company_access(company, member, access):
+    return {**EmpresaResponse.model_validate(company).model_dump(), "rol": member.rol, "rol_id": access.id,
+            "rol_nombre": access.nombre, "rol_sistema": access.codigo_sistema, "permisos": sorted(access.permisos)}
 
 
 @router.post("/api/plataforma/empresas", response_model=EmpresaResponse, status_code=201)
@@ -133,7 +149,9 @@ def create_company(payload: EmpresaCreate, _: Administrador = Depends(require_su
     db.add(company)
     try:
         db.flush()
-        db.add(MembresiaEmpresa(administrador_id=owner.id, empresa_id=company.id, rol="ADMINISTRADOR", activo=True))
+        roles = ensure_company_roles(db, company.id)
+        db.add(MembresiaEmpresa(administrador_id=owner.id, empresa_id=company.id, nombre=owner.nombre,
+                               rol="ADMINISTRADOR", rol_empresa_id=roles["ADMINISTRADOR"].id, activo=True))
         db.commit()
     except IntegrityError:
         db.rollback()
@@ -157,19 +175,19 @@ def current_company(context: TenantContext = Depends(require_tenant)):
 
 
 @router.patch("/api/admin/empresa", response_model=EmpresaResponse)
-def update_current_company(payload: EmpresaPatch, context: TenantContext = Depends(require_tenant_admin), db: Session = Depends(get_db)):
+def update_current_company(payload: EmpresaPatch, context: TenantContext = Depends(require_permission("empresa.editar", mutation=True)), db: Session = Depends(get_db)):
     context.empresa.nombre = payload.nombre
     db.commit()
     return context.empresa
 
 
 @router.get("/api/admin/sucursales", response_model=list[SucursalResponse])
-def my_branches(context: TenantContext = Depends(require_tenant), db: Session = Depends(get_db)):
+def my_branches(context: TenantContext = Depends(require_permission("sucursales.consultar")), db: Session = Depends(get_db)):
     return db.scalars(authorized_branches_statement(context).order_by(Sucursal.id)).all()
 
 
 @router.post("/api/admin/sucursales", response_model=SucursalResponse, status_code=201)
-def create_branch(payload: SucursalCreate, context: TenantContext = Depends(require_tenant_admin), db: Session = Depends(get_db)):
+def create_branch(payload: SucursalCreate, context: TenantContext = Depends(require_permission("sucursales.gestionar", mutation=True)), db: Session = Depends(get_db)):
     branch = Sucursal(empresa_id=context.empresa_id, codigo=payload.codigo, nombre=payload.nombre, activo=True)
     db.add(branch)
     commit_organization(db, "Ya existe una sucursal con ese código en la empresa.")
@@ -177,7 +195,7 @@ def create_branch(payload: SucursalCreate, context: TenantContext = Depends(requ
 
 
 @router.patch("/api/admin/sucursales/{sucursal_id}", response_model=SucursalResponse)
-def update_branch(sucursal_id: int, payload: SucursalPatch, context: TenantContext = Depends(require_tenant_admin), db: Session = Depends(get_db)):
+def update_branch(sucursal_id: int, payload: SucursalPatch, context: TenantContext = Depends(require_permission("sucursales.gestionar", mutation=True)), db: Session = Depends(get_db)):
     # Incluye inactivas para permitir una reactivación explícita; nunca otras empresas.
     branch = db.scalar(select(Sucursal).where(Sucursal.id == sucursal_id, Sucursal.empresa_id == context.empresa_id))
     if branch is None:
@@ -196,42 +214,25 @@ def membership_response(db: Session, membership: MembresiaEmpresa):
 
 
 @router.get("/api/admin/pertenencias", response_model=list[PertenenciaResponse])
-def list_memberships(context: TenantContext = Depends(require_tenant_admin), db: Session = Depends(get_db)):
+def list_memberships(context: TenantContext = Depends(require_permission("usuarios.consultar")), db: Session = Depends(get_db)):
     memberships = db.scalars(select(MembresiaEmpresa).where(MembresiaEmpresa.empresa_id == context.empresa_id).order_by(MembresiaEmpresa.administrador_id)).all()
     return [membership_response(db, membership) for membership in memberships]
 
 
 @router.post("/api/admin/pertenencias", response_model=PertenenciaResponse)
-def assign_membership(payload: PertenenciaCreate, context: TenantContext = Depends(require_tenant_admin), db: Session = Depends(get_db)):
-    # Serializa cambios de administradores para no retirar simultáneamente al último.
-    db.scalar(select(Empresa).where(Empresa.id == context.empresa_id).with_for_update())
-    # Vuelve a comprobar el permiso tras obtener el bloqueo (otra solicitud pudo revocarlo).
-    current = db.get(MembresiaEmpresa, (context.usuario.id, context.empresa_id), populate_existing=True)
-    if current is None or not current.activo or current.rol != "ADMINISTRADOR":
-        raise HTTPException(403, "Se requiere administración activa de la empresa.")
-    user = db.get(Administrador, payload.administrador_id)
-    if user is None:
-        raise HTTPException(422, "La cuenta indicada no está disponible.")
-    if payload.sucursal_ids:
-        branch_ids = set(db.scalars(select(Sucursal.id).where(Sucursal.empresa_id == context.empresa_id, Sucursal.activo.is_(True), Sucursal.id.in_(payload.sucursal_ids))).all())
-        if branch_ids != set(payload.sucursal_ids):
-            raise HTTPException(404, "Una sucursal no está disponible en esta empresa.")
-    membership = db.get(MembresiaEmpresa, (user.id, context.empresa_id), populate_existing=True)
-    if membership is not None and membership.activo and membership.rol == "ADMINISTRADOR" and (not payload.activo or payload.rol != "ADMINISTRADOR"):
-        other_admins = db.scalar(select(func.count()).select_from(MembresiaEmpresa).join(Administrador, Administrador.id == MembresiaEmpresa.administrador_id).where(
-            MembresiaEmpresa.empresa_id == context.empresa_id, MembresiaEmpresa.administrador_id != user.id,
-            MembresiaEmpresa.activo.is_(True), MembresiaEmpresa.rol == "ADMINISTRADOR", Administrador.activo.is_(True)
-        ))
-        if not other_admins:
-            raise HTTPException(409, "La empresa debe conservar al menos un administrador activo.")
-    if membership is None:
-        membership = MembresiaEmpresa(administrador_id=user.id, empresa_id=context.empresa_id)
-        db.add(membership)
+def assign_membership(payload: PertenenciaCreate, context: TenantContext = Depends(require_permission("usuarios.editar", mutation=True)), db: Session = Depends(get_db)):
+    # Compatibilidad de URI y cuerpo: solo actualiza miembros existentes. Nunca
+    # vincula identidades globales ajenas por un ID adivinado desde una empresa.
+    membership, _ = get_member(db, context.empresa_id, payload.administrador_id)
+    check_target_authority(db, context, membership)
+    role = ensure_company_roles(db, context.empresa_id)[payload.rol]
+    check_assignable_role(db, context, role)
+    validate_branches(db, context, payload.sucursal_ids, role.codigo_sistema)
+    protect_last_administrator(db, membership, active=payload.activo, system_role=role.codigo_sistema)
     membership.rol = payload.rol
+    membership.rol_empresa_id = role.id
     membership.activo = payload.activo
     db.flush()
-    db.execute(delete(AccesoSucursal).where(AccesoSucursal.empresa_id == context.empresa_id, AccesoSucursal.administrador_id == user.id))
-    for branch_id in payload.sucursal_ids:
-        db.add(AccesoSucursal(administrador_id=user.id, empresa_id=context.empresa_id, sucursal_id=branch_id))
+    replace_branches(db, membership, payload.sucursal_ids)
     commit_organization(db, "No se pudo actualizar la pertenencia y sus sucursales.")
     return membership_response(db, membership)

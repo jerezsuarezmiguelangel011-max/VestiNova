@@ -14,9 +14,10 @@ from app.config import Settings, get_settings
 from app.db import build_engine, build_session_factory, get_db
 from app.products import admin_router, catalog_router
 from app.organizations import router as organizations_router
-from app.inventory import router as inventory_router
+from app.inventory_api import router as inventory_router
 from app.mobile_download import router as mobile_router
-
+from app.purchases.router import router as purchases_router
+from app.staff import router as staff_router
 
 def create_app(settings: Settings | None = None, *, engine=None) -> FastAPI:
     settings = settings or get_settings()
@@ -61,6 +62,8 @@ def create_app(settings: Settings | None = None, *, engine=None) -> FastAPI:
     app.include_router(organizations_router)
     app.include_router(inventory_router)
     app.include_router(mobile_router)
+    app.include_router(purchases_router)
+    app.include_router(staff_router)
     return app
 
 

@@ -9,6 +9,15 @@ export interface Company {
   slug: string;
   activo: boolean;
   rol: 'ADMINISTRADOR' | 'ENCARGADO_SUCURSAL' | 'CAJERO' | 'OPERADOR';
+  rol_id?: number | null;
+  rol_nombre?: string;
+  rol_sistema?: string | null;
+  permisos?: string[];
+}
+
+export interface CompanyAccess {
+  empresa_id: number; usuario_id: number; nombre: string; rol_id: number | null;
+  rol_nombre: string; rol_sistema: string | null; permisos: string[];
 }
 
 export const COMPANY_KEY = 'vestinova_mvp_empresa';
@@ -23,8 +32,13 @@ export class CompanyService {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly revision = signal(0);
-  readonly canManage = computed(() => this.active()?.rol === 'ADMINISTRADOR');
-  readonly canViewProducts = computed(() => ['ADMINISTRADOR', 'OPERADOR'].includes(this.active()?.rol ?? ''));
+  readonly canManage = computed(() => this.hasPermission('catalogo.consultar') && this.hasPermission('catalogo.gestionar'));
+  readonly canViewProducts = computed(() => ['ADMINISTRADOR', 'OPERADOR'].includes(this.active()?.rol ?? '') && this.hasPermission('catalogo.consultar'));
+  readonly canViewUsers = computed(() => this.hasPermission('usuarios.consultar'));
+  readonly canCreateUsers = computed(() => this.hasPermissions(['usuarios.consultar', 'usuarios.crear', 'roles.consultar', 'sucursales.consultar']));
+  readonly canEditUsers = computed(() => this.hasPermissions(['usuarios.consultar', 'usuarios.editar', 'roles.consultar', 'sucursales.consultar']));
+  readonly canViewRoles = computed(() => this.hasPermission('roles.consultar'));
+  readonly canManageRoles = computed(() => this.hasPermissions(['roles.consultar', 'roles.gestionar']));
   private readonly changed = new Subject<number>();
   readonly changes$ = this.changed.asObservable();
   private userId: number | null = null;
@@ -124,6 +138,33 @@ export class CompanyService {
     });
   }
 
+  hasPermissions(codes: string[]): boolean { return codes.every(code => this.hasPermission(code)); }
+
+  hasPermission(code: string): boolean {
+    const company = this.active();
+    if (!company) return false;
+    if (company.permisos !== undefined) return company.permisos.includes(code);
+    // Compatibility for controlled fixtures from the earlier company contract.
+    return company.rol === 'ADMINISTRADOR' || (code === 'catalogo.consultar' && company.rol === 'OPERADOR');
+  }
+
+  refreshAccess(): Observable<CompanyAccess> {
+    return this.scoped(company => this.http.get<CompanyAccess>('/api/admin/acceso', { headers: { 'X-Empresa-Id': String(company.id) } }).pipe(map(access => {
+      if (access.empresa_id !== company.id || access.usuario_id !== this.userId || typeof access.nombre !== 'string' || typeof access.rol_nombre !== 'string' || !Array.isArray(access.permisos) || !access.permisos.every(code => typeof code === 'string')) throw new Error('Acceso no compatible.');
+      const updated = { ...company, rol_id: access.rol_id, rol_nombre: access.rol_nombre, rol_sistema: access.rol_sistema, permisos: access.permisos };
+      this.selected.set(updated);
+      this.companies.update(items => items.map(item => item.id === updated.id ? updated : item));
+      return access;
+    }), catchError(error => {
+      if (error instanceof HttpErrorResponse && error.status === 403 && this.active()?.id === company.id) {
+        const denied = { ...this.active()!, permisos: [] };
+        this.selected.set(denied);
+        this.companies.update(items => items.map(item => item.id === denied.id ? denied : item));
+      }
+      return throwError(() => error);
+    })));
+  }
+
   private change(company: Company | null): void {
     this.selected.set(company);
     const revision = this.revision() + 1;
@@ -134,7 +175,7 @@ export class CompanyService {
   private validCompany(value: unknown): value is Company {
     if (!value || typeof value !== 'object') return false;
     const item = value as Company;
-    return Number.isSafeInteger(item.id) && item.id > 0 && typeof item.nombre === 'string' && typeof item.slug === 'string' && item.activo === true && ['ADMINISTRADOR', 'ENCARGADO_SUCURSAL', 'CAJERO', 'OPERADOR'].includes(item.rol);
+    return Number.isSafeInteger(item.id) && item.id > 0 && typeof item.nombre === 'string' && typeof item.slug === 'string' && item.activo === true && ['ADMINISTRADOR', 'ENCARGADO_SUCURSAL', 'CAJERO', 'OPERADOR'].includes(item.rol) && (item.permisos === undefined || (Array.isArray(item.permisos) && item.permisos.every(code => typeof code === 'string')));
   }
 
   private remembered(): { usuario_id: number; empresa_id: number } | null {

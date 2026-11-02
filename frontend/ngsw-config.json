@@ -1,0 +1,31 @@
+{
+  "$schema": "./node_modules/@angular/service-worker/config/schema.json",
+  "index": "/index.html",
+  "assetGroups": [
+    {
+      "name": "vestinova-shell",
+      "installMode": "prefetch",
+      "updateMode": "prefetch",
+      "resources": {
+        "files": [
+          "/index.html",
+          "/manifest.webmanifest",
+          "/**/*.js$",
+          "/**/*.css$",
+          "/icons/**"
+        ]
+      }
+    }
+  ],
+  "navigationUrls": [
+    "/catalogo",
+    "/catalogo/**",
+    "!/api",
+    "!/api/**",
+    "!/admin",
+    "!/admin/**",
+    "!/**/*.*",
+    "!/**/*__*",
+    "!/**/*__*/**"
+  ]
+}

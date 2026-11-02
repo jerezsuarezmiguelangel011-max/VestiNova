@@ -9,6 +9,7 @@ from app.config import Settings
 from app.db import build_engine, build_session_factory
 from app.models import AccesoSucursal, Administrador, Empresa, MembresiaEmpresa, Sucursal
 from app.password_policy import PASSWORD_POLICY_MESSAGE, validate_new_password
+from app.permissions import ensure_company_roles
 from app.schemas import normalizar_correo
 from app.security import hash_password, verify_password
 
@@ -58,7 +59,9 @@ def main(argv: list[str] | tuple[str, ...] = ()) -> None:
             administrator = Administrador(nombre=nombre, correo=correo, password_hash=encoded, activo=True, es_superadministrador=first_account or args.superadministrador)
             db.add(administrator)
             db.flush()
-            db.add(MembresiaEmpresa(administrador_id=administrator.id, empresa_id=company.id, rol=args.rol, activo=True))
+            roles = ensure_company_roles(db, company.id)
+            db.add(MembresiaEmpresa(administrador_id=administrator.id, empresa_id=company.id, nombre=nombre,
+                                   rol=args.rol, rol_empresa_id=roles[args.rol].id, activo=True))
             db.flush()
             for branch_id in args.sucursal_id:
                 db.add(AccesoSucursal(administrador_id=administrator.id, empresa_id=company.id, sucursal_id=branch_id))

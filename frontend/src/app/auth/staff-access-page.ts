@@ -20,7 +20,7 @@ interface StaffContext {
       @else if (error(); as message) { <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p><button type="button" class="vn-button" (click)="load()">Reintentar</button> }
       @else if (context(); as access) {
         <div class="vn-card account-details"><h2>{{ access.empresa.nombre }}</h2><p><strong>{{ auth.user()?.nombre }}</strong><br>{{ auth.user()?.correo }}</p>
-          <p>Rol: <strong>{{ roleLabel(access.empresa.rol) }}</strong></p>
+          <p>Rol: <strong>{{ access.empresa.rol_nombre ?? roleLabel(access.empresa.rol) }}</strong></p>
           <h3>Sucursales autorizadas</h3>
           @if (access.sucursales.length) { <ul>@for (branch of access.sucursales; track branch.id) { <li><strong>{{ branch.nombre }}</strong> · {{ branch.codigo }}</li> }</ul> }
           @else { <p>No tienes sucursales activas asignadas. Solicita a la administración que revise tu acceso.</p> }

@@ -1,7 +1,8 @@
 """Solo para scripts.test_postgres y su instancia temporal, jamás para la base operativa."""
 import os
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 import socket
 from threading import Barrier, Thread
 from time import monotonic, sleep
@@ -23,7 +24,12 @@ from app.db import Base, build_session_factory
 from app.main import create_app
 from app.mobile_download import download_db
 from app.models import AccesoSucursal, Administrador, Cliente, Empresa, Existencia, MembresiaEmpresa, MovimientoInventario, Producto, SesionAdministrador, SesionCliente, Sucursal, VarianteProducto, utc_now
+from app.inventory.domain import InventoryKey
+from app.purchases.domain import Purchase, PurchaseCommand, PurchaseContext, PurchaseItem, PurchaseLine, identifier_token
+from app.purchases.persistence import PurchaseLineRecord, PurchaseRecord, add_purchase, find_purchase
 from app.security import hash_password
+from app.permissions import PERMISSION_CODES, ensure_company_roles
+from app.models import PermisoRol, RolEmpresa
 
 
 LEGACY = {}
@@ -95,7 +101,7 @@ def test_alembic_initialization_is_complete_and_repeatable(engine):
     with engine.begin() as connection:
         config.attributes["connection"] = connection
         command.upgrade(config, "head")
-        assert MigrationContext.configure(connection).get_current_revision() == "0003_cuentas_clientes"
+        assert MigrationContext.configure(connection).get_current_revision() == "483ae36e6bae"
 
 
 def test_upgrade_preserves_accounts_hashes_products_and_live_sessions(factory):
@@ -112,6 +118,11 @@ def test_upgrade_preserves_accounts_hashes_products_and_live_sessions(factory):
         assert company.slug == "vestinova-inicial"
         membership = db.get(MembresiaEmpresa, (administrator.id, company.id))
         assert membership.rol == "ADMINISTRADOR" and membership.activo is True
+        assert membership.nombre == administrator.nombre
+        role = db.get(RolEmpresa, membership.rol_empresa_id)
+        assert role.empresa_id == company.id and role.codigo_sistema == "ADMINISTRADOR" and role.activo
+        assert set(db.scalars(select(PermisoRol.codigo).where(PermisoRol.rol_empresa_id == role.id)).all()) == PERMISSION_CODES
+        assert db.scalar(select(func.count()).select_from(RolEmpresa).where(RolEmpresa.empresa_id == company.id)) == 4
         assert db.scalar(select(VarianteProducto.id).where(VarianteProducto.producto_id == product.id)) is None
         assert db.scalar(select(func.count()).select_from(Existencia)) == 0
 
@@ -473,3 +484,204 @@ def test_cu01_http_real_staff_roles_and_customer_two_stores(engine, factory):
         thread.join(timeout=10)
         listener.close()
         assert not thread.is_alive(), "Revisa la parada del servidor HTTP aislado."
+
+
+def postgres_purchase():
+    identifier = uuid4()
+    context = PurchaseContext("actor-pg", f"empresa-{uuid4().hex}", "cliente-pg", "sucursal-pg")
+    item = PurchaseItem(7, 2147483647)
+    line = PurchaseLine(
+        InventoryKey(context.empresa_id, context.sucursal_id, "variante-pg"),
+        item.producto_id, "Snapshot de precio PostgreSQL", item.cantidad, Decimal("99999999.99"),
+    )
+    return Purchase(identifier, context, PurchaseCommand(identifier, (item,)).fingerprint, (line,), datetime.now(timezone.utc))
+
+
+def test_purchase_snapshot_precision_and_context_persist_across_postgres_sessions(factory):
+    original = postgres_purchase()
+    with factory() as session:
+        add_purchase(session, original)
+        session.commit()
+    with factory() as session:
+        restored = find_purchase(session, original.context, original.id)
+        assert restored == original
+        assert restored.total == original.lines[0].precio_unitario * original.lines[0].cantidad
+        assert session.get(PurchaseRecord, str(original.id)).total == original.total
+
+
+def test_purchase_composite_foreign_key_and_rollback_are_enforced_in_postgres(factory):
+    original = postgres_purchase()
+    with factory() as session:
+        add_purchase(session, original)
+        session.commit()
+    with factory() as session:
+        session.add(PurchaseLineRecord(
+            compra_id=str(original.id), posicion=1, empresa_clave=identifier_token("otra-empresa"),
+            producto_id=9, variante_ref="otra-variante", nombre="Referencia cruzada", cantidad=1,
+            precio_unitario=Decimal("10.00"),
+        ))
+        with pytest.raises(IntegrityError):
+            session.flush()
+        session.rollback()
+    with factory() as session:
+        assert find_purchase(session, original.context, original.id) == original
+
+
+def test_purchase_rollback_does_not_persist_uncommitted_header_or_lines_in_postgres(factory):
+    original = postgres_purchase()
+    with factory() as session:
+        add_purchase(session, original)
+        session.flush()
+        session.rollback()
+    with factory() as session:
+        assert find_purchase(session, original.context, original.id) is None
+        assert session.scalar(select(PurchaseLineRecord).where(PurchaseLineRecord.compra_id == str(original.id))) is None
+
+
+def prepare_cu02(client, factory):
+    headers = administrator_credentials(client, factory)
+    company_id = client.get("/api/empresas", headers=headers).json()[0]["id"]
+    owner_id = client.get("/api/auth/me", headers=headers).json()["id"]
+    with factory() as db:
+        roles = ensure_company_roles(db, company_id)
+        member = db.get(MembresiaEmpresa, (owner_id, company_id))
+        member.rol_empresa_id = roles["ADMINISTRADOR"].id
+        member.nombre = "Nombre local inicial"
+        role_ids = {code: role.id for code, role in roles.items()}
+        db.commit()
+    return headers, company_id, owner_id, role_ids
+
+
+def register_cu02(client, headers, role_id, *, name="Personal PostgreSQL", email=None):
+    response = client.post("/api/admin/usuarios", headers=headers, json={"nombre": name,
+        "correo": email or f"personal-{uuid4().hex}@vestinova.test", "password": PG_PASSWORD,
+        "rol_id": role_id, "sucursal_ids": []})
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+@pytest.mark.parametrize("change", ["state", "role"])
+def test_cu02_concurrent_administrators_cannot_remove_the_last_one(engine, client, factory, change):
+    first_headers, company_id, first_id, roles = prepare_cu02(client, factory)
+    second = register_cu02(client, first_headers, roles["ADMINISTRADOR"])
+    signed_in = client.post("/api/auth/login", json={"correo": second["correo"], "password": PG_PASSWORD})
+    second_headers = {"Authorization": f"Bearer {signed_in.json()['access_token']}"}
+    barrier = Barrier(2)
+    settings = Settings(database_url=os.environ["DATABASE_URL"], jwt_secret=os.environ["JWT_SECRET"])
+    def remove(item):
+        headers, identifier = item
+        payload = {"activo": False} if change == "state" else {"rol_id": roles["CAJERO"], "sucursal_ids": []}
+        with TestClient(create_app(settings, engine=engine)) as independent:
+            barrier.wait(timeout=15)
+            return independent.patch(f"/api/admin/usuarios/{identifier}", headers=headers, json=payload).status_code
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        assert sorted(executor.map(remove, [(first_headers, first_id), (second_headers, second["id"])])) == [200, 409]
+    with factory() as db:
+        survivors = db.scalar(select(func.count()).select_from(MembresiaEmpresa).where(
+            MembresiaEmpresa.empresa_id == company_id, MembresiaEmpresa.rol_empresa_id == roles["ADMINISTRADOR"], MembresiaEmpresa.activo.is_(True)))
+        assert survivors == 1
+
+
+def test_cu02_cross_tenant_role_foreign_key_and_global_identity_are_protected(client, factory):
+    headers, company_id, _, roles = prepare_cu02(client, factory)
+    other_headers, other_company, _, other_roles = prepare_cu02(client, factory)
+    created = register_cu02(client, headers, roles["CAJERO"])
+    with factory() as db:
+        user = db.get(Administrador, created["id"])
+        original = (user.nombre, user.correo, user.password_hash, user.activo, user.es_superadministrador)
+        db.add(MembresiaEmpresa(administrador_id=user.id, empresa_id=other_company, rol="CAJERO",
+                               rol_empresa_id=other_roles["CAJERO"], nombre="Nombre local B", activo=True))
+        db.commit()
+    assert client.patch(f"/api/admin/usuarios/{created['id']}", headers=headers, json={"nombre": "Nombre local A", "activo": False}).status_code == 200
+    with factory() as db:
+        user = db.get(Administrador, created["id"])
+        assert (user.nombre, user.correo, user.password_hash, user.activo, user.es_superadministrador) == original
+        assert db.get(MembresiaEmpresa, (user.id, other_company)).activo is True
+        member = db.get(MembresiaEmpresa, (user.id, company_id))
+        member.rol_empresa_id = other_roles["CAJERO"]
+        with pytest.raises(IntegrityError):
+            db.flush()
+        db.rollback()
+    assert client.get(f"/api/admin/usuarios/{created['id']}", headers=other_headers).json()["nombre"] == "Nombre local B"
+
+
+def test_cu02_permission_is_rechecked_after_waiting_for_company_lock(engine, client, factory):
+    from threading import Event, current_thread, main_thread
+    from sqlalchemy import event
+    headers, company_id, _, _ = prepare_cu02(client, factory)
+    custom = client.post("/api/admin/roles", headers=headers, json={"nombre": "Editor concurrente", "permisos": ["catalogo.consultar", "catalogo.gestionar"]}).json()
+    created = register_cu02(client, headers, custom["id"])
+    signed_in = client.post("/api/auth/login", json={"correo": created["correo"], "password": PG_PASSWORD})
+    staff_headers = {"Authorization": f"Bearer {signed_in.json()['access_token']}"}
+    waiting = Event()
+    def before_execute(_connection, _cursor, statement, _parameters, _context, _many):
+        if current_thread() is not main_thread() and statement.lstrip().upper().startswith("UPDATE EMPRESAS"):
+            waiting.set()
+    event.listen(engine, "before_cursor_execute", before_execute)
+    settings = Settings(database_url=os.environ["DATABASE_URL"], jwt_secret=os.environ["JWT_SECRET"])
+    slug = f"revoked-{uuid4().hex}"
+    try:
+        with factory() as locker, ThreadPoolExecutor(max_workers=1) as executor:
+            locker.scalar(select(Empresa).where(Empresa.id == company_id).with_for_update())
+            def write_product():
+                with TestClient(create_app(settings, engine=engine)) as independent:
+                    return independent.post("/api/admin/productos", headers=staff_headers, json={"nombre": "No debe persistir", "slug": slug, "precio": "12.00"}).status_code
+            future = executor.submit(write_product)
+            assert waiting.wait(timeout=10), "La solicitud no alcanzó el bloqueo empresarial."
+            locker.execute(text("DELETE FROM permisos_rol WHERE rol_empresa_id=:role AND codigo='catalogo.gestionar'"), {"role": custom["id"]})
+            locker.commit()
+            assert future.result(timeout=15) == 403
+    finally:
+        event.remove(engine, "before_cursor_execute", before_execute)
+    with factory() as db:
+        assert db.scalar(select(Producto.id).where(Producto.slug == slug)) is None
+
+
+def test_cu02_real_http_custom_roles_revocation_and_tenant_isolation(engine, client, factory):
+    import uvicorn
+    headers, company_id, _, roles = prepare_cu02(client, factory)
+    other_headers, _, other_id, _ = prepare_cu02(client, factory)
+    settings = Settings(database_url=os.environ["DATABASE_URL"], jwt_secret=os.environ["JWT_SECRET"])
+    server = uvicorn.Server(uvicorn.Config(create_app(settings, engine=engine), log_level="error", access_log=False))
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(128)
+    thread = Thread(target=server.run, kwargs={"sockets": [listener]}, daemon=True)
+    thread.start()
+    try:
+        deadline = monotonic() + 10
+        while not server.started and thread.is_alive() and monotonic() < deadline:
+            sleep(.01)
+        assert server.started
+        with httpx.Client(base_url=f"http://127.0.0.1:{listener.getsockname()[1]}", timeout=10) as http:
+            assert http.get("/api/admin/usuarios").status_code == 401
+            custom = http.post("/api/admin/roles", headers=headers, json={"nombre": "Consulta HTTP", "descripcion": "Perfil real", "permisos": ["catalogo.consultar"]})
+            assert custom.status_code == 201
+            person = register_cu02(http, headers, custom.json()["id"])
+            signed_in = http.post("/api/auth/login", json={"correo": person["correo"], "password": PG_PASSWORD})
+            staff_headers = {"Authorization": f"Bearer {signed_in.json()['access_token']}", "X-Empresa-Id": str(company_id)}
+            assert http.get("/api/admin/productos", headers=staff_headers).status_code == 200
+            assert http.get("/api/admin/usuarios", headers=staff_headers).status_code == 403
+            assert http.get(f"/api/admin/usuarios/{other_id}", headers=headers).status_code == 404
+            assert http.patch(f"/api/admin/roles/{custom.json()['id']}", headers=other_headers, json={"activo": False}).status_code == 404
+            assert http.patch(f"/api/admin/roles/{custom.json()['id']}", headers=headers, json={"permisos": []}).status_code == 200
+            assert http.get("/api/admin/productos", headers=staff_headers).status_code == 403
+            assert http.get("/api/auth/me", headers=staff_headers).status_code == 200
+            assert http.patch(f"/api/admin/roles/{roles['ADMINISTRADOR']}", headers=headers, json={"activo": False}).status_code == 409
+            assert http.get("/api/admin/usuarios", headers=headers).json()["total"] == 2
+    finally:
+        server.should_exit = True
+        thread.join(timeout=10)
+        listener.close()
+        assert not thread.is_alive()
+
+
+def test_cu02_unicode_role_key_can_expand_without_truncating_valid_names(client, factory):
+    headers, _, _, _ = prepare_cu02(client, factory)
+    name = "\u0390" * 120
+    assert len(name) == 120 and len(name.casefold()) == 360
+    created = client.post("/api/admin/roles", headers=headers, json={"nombre": name, "permisos": []})
+    assert created.status_code == 201
+    assert created.json()["nombre"] == name
+    duplicate = client.post("/api/admin/roles", headers=headers, json={"nombre": name, "permisos": []})
+    assert duplicate.status_code == 409

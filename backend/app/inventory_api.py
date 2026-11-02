@@ -13,7 +13,7 @@ from app.inventory_schemas import (
 )
 from app.models import Existencia, MovimientoInventario, Producto, VarianteProducto, utc_now
 from app.products import get_product
-from app.tenancy import TenantContext, authorized_branch, require_tenant, require_tenant_admin
+from app.tenancy import TenantContext, authorized_branch, require_permission
 
 
 router = APIRouter(prefix="/api/admin", tags=["Variantes e inventario"])
@@ -27,13 +27,13 @@ def get_variant(db: Session, context: TenantContext, variant_id: int) -> Variant
 
 
 @router.get("/productos/{producto_id}/variantes", response_model=list[VarianteResponse])
-def list_variants(producto_id: int, context: TenantContext = Depends(require_tenant), db: Session = Depends(get_db)):
+def list_variants(producto_id: int, context: TenantContext = Depends(require_permission("catalogo.consultar")), db: Session = Depends(get_db)):
     get_product(db, producto_id, context.empresa_id)
     return db.scalars(select(VarianteProducto).where(VarianteProducto.empresa_id == context.empresa_id, VarianteProducto.producto_id == producto_id).order_by(VarianteProducto.id)).all()
 
 
 @router.post("/productos/{producto_id}/variantes", response_model=VarianteResponse, status_code=201)
-def create_variant(producto_id: int, payload: VarianteCreate, context: TenantContext = Depends(require_tenant_admin), db: Session = Depends(get_db)):
+def create_variant(producto_id: int, payload: VarianteCreate, context: TenantContext = Depends(require_permission("catalogo.gestionar", mutation=True)), db: Session = Depends(get_db)):
     get_product(db, producto_id, context.empresa_id)
     variant = VarianteProducto(empresa_id=context.empresa_id, producto_id=producto_id, **payload.model_dump())
     db.add(variant)
@@ -46,7 +46,7 @@ def create_variant(producto_id: int, payload: VarianteCreate, context: TenantCon
 
 
 @router.patch("/variantes/{variante_id}", response_model=VarianteResponse)
-def update_variant(variante_id: int, payload: VariantePatch, context: TenantContext = Depends(require_tenant_admin), db: Session = Depends(get_db)):
+def update_variant(variante_id: int, payload: VariantePatch, context: TenantContext = Depends(require_permission("catalogo.gestionar", mutation=True)), db: Session = Depends(get_db)):
     # El bloqueo serializa correcciones de identidad con referencias de inventario.
     # Nunca se cambia el producto ni la empresa propietaria de una variante.
     variant = db.scalar(select(VarianteProducto).where(VarianteProducto.id == variante_id, VarianteProducto.empresa_id == context.empresa_id).with_for_update())
@@ -82,7 +82,7 @@ def replay(db: Session, context: TenantContext, payload: MovimientoCreate) -> Mo
 
 
 @router.post("/inventario/movimientos", response_model=MovimientoResponse, status_code=201)
-def register_movement(payload: MovimientoCreate, response: Response, context: TenantContext = Depends(require_tenant_admin), db: Session = Depends(get_db)):
+def register_movement(payload: MovimientoCreate, response: Response, context: TenantContext = Depends(require_permission("inventario.registrar", mutation=True)), db: Session = Depends(get_db)):
     authorized_branch(db, context, payload.sucursal_id)
     variant = get_variant(db, context, payload.variante_id)
     previous = replay(db, context, payload)
@@ -126,7 +126,7 @@ def register_movement(payload: MovimientoCreate, response: Response, context: Te
 
 
 @router.get("/inventario/existencias", response_model=ListaExistencias)
-def list_balances(sucursal_id: int = Query(gt=0), limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0), context: TenantContext = Depends(require_tenant), db: Session = Depends(get_db)):
+def list_balances(sucursal_id: int = Query(gt=0), limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0), context: TenantContext = Depends(require_permission("inventario.consultar")), db: Session = Depends(get_db)):
     authorized_branch(db, context, sucursal_id)
     filters = (Existencia.empresa_id == context.empresa_id, Existencia.sucursal_id == sucursal_id)
     count = db.scalar(select(func.count()).select_from(Existencia).where(*filters)) or 0
@@ -135,7 +135,7 @@ def list_balances(sucursal_id: int = Query(gt=0), limit: int = Query(default=20,
 
 
 @router.get("/inventario/movimientos", response_model=ListaMovimientos)
-def list_movements(sucursal_id: int = Query(gt=0), variante_id: int | None = Query(default=None, gt=0), limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0), context: TenantContext = Depends(require_tenant), db: Session = Depends(get_db)):
+def list_movements(sucursal_id: int = Query(gt=0), variante_id: int | None = Query(default=None, gt=0), limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0), context: TenantContext = Depends(require_permission("inventario.consultar")), db: Session = Depends(get_db)):
     authorized_branch(db, context, sucursal_id)
     filters = [MovimientoInventario.empresa_id == context.empresa_id, MovimientoInventario.sucursal_id == sucursal_id]
     if variante_id is not None:
