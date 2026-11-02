@@ -1,0 +1,78 @@
+<section class="inventory-page">
+  <div class="inventory-heading">
+    <p class="inventory-eyebrow">Operaciones · CU08</p>
+    <h1>Inventario por sucursal</h1>
+    <p>Consulta las existencias y los movimientos registrados en tu empresa. Cada ajuste es trazable y se valida en el servidor.</p>
+  </div>
+
+  @if (companies.active(); as company) {
+    <section class="inventory-card inventory-filter" aria-label="Seleccionar sucursal">
+      <div><span class="inventory-eyebrow">Empresa autorizada</span><strong>{{ company.nombre }}</strong></div>
+      <label for="inventory-branch">Sucursal</label>
+      <select id="inventory-branch" #branchSelect (change)="chooseBranch(branchSelect.value)" [disabled]="loadingBranches() || saving()">
+        @for (branch of branches(); track branch.id) {
+          <option [value]="branch.id" [selected]="selectedBranch() === branch.id">{{ branch.codigo }} · {{ branch.nombre }}</option>
+        }
+      </select>
+      <button class="inventory-secondary" type="button" (click)="loadBranches()" [disabled]="loadingBranches() || saving()">Actualizar sucursales</button>
+    </section>
+
+    @if (error(); as message) { <p class="inventory-alert inventory-alert--error" role="alert">{{ message }}</p> }
+    @if (success(); as message) { <p class="inventory-alert" role="status">{{ message }}</p> }
+
+    @if (loadingBranches() || loadingInventory()) { <p role="status">Consultando el inventario…</p> }
+    @else if (branches().length === 0) {
+      <div class="inventory-card"><p>No tienes sucursales activas autorizadas. Solicita que se registre una sucursal para empezar.</p></div>
+    } @else {
+      <section class="inventory-card" aria-labelledby="balances-heading">
+        <div class="inventory-card-head">
+          <div><p class="inventory-eyebrow">Consulta de stock</p><h2 id="balances-heading">Existencias por variante</h2></div>
+          <button class="inventory-secondary" type="button" (click)="loadInventory()" [disabled]="loadingInventory()">Actualizar</button>
+        </div>
+        @if (balances().items.length === 0) {
+          <p>No hay existencias registradas en esta sucursal. El saldo se crea al realizar un movimiento válido.</p>
+        } @else {
+          <div class="inventory-scroll"><table>
+            <thead><tr><th>Variante ID</th><th>Cantidad física</th><th>Última actualización</th></tr></thead>
+            <tbody>
+              @for (item of balances().items; track item.variante_id) {
+                <tr><td>{{ item.variante_id }}</td><td>{{ item.cantidad }}</td><td>{{ item.actualizado_en }}</td></tr>
+              }
+            </tbody>
+          </table></div>
+          @if (balances().total > balances().items.length) { <p>Primeras {{ balances().items.length }} de {{ balances().total }} existencias. Se muestran hasta 100 por consulta.</p> }
+        }
+      </section>
+
+      @if (companies.canManage()) {
+        <section class="inventory-card" aria-labelledby="movement-heading">
+          <div class="inventory-card-head"><div><p class="inventory-eyebrow">Movimiento autorizado</p><h2 id="movement-heading">Registrar entrada o salida</h2></div></div>
+          <p>Indica el identificador de una variante existente y activa del catálogo de tu empresa. El servidor evita saldos negativos y movimientos duplicados.</p>
+          <form [formGroup]="movementForm" (ngSubmit)="submit()" class="inventory-form">
+            <label>Variante ID <input type="number" min="1" step="1" formControlName="variante_id" required /></label>
+            <label>Tipo <select formControlName="tipo"><option value="ENTRADA">Entrada</option><option value="SALIDA">Salida</option></select></label>
+            <label>Cantidad <input type="number" min="1" step="1" formControlName="cantidad" required /></label>
+            <label>Motivo <textarea formControlName="motivo" minlength="3" maxlength="300" required placeholder="Ej.: Recepción de mercadería"></textarea></label>
+            <button type="submit" class="inventory-primary" [disabled]="saving() || loadingInventory()">{{ saving() ? 'Registrando…' : 'Registrar movimiento' }}</button>
+          </form>
+        </section>
+      }
+
+      <section class="inventory-card" aria-labelledby="history-heading">
+        <div class="inventory-card-head"><div><p class="inventory-eyebrow">Trazabilidad</p><h2 id="history-heading">Historial de movimientos</h2></div></div>
+        @if (movements().items.length === 0) { <p>Aún no se registraron movimientos en la sucursal.</p> }
+        @else {
+          <div class="inventory-scroll"><table>
+            <thead><tr><th>Fecha</th><th>Variante</th><th>Tipo</th><th>Variación</th><th>Saldo</th><th>Motivo</th></tr></thead>
+            <tbody>
+              @for (item of movements().items; track item.id) {
+                <tr><td>{{ item.creado_en }}</td><td>{{ item.variante_id }}</td><td>{{ item.tipo }}</td><td>{{ item.delta }}</td><td>{{ item.saldo_resultante }}</td><td>{{ item.motivo }}</td></tr>
+              }
+            </tbody>
+          </table></div>
+          @if (movements().total > movements().items.length) { <p>Se muestran los últimos {{ movements().items.length }} de {{ movements().total }} movimientos.</p> }
+        }
+      </section>
+    }
+  }
+</section>

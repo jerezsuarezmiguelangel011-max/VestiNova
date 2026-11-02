@@ -31,6 +31,7 @@ export const routes: Routes = [
       { path: 'empresa', loadComponent: () => import('./company/company-page').then(m => m.CompanyPage) },
       { path: 'plataforma', canActivate: [platformGuard], loadComponent: () => import('./auth/platform-access-page').then(m => m.PlatformAccessPage) },
       { path: 'acceso', canActivate: [companyGuard], loadComponent: () => import('./auth/staff-access-page').then(m => m.StaffAccessPage) },
+      { path: 'inventario', canActivate: [companyGuard], loadComponent: () => import('./inventory/inventory-page').then(m => m.InventoryPage) },
       { path: 'productos', canActivate: [productsGuard], loadComponent: () => import('./products/product-list').then(m => m.ProductListPage) },
       { path: 'productos/nuevo', canActivate: [companyAdminGuard], canDeactivate: [productFormLeaveGuard], loadComponent: () => import('./products/product-form').then(m => m.ProductFormPage) },
       { path: 'productos/:id/variantes', canActivate: [productsGuard], canDeactivate: [variantLeaveGuard], loadComponent: () => import('./products/variant-page').then(m => m.VariantPage) },
