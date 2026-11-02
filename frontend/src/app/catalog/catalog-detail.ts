@@ -3,8 +3,9 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Observable, Subject, catchError, distinctUntilChanged, map, of, startWith, switchMap } from 'rxjs';
+import { Observable, Subject, catchError, distinctUntilChanged, finalize, map, of, startWith, switchMap } from 'rxjs';
 import { CatalogDataService } from './catalog-data.service';
+import { CatalogApiService, type CatalogAvailability } from './catalog-api.service';
 import { CatalogImage } from './catalog-image';
 import { CatalogLocalError, type CatalogProduct, type CatalogResult } from './catalog.models';
 
@@ -16,6 +17,7 @@ import { CatalogLocalError, type CatalogProduct, type CatalogResult } from './ca
 })
 export class CatalogDetailPage {
   private readonly catalog = inject(CatalogDataService);
+  private readonly availabilityApi = inject(CatalogApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly retries = new Subject<void>();
@@ -25,6 +27,10 @@ export class CatalogDetailPage {
   readonly product = signal<CatalogProduct | null>(null);
   readonly source = signal<'network' | 'local' | null>(null);
   readonly downloadedAt = signal<string | null>(null);
+  readonly availability = signal<CatalogAvailability | null>(null);
+  readonly availabilityLoading = signal(false);
+  readonly availabilityError = signal<string | null>(null);
+  private availabilityRevision = 0;
 
   constructor() {
     this.route.paramMap.pipe(
@@ -53,11 +59,39 @@ export class CatalogDetailPage {
     });
   }
 
+  consultAvailability(): void {
+    const product = this.product();
+    if (!product || this.source() !== 'network' || this.availabilityLoading()) return;
+    const revision = ++this.availabilityRevision;
+    this.availabilityLoading.set(true);
+    this.availabilityError.set(null);
+    this.availabilityApi.availability(product.slug).pipe(
+      takeUntilDestroyed(this.destroyRef),
+      finalize(() => { if (revision === this.availabilityRevision) this.availabilityLoading.set(false); }),
+    ).subscribe({
+      next: result => {
+        if (revision === this.availabilityRevision && this.product()?.slug === product.slug) {
+          this.availability.set(result);
+        }
+      },
+      error: (error: unknown) => {
+        if (revision !== this.availabilityRevision) return;
+        this.availabilityError.set(error instanceof HttpErrorResponse && error.status === 0
+          ? 'Sin conexión. La disponibilidad por sucursal no se puede verificar sin internet.'
+          : 'No se pudo consultar la disponibilidad por sucursal. Inténtalo nuevamente.');
+      },
+    });
+  }
+
   retry(): void {
     if (!this.loading() && this.error()) this.retries.next();
   }
 
   private load(slug: string | null): Observable<CatalogResult<CatalogProduct> | null> {
+    this.availabilityRevision++;
+    this.availability.set(null);
+    this.availabilityLoading.set(false);
+    this.availabilityError.set(null);
     this.loading.set(true);
     this.error.set(null);
     this.notFound.set(false);

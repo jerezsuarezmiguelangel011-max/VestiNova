@@ -39,6 +39,30 @@
         <h1 id="catalog-detail-title">{{ item.nombre }}</h1>
         <p class="catalog-detail__price">Bs {{ item.precio }} <span>{{ item.moneda }}</span></p>
         <p class="catalog-detail__description">{{ item.descripcion }}</p>
+        @if (source() === 'network') {
+          <div class="catalog-availability">
+            <button type="button" class="vn-button" (click)="consultAvailability()" [disabled]="availabilityLoading()">
+              {{ availabilityLoading() ? 'Consultando sucursales…' : 'Consultar existencias por sucursal' }}
+            </button>
+            @if (availabilityError(); as message) {
+              <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p>
+            }
+            @if (availability(); as result) {
+              <p role="status">Existencias físicas referenciales al {{ result.consultado_en | date:'dd/MM/yyyy HH:mm':'-0400' }} (hora de Bolivia). No son una reserva ni garantizan unidades disponibles para comprar.</p>
+              @if (result.items.length === 0) {
+                <p>No hay variantes y sucursales activas con datos consultables.</p>
+              } @else {
+                <ul>
+                @for (stock of result.items; track stock.sucursal_id + '-' + stock.variante_id) {
+                  <li><strong>{{ stock.sucursal }}</strong> · {{ stock.talla }} / {{ stock.color }}:
+                    {{ stock.hay_existencias_fisicas ? 'Con existencias físicas' : stock.saldo_registrado ? 'Sin existencias físicas' : 'Sin saldo registrado' }}
+                  </li>
+                }
+                </ul>
+              }
+            }
+          </div>
+        }
         <a class="vn-button vn-button--primary" routerLink="/catalogo/acciones/compra" [queryParams]="{ slug: item.slug }">Seleccionar para comprar</a>
       </div>
     </article>
