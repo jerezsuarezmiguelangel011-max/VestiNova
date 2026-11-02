@@ -39,3 +39,18 @@ export const productsGuard: CanActivateFn = () => {
     catchError(() => of(router.createUrlTree(['/admin/empresa']))),
   );
 };
+
+export const cashierGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const companies = inject(CompanyService);
+  const router = inject(Router);
+  return auth.ensureSession().pipe(
+    switchMap(user => user ? companies.ensureForUser(user.id).pipe(map(() => {
+      const company = companies.active();
+      if (!company) return router.createUrlTree(['/admin/empresa']);
+      return ['CAJERO', 'ENCARGADO_SUCURSAL'].includes(company.rol)
+        ? true : router.createUrlTree(['/admin/acceso'], { queryParams: { motivo: 'permiso' } });
+    })) : of(router.createUrlTree(['/admin/login']))),
+    catchError(() => of(router.createUrlTree(['/admin/empresa']))),
+  );
+};

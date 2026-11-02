@@ -74,7 +74,7 @@ class ReservationLine:
 
     def __post_init__(self) -> None:
         if not isinstance(self.key, InventoryKey):
-            raise InvalidReservation("La línea debe referenciar inventario de CU08.")
+            raise InvalidReservation("La línea debe referenciar inventario de CU07.")
         if type(self.cantidad) is not int or self.cantidad <= 0:
             raise InvalidReservation("La cantidad reservada debe ser un entero positivo.")
 

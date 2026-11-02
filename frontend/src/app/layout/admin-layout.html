@@ -8,6 +8,9 @@
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m7 4 5 3 5-3 4 5-4 3v8H7v-8L3 9z" /></svg>
         Productos
       </a> }
+      @if (companies.active()?.rol === 'CAJERO' || companies.active()?.rol === 'ENCARGADO_SUCURSAL') {
+        <a routerLink="/admin/caja" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Venta en caja · CU15</a>
+      }
       <a routerLink="/admin/inventario" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Inventario por sucursal</a>
       <a routerLink="/admin/acceso" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Mi acceso</a>
       @if (auth.user()?.es_superadministrador) { <a routerLink="/admin/plataforma" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Plataforma</a> }

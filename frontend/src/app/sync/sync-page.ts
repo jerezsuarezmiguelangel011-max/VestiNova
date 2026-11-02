@@ -11,7 +11,7 @@ import { SyncService } from './sync.service';
     <section class="sync-page" aria-labelledby="sync-title" [attr.aria-busy]="refreshing() || sync.processing() || sync.enqueuing()">
       <a class="sync-back" routerLink="/catalogo">← Volver al catálogo</a>
       <header class="sync-heading">
-        <p class="sync-eyebrow">VestiNova · Tu catálogo al día</p>
+        <p class="sync-eyebrow">VestiNova · Soporte PWA · Catálogo público</p>
         <h1 id="sync-title">Sincronización</h1>
         <p>Registra una actualización pendiente y decide cuándo procesarla. Puedes registrar la operación sin conexión.</p>
       </header>

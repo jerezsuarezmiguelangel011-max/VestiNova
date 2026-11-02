@@ -1,0 +1,24 @@
+:host{display:block;min-width:0}
+.cash-page{max-width:950px;display:grid;gap:22px;color:#202a25}
+.cash-page h1{font:400 clamp(32px,5vw,46px)/1.2 Georgia,serif;margin:0 0 12px}
+.cash-page h2{font:400 25px/1.25 Georgia,serif;margin:0 0 16px}
+.cash-page header>p:last-child,.cash-card p{font-size:14px;color:#526358;line-height:1.7}
+.cash-eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:#116149;margin:0 0 10px}
+.cash-warning{background:#fff8e7;color:#745c27;border:1px solid #dccba4;padding:18px 20px;border-radius:8px;font-size:13px;line-height:1.6}
+.cash-warning strong{display:block}
+.cash-card{padding:25px;border:1px solid #d8ded5;border-radius:10px;background:white}
+.cash-card form{max-width:620px;display:grid;gap:10px;margin-top:22px}
+.cash-card form label{font-size:13px;font-weight:600;margin-top:6px}
+.cash-card form :is(input,select){width:100%;min-height:44px;padding:10px;border:1px solid #bac7bd;border-radius:6px;background:white;color:#202a25;font:inherit}
+.cash-primary{background:#116149;color:white;min-height:44px;border:1px solid #116149;border-radius:6px;padding:11px 18px;font-size:13px;font-weight:600;cursor:pointer}
+.cash-primary:disabled{opacity:.5;cursor:not-allowed}
+.cash-error{background:#fff0f0;padding:14px;border-radius:7px;color:#96343a!important}
+.cash-hint{font-size:12px!important}
+.cash-preview-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.cash-preview-head span{background:#fff3dc;color:#785827;font-size:11px;font-weight:700;border-radius:7px;padding:7px 12px}
+.cash-preview dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:16px 0}
+.cash-preview dl div{border-bottom:1px solid #edf0ea;padding-bottom:10px}
+.cash-preview dt{font-size:11px;color:#647269;margin-bottom:6px}
+.cash-preview dd{margin:0;font-size:14px;font-weight:600;overflow-wrap:anywhere}
+:is(button,input,select):focus-visible{outline:3px solid #116149;outline-offset:3px}
+@media(max-width:680px){.cash-card{padding:18px}.cash-preview dl{grid-template-columns:1fr}}

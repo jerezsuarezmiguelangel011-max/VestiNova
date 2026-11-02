@@ -1,0 +1,62 @@
+<section class="cash-page" aria-labelledby="cash-title">
+  <header>
+    <p class="cash-eyebrow">VestiNova · CU15</p>
+    <h1 id="cash-title">Venta presencial de contado</h1>
+    <p>Primer incremento de caja: consulta prendas y variantes de la empresa, calcula el total en bolivianos, comprueba el efectivo propuesto y calcula el cambio.</p>
+  </header>
+  <aside class="cash-warning"><strong>Simulación de preparación, no venta confirmada.</strong>
+    No registra cobros, inventario, comprobantes ni ventas offline; se requiere integración transaccional del backend.
+  </aside>
+  @if (companies.active(); as company) {
+    <section class="cash-card">
+      <h2>Preparar borrador de venta</h2>
+      <p>Empresa: <strong>{{ company.nombre }}</strong></p>
+      @if (loading()) { <p role="status">Consultando sucursales y catálogo…</p> }
+      @if (error(); as message) { <p role="alert" class="cash-error">{{ message }}</p> }
+      <form [formGroup]="form" (ngSubmit)="preview()" (input)="invalidate()" (change)="invalidate()">
+        <label for="cash-branch">Sucursal autorizada</label>
+        <select id="cash-branch" formControlName="sucursal_id" [disabled]="loading()">
+          <option [ngValue]="null">Selecciona una sucursal</option>
+          @for (branch of branches(); track branch.id) {
+            <option [ngValue]="branch.id">{{ branch.codigo }} · {{ branch.nombre }}</option>
+          }
+        </select>
+        <label for="cash-product">Prenda publicada</label>
+        <select id="cash-product" #productSelect [value]="form.controls.producto_id.value ?? ''" (change)="chooseProduct(productSelect.value)" [disabled]="loading()">
+          <option value="">Selecciona una prenda</option>
+          @for (item of products(); track item.id) {
+            <option [value]="item.id">{{ item.nombre }} · Bs {{ item.precio }}</option>
+          }
+        </select>
+        <label for="cash-variant">Variante</label>
+        <select id="cash-variant" formControlName="variante_id" [disabled]="variantsLoading() || variants().length === 0">
+          <option [ngValue]="null">{{ variantsLoading() ? 'Cargando variantes…' : 'Selecciona talla y color' }}</option>
+          @for (item of variants(); track item.id) {
+            <option [ngValue]="item.id">{{ item.talla }} · {{ item.color }}</option>
+          }
+        </select>
+        <label for="cash-quantity">Cantidad</label>
+        <input id="cash-quantity" type="number" min="1" max="100" step="1" formControlName="cantidad" required />
+        <label for="cash-received">Efectivo propuesto (Bs)</label>
+        <input id="cash-received" type="text" inputmode="decimal" formControlName="efectivo" placeholder="150.00" required />
+        <p class="cash-hint">El precio mostrado es del catálogo administrativo y aún no incorpora descuentos mayoristas ni promociones.</p>
+        <button class="cash-primary" type="submit" [disabled]="loading() || variantsLoading() || form.invalid">Calcular borrador de venta</button>
+      </form>
+    </section>
+    @if (draft(); as receipt) {
+      <section class="cash-card cash-preview" role="status" aria-label="Resultado de preparación">
+        <div class="cash-preview-head"><h2>Resumen preliminar</h2><span>BORRADOR · SIN COBRO</span></div>
+        <dl>
+          <div><dt>Referencia local</dt><dd>{{ receipt.id }}</dd></div>
+          <div><dt>Variante ID</dt><dd>{{ receipt.variante_id }}</dd></div>
+          <div><dt>Cantidad</dt><dd>{{ receipt.cantidad }}</dd></div>
+          <div><dt>Precio unitario</dt><dd>Bs {{ receipt.precio_unitario }}</dd></div>
+          <div><dt>Total preliminar</dt><dd>Bs {{ receipt.total }}</dd></div>
+          <div><dt>Efectivo propuesto</dt><dd>Bs {{ receipt.efectivo_propuesto }}</dd></div>
+          <div><dt>Cambio calculado</dt><dd>Bs {{ receipt.cambio }}</dd></div>
+        </dl>
+        <p><strong>Este documento no es comprobante de venta.</strong> No se registró pago ni se descontó inventario.</p>
+      </section>
+    }
+  }
+</section>

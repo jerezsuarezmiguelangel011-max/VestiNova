@@ -17,7 +17,7 @@ import { PurchaseSelectionService, validPurchaseQuantity } from './purchase-sele
     <section class="purchase-page" aria-labelledby="purchase-title">
       <a class="purchase-back" [routerLink]="sending() ? null : '/catalogo'" [attr.aria-disabled]="sending()">← Volver al catálogo</a>
       <header class="purchase-heading">
-        <p class="purchase-eyebrow">VestiNova · Tu selección</p>
+        <p class="purchase-eyebrow">VestiNova · CU09 · Compra digital</p>
         <h1 id="purchase-title">Preparar compra</h1>
         <p>Reúne las prendas que elegiste y revisa sus cantidades.</p>
       </header>
