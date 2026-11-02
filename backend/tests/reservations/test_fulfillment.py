@@ -4,12 +4,12 @@ from uuid import uuid4
 
 import pytest
 
-from app.inventory.domain import InventoryKey
-from app.reservations.domain import (
+from app.inventario.domain import InventoryKey
+from app.compras_reservas.reservas.domain import (
     InvalidTransition, Reservation, ReservationForbidden,
     ReservationLine, ReservationRequest, ReservationState,
 )
-from app.reservations.fulfillment import HandoverContext, prepare_handover
+from app.compras_reservas.reservas.retiro import HandoverContext, prepare_handover
 
 
 NOW = datetime(2026, 11, 2, 12, 0, tzinfo=timezone.utc)

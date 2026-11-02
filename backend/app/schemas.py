@@ -67,6 +67,7 @@ class CamposProducto(BaseModel):
 
 class ProductoCreate(CamposProducto):
     nombre: str = Field(min_length=3, max_length=120)
+    categoria_id: int | None = Field(default=None, gt=0, strict=True)
     slug: str | None = Field(default=None, min_length=3, max_length=140)
     descripcion: str = Field(default="", max_length=3000)
     precio: Precio
@@ -76,6 +77,7 @@ class ProductoCreate(CamposProducto):
 
 class ProductoPatch(CamposProducto):
     nombre: str | None = Field(default=None, min_length=3, max_length=120)
+    categoria_id: int | None = Field(default=None, gt=0, strict=True)
     slug: str | None = Field(default=None, min_length=3, max_length=140)
     descripcion: str | None = Field(default=None, max_length=3000)
     precio: Precio | None = None
@@ -95,10 +97,14 @@ class ProductoPatch(CamposProducto):
 class ProductoResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    categoria_id: int | None
+    categoria_nombre: str
     slug: str
     nombre: str
     descripcion: str
     precio: Decimal
+    precio_promocional: Decimal | None = None
+    promocion_nombre: str | None = None
     moneda: Literal["BOB"]
     imagen_url: str | None
     activo: bool
@@ -108,6 +114,10 @@ class ProductoResponse(BaseModel):
     @field_serializer("precio")
     def serializar_precio(self, value: Decimal) -> str:
         return f"{value:.2f}"
+
+    @field_serializer("precio_promocional")
+    def serializar_precio_promocional(self, value: Decimal | None) -> str | None:
+        return None if value is None else f"{value:.2f}"
 
     @field_serializer("creado_en", "actualizado_en")
     def serializar_fecha(self, value: datetime) -> str:

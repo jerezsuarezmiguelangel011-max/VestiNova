@@ -5,7 +5,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from types import TracebackType
 
-from app.inventory.domain import (
+from app.inventario.domain import (
     BranchReference,
     Identifier,
     InventoryAuthorization,

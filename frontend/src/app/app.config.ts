@@ -3,7 +3,7 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideRouter, withInMemoryScrolling } from '@angular/router';
 import { provideServiceWorker } from '@angular/service-worker';
 import { routes } from './app.routes';
-import { authInterceptor } from './auth/auth.interceptor';
+import { authInterceptor } from './autenticacion_usuarios/autenticacion/auth.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [

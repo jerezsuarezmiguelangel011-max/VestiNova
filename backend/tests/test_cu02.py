@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import event, func, select
 
 from app.models import Administrador, Empresa, MembresiaEmpresa, RolEmpresa, Sucursal
-from app.permissions import ensure_company_roles
+from app.autenticacion_usuarios.permissions import ensure_company_roles
 from app.password_policy import PASSWORD_POLICY_MESSAGE
 from app.security import verify_password
 from tests.conftest import TEST_PASSWORD

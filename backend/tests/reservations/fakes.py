@@ -12,8 +12,8 @@ from threading import RLock
 from types import TracebackType
 from uuid import UUID
 
-from app.inventory.domain import BranchReference, Identifier, InventoryKey, StockBalance, VariantReference
-from app.reservations.domain import (
+from app.inventario.domain import BranchReference, Identifier, InventoryKey, StockBalance, VariantReference
+from app.compras_reservas.reservas.domain import (
     CustomerReference, InsufficientStock, InvalidReservation, Reservation,
     ReservationAuthorization, ReservationConflict, ReservationForbidden,
     ReservationLine, ReservationNotFound, ReservationRequest,

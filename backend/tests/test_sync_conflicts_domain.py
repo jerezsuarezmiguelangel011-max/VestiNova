@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.sync_conflicts.domain import (
+from app.operacion_sin_conexion.conflictos_sincronizacion.domain import (
     OfflineLine, OfflineOperation, SyncActorContext, SyncDecision, classify_offline,
 )
 

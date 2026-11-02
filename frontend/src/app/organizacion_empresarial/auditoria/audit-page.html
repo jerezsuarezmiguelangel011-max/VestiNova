@@ -1,0 +1,33 @@
+<section class="audit-page" aria-labelledby="audit-title">
+  <header class="audit-heading"><div><p class="vn-eyebrow">CU02 · Seguridad de empresa</p><h1 class="vn-title" id="audit-title">Bitácora de auditoría</h1><p>Consulta acciones realizadas por usuarios de {{ companies.active()?.nombre }}.</p></div></header>
+
+  <form class="vn-card audit-filters" [formGroup]="filters" (ngSubmit)="search()" novalidate aria-label="Filtros de auditoría">
+    <label class="vn-field" for="audit-query">Usuario o texto<input id="audit-query" type="search" formControlName="q" maxlength="120" placeholder="Nombre, correo o identificador" /></label>
+    <label class="vn-field" for="audit-action">Acción<select id="audit-action" formControlName="accion"><option value="">Todas</option>@for (item of actions; track item[0]) { <option [value]="item[0]">{{ item[1] }}</option> }</select></label>
+    <label class="vn-field" for="audit-entity">Módulo<select id="audit-entity" formControlName="entidad"><option value="">Todos</option><option value="usuario">Usuarios</option><option value="rol">Roles</option><option value="sucursal">Sucursales</option><option value="categoria">Categorías</option><option value="producto">Productos</option><option value="variante">Variantes</option></select></label>
+    <label class="vn-field" for="audit-from">Desde<input id="audit-from" type="date" formControlName="desde" /></label>
+    <label class="vn-field" for="audit-to">Hasta<input id="audit-to" type="date" formControlName="hasta" /></label>
+    <div class="audit-filter-actions"><button type="submit" class="vn-button vn-button--primary" [disabled]="loading()">Filtrar</button><button type="button" class="vn-button" (click)="clear()" [disabled]="loading()">Limpiar</button></div>
+  </form>
+
+  @if (error(); as message) { <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p> }
+  <div class="vn-card audit-directory" [attr.aria-busy]="loading()">
+    <div class="audit-directory__heading"><h2>Actividad registrada</h2><span>{{ result().total }} eventos</span></div>
+    @if (loading()) { <p role="status">Consultando bitácora…</p> }
+    @else if (result().items.length === 0) { <p class="audit-empty">No hay eventos que coincidan con estos filtros.</p> }
+    @else {
+      <div class="audit-table-region" role="region" tabindex="0" aria-label="Eventos de auditoría">
+        <table><thead><tr><th scope="col">Fecha y hora</th><th scope="col">Usuario</th><th scope="col">Acción</th><th scope="col">Registro</th><th scope="col">Detalle</th></tr></thead>
+          <tbody>@for (event of result().items; track event.id) { <tr>
+            <td>{{ event.creado_en | date:'yyyy-MM-dd HH:mm':'UTC' }}</td>
+            <td><strong>{{ event.actor_nombre }}</strong><small>{{ event.actor_correo }}</small></td>
+            <td>{{ actionLabel(event.accion) }}</td>
+            <td>{{ entityLabel(event.entidad) }} #{{ event.entidad_id }}</td>
+            <td>{{ detailSummary(event) }}</td>
+          </tr> }</tbody>
+        </table>
+      </div>
+      <nav class="audit-pagination" aria-label="Paginación de auditoría"><p aria-live="polite">{{ first() }}–{{ last() }} de {{ result().total }}</p><div><button type="button" class="vn-button" (click)="page(-1)" [disabled]="loading() || result().offset === 0">Anterior</button><button type="button" class="vn-button" (click)="page(1)" [disabled]="loading() || result().offset + result().items.length >= result().total">Siguiente</button></div></nav>
+    }
+  </div>
+</section>

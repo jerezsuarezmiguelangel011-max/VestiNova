@@ -9,12 +9,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
 
 from app.db import Base, build_session_factory
-from app.inventory.domain import InventoryKey
-from app.purchases.domain import (
+from app.inventario.domain import InventoryKey
+from app.compras_reservas.compras.domain import (
     Purchase, PurchaseCommand, PurchaseContext, PurchaseItem, PurchaseLine,
     PurchaseUnavailable, identifier_token,
 )
-from app.purchases.persistence import PurchaseLineRecord, PurchaseRecord, add_purchase, find_purchase
+from app.compras_reservas.compras.persistence import PurchaseLineRecord, PurchaseRecord, add_purchase, find_purchase
 
 
 CONTEXT = PurchaseContext(actor_id="actor-1", empresa_id=1, cliente_id="cliente-1", sucursal_id=10)

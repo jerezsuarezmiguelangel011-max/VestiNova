@@ -1,0 +1,54 @@
+<section class="postventa" aria-labelledby="postventa-title" [attr.aria-busy]="loading()">
+  <header class="postventa__heading">
+    <div><p class="vn-eyebrow">Atención después de la compra · CU17</p><h1 id="postventa-title">Cambios y devoluciones</h1>
+      <p>Revisa solicitudes de clientes de las sucursales que tienes autorizadas.</p></div>
+    <label>Estado
+      <select [value]="status() ?? 'TODAS'" (change)="selectStatus($event)">
+        <option value="PENDIENTE">Pendientes</option><option value="APROBADA">Aprobadas</option>
+        <option value="RECHAZADA">Rechazadas</option><option value="COMPLETADA">Completadas</option><option value="TODAS">Todas</option>
+      </select>
+    </label>
+  </header>
+
+  @if (error(); as message) { <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p> }
+  @if (notice(); as message) { <p class="postventa__notice" role="status">{{ message }}</p> }
+  @if (loading()) { <p role="status">Cargando solicitudes…</p> }
+  @else if (requests().length === 0) { <div class="postventa__empty"><h2>No hay solicitudes en este filtro</h2><p>Cuando un cliente inicie un cambio o devolución, aparecerá aquí.</p></div> }
+  @else {
+    <div class="postventa__list">
+      @for (request of requests(); track request.id) {
+        <article class="postventa__card">
+          <header><div><span class="postventa__tag">{{ request.tipo === 'CAMBIO' ? 'Cambio' : 'Devolución' }}</span>
+            <h2>{{ request.cliente?.nombre ?? 'Cliente' }}</h2><p>{{ request.cliente?.correo ?? '' }}</p></div>
+            <strong class="postventa__status">{{ statusLabel(request.estado) }}</strong></header>
+          <dl><div><dt>Sucursal</dt><dd>{{ request.sucursal_id }}</dd></div><div><dt>Recibida</dt><dd>{{ request.creado_en | date:'dd/MM/yyyy HH:mm':'-0400' }} (Bolivia)</dd></div>
+            <div><dt>Compra</dt><dd>{{ request.compra_id }}</dd></div></dl>
+          <p class="postventa__reason"><strong>Motivo:</strong> {{ request.motivo }}</p>
+          <ul class="postventa__items">@for (line of request.items; track line.producto_id) {
+            <li><span>{{ line.nombre }} · variante {{ line.variante_id }}</span><span>{{ line.cantidad }} unidad(es) · Bs {{ line.precio_unitario }}</span></li>
+          }</ul>
+          @if (request.respuesta) { <p><strong>Respuesta registrada:</strong> {{ request.respuesta }}</p> }
+          @if (request.referencia_reposicion) { <p><strong>Nota de reposición:</strong> {{ request.referencia_reposicion }}</p> }
+
+          @if (request.estado === 'PENDIENTE' && canManage()) {
+            <label class="postventa__response">Respuesta para el cliente (opcional)
+              <textarea rows="2" maxlength="1000" [value]="responseFor(request.id)" (input)="updateResponse(request.id, $event)"></textarea>
+            </label>
+            <div class="postventa__actions">
+              <button type="button" class="vn-button vn-button--primary" [disabled]="busyId() === request.id" (click)="decide(request, 'APROBADA')">Aprobar</button>
+              <button type="button" class="vn-button" [disabled]="busyId() === request.id" (click)="decide(request, 'RECHAZADA')">Rechazar</button>
+            </div>
+          } @else if (request.estado === 'APROBADA' && canManage()) {
+            <p class="postventa__notice">Confirma la atención en sucursal cuando se haya recibido la prenda o completado el cambio.</p>
+            <button type="button" class="vn-button vn-button--primary" [disabled]="busyId() === request.id" (click)="complete(request)">Registrar atención completada</button>
+          }
+        </article>
+      }
+    </div>
+    @if (requests().length < totalRequests()) {
+      <button type="button" class="vn-button postventa__more" [disabled]="loadingMore()" (click)="loadMore()">
+        {{ loadingMore() ? 'Cargando…' : 'Cargar solicitudes anteriores' }}
+      </button>
+    }
+  }
+</section>

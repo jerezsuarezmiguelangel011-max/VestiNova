@@ -1,0 +1,26 @@
+<section class="promotion-page" aria-labelledby="promotion-title">
+  <header class="promotion-heading"><div><p class="vn-eyebrow">CU05 · Administración de empresa</p><h1 class="vn-title" id="promotion-title">Promociones comerciales</h1><p>Programa descuentos y liquidaciones para los productos de {{ companies.active()?.nombre }}.</p></div><button class="vn-button vn-button--primary" type="button" (click)="newPromotion()" [disabled]="saving()">Nueva promoción</button></header>
+  @if (notice(); as message) { <p class="vn-alert" role="status">{{ message }}</p> }
+  @if (error(); as message) { <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p> }
+  @if (companies.canManagePromotions()) {
+    <form class="vn-card promotion-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <div class="promotion-form__heading"><div><h2>{{ editing() ? 'Editar promoción' : 'Registrar promoción' }}</h2><p>Los productos no pueden tener dos promociones solapadas.</p></div>@if (editing()) { <button class="vn-button" type="button" (click)="newPromotion()" [disabled]="saving()">Cancelar edición</button> }</div>
+      <div class="promotion-fields">
+        <label class="vn-field" for="promotion-name">Nombre<input id="promotion-name" formControlName="nombre" maxlength="120" placeholder="Liquidación de temporada"></label>
+        <label class="vn-field" for="promotion-type">Tipo<select id="promotion-type" formControlName="tipo"><option value="PORCENTAJE">Descuento porcentual</option><option value="PRECIO_FIJO">Precio promocional</option></select></label>
+        <label class="vn-field" for="promotion-value">{{ form.controls.tipo.value === 'PORCENTAJE' ? 'Descuento (%)' : 'Precio promocional (Bs)' }}<input id="promotion-value" type="number" formControlName="valor" min="0.01" step="0.01" [max]="form.controls.tipo.value === 'PORCENTAJE' ? 99.99 : 99999999.99"></label>
+        <label class="vn-field" for="promotion-start">Inicio<input id="promotion-start" type="datetime-local" formControlName="inicio"></label>
+        <label class="vn-field" for="promotion-end">Fin<input id="promotion-end" type="datetime-local" formControlName="fin"></label>
+      </div>
+      <fieldset class="promotion-products"><legend>Productos incluidos</legend><div class="promotion-products__choices">@for (product of products(); track product.id) { <label><input type="checkbox" [checked]="selected(product.id)" (change)="toggleProduct(product.id, $any($event.target).checked)"><span>{{ product.nombre }}<small>Bs {{ product.precio }}</small></span></label> } @empty { <p>Registra productos activos antes de crear una promoción.</p> }</div></fieldset>
+      <button class="vn-button vn-button--primary" type="submit" [disabled]="saving() || loading()">{{ saving() ? 'Guardando…' : editing() ? 'Guardar cambios' : 'Registrar promoción' }}</button>
+    </form>
+  }
+  <div class="vn-card promotion-directory" [attr.aria-busy]="loading()"><div class="promotion-directory__heading"><h2>Promociones de la empresa</h2><span>{{ promotions().length }}</span></div>
+    @if (loading()) { <p role="status">Cargando promociones…</p> } @else if (!promotions().length) { <p>Todavía no hay promociones registradas.</p> } @else {
+      <div class="promotion-table-region" role="region" tabindex="0" aria-label="Promociones registradas"><table><thead><tr><th>Promoción</th><th>Beneficio</th><th>Vigencia</th><th>Productos</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+        @for (promotion of promotions(); track promotion.id) { <tr><td><strong>{{ promotion.nombre }}</strong></td><td>{{ promotion.tipo === 'PORCENTAJE' ? promotion.valor + '%' : 'Bs ' + promotion.valor }}</td><td>{{ promotion.inicio | date:'short' }} – {{ promotion.fin | date:'short' }}</td><td>{{ productNames(promotion.producto_ids) }}</td><td><span class="promotion-status">{{ promotion.estado }}</span></td><td>@if (companies.canManagePromotions()) { <button class="vn-button" type="button" (click)="edit(promotion)" [disabled]="saving()">Editar</button> <button class="vn-button" type="button" (click)="toggleActive(promotion)" [disabled]="saving()">{{ promotion.activo ? 'Desactivar' : 'Activar' }}</button> }</td></tr> }
+      </tbody></table></div>
+    }
+  </div>
+</section>

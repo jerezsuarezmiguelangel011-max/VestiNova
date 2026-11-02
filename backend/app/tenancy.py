@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models import AccesoSucursal, Administrador, Empresa, MembresiaEmpresa, Sucursal
 from app.security import require_administrator
-from app.permissions import RoleAccess, effective_role
+from app.autenticacion_usuarios.permissions import RoleAccess, effective_role
 
 
 @dataclass(frozen=True)

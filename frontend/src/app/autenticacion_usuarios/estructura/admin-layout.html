@@ -1,0 +1,42 @@
+<div class="workspace">
+  <a href="#main-content" class="workspace__skip">Saltar al contenido</a>
+  <aside class="rail" aria-label="Administración VestiNova">
+    <a routerLink="/admin/productos" class="rail__brand" aria-label="VestiNova · Productos"><span class="rail__seal" aria-hidden="true">VN</span><span>VestiNova</span></a>
+    <p class="rail__label">Administración</p>
+    <nav class="rail__nav" aria-label="Navegación administrativa">
+      @if (companies.canViewProducts()) { <a routerLink="/admin/productos" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m7 4 5 3 5-3 4 5-4 3v8H7v-8L3 9z" /></svg>
+        Catálogo · CU04
+      </a> }
+      @if (companies.active()?.rol === 'CAJERO' || companies.active()?.rol === 'ENCARGADO_SUCURSAL') {
+        <a routerLink="/admin/caja" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Venta en caja · CU15</a>
+      }
+      <a routerLink="/admin/inventario" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Inventario por sucursal</a>
+      @if (companies.canManage()) { <a routerLink="/admin/categorias" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Categorías · CU04</a> }
+      @if (companies.canManageBranches()) { <a routerLink="/admin/sucursales" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Sucursales · CU03</a> }
+      @if (companies.canViewUsers()) { <a routerLink="/admin/usuarios" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Personal · CU01</a> }
+      @if (companies.canViewRoles()) { <a routerLink="/admin/roles" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Roles y permisos · CU01</a> }
+      @if (companies.canViewAudit()) { <a routerLink="/admin/auditoria" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Bitácora · CU02</a> }
+      @if (companies.hasPermission('postventa.consultar')) { <a routerLink="/admin/postventa" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Cambios y devoluciones · CU17</a> }
+      @if (companies.canViewPromotions()) { <a routerLink="/admin/promociones" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Promociones Â· CU05</a> }
+      @if (companies.canViewProcurement()) { <a routerLink="/admin/abastecimiento" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Abastecimiento Â· CU06</a> }
+      @if (companies.canViewPlan()) { <a routerLink="/admin/mi-plan" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Mi plan Â· CU12</a> }
+      <a routerLink="/admin/acceso" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Mi acceso</a>
+      @if (auth.user()?.es_superadministrador) {
+        <a routerLink="/admin/plataforma/empresas" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Empresas SaaS Â· CU11</a>
+        <a routerLink="/admin/plataforma/planes" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Planes SaaS Â· CU12</a>
+      }
+    </nav>
+    <div class="rail__session">
+      @if (auth.user(); as administrator) { <div class="rail__user"><strong>{{ administrator.nombre }}</strong><span>{{ administrator.correo }}</span><small>{{ administrator.es_superadministrador ? 'Superadministrador SaaS' : 'Cuenta de personal' }}</small></div> }
+      <button type="button" class="rail__logout" (click)="logout()" [disabled]="signingOut()">{{ signingOut() ? 'Cerrando sesión…' : 'Cerrar sesión' }}</button>
+    </div>
+  </aside>
+  <div class="workspace__body">
+    <header class="workspace__header"><div class="workspace__company"><span class="workspace__company-label">Empresa de trabajo</span><strong>{{ companies.active()?.nombre ?? 'Selecciona una empresa' }}</strong>@if (companies.active(); as company) { <span class="workspace__company-role">{{ company.rol_nombre ?? company.rol }}</span> }</div><a routerLink="/admin/empresa" class="workspace__change">{{ companies.active() ? 'Cambiar empresa' : 'Elegir empresa' }}</a></header>
+    <main id="main-content" class="workspace__main" tabindex="-1">
+      @if (logoutError(); as message) { <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p> }
+      <router-outlet />
+    </main>
+  </div>
+</div>

@@ -9,7 +9,7 @@ from app.config import Settings
 from app.db import build_engine, build_session_factory
 from app.models import AccesoSucursal, Administrador, Empresa, MembresiaEmpresa, Sucursal
 from app.password_policy import PASSWORD_POLICY_MESSAGE, validate_new_password
-from app.permissions import ensure_company_roles
+from app.autenticacion_usuarios.permissions import ensure_company_roles
 from app.schemas import normalizar_correo
 from app.security import hash_password, verify_password
 

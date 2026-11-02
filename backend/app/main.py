@@ -8,16 +8,37 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.auth import router as auth_router
-from app.customer_auth import router as customer_auth_router
 from app.config import Settings, get_settings
 from app.db import build_engine, build_session_factory, get_db
-from app.products import admin_router, catalog_router
-from app.organizations import router as organizations_router
-from app.inventory_api import router as inventory_router
-from app.mobile_download import router as mobile_router
-from app.purchases.router import router as purchases_router
-from app.staff import router as staff_router
+# Autenticacion y usuarios.
+from app.autenticacion_usuarios.auth import router as auth_router
+from app.autenticacion_usuarios.customer_auth import router as customer_auth_router
+from app.autenticacion_usuarios.staff import router as staff_router
+
+# Organizacion empresarial.
+from app.organizacion_empresarial.audit import router as audit_router
+from app.organizacion_empresarial.branches import router as branches_router
+from app.organizacion_empresarial.organizations import router as organizations_router
+from app.organizacion_empresarial.platform_companies import router as platform_companies_router
+from app.organizacion_empresarial.platform_plans import router as platform_plans_router
+from app.organizacion_empresarial.plans import router as plans_router
+
+# Catalogo y abastecimiento.
+from app.catalogo_abastecimiento.categories import router as categories_router
+from app.catalogo_abastecimiento.productos import admin_router
+from app.catalogo_abastecimiento.procurement import router as procurement_router
+from app.catalogo_abastecimiento.promotions import router as promotions_router
+from app.catalogo_abastecimiento.variantes import router as variantes_router
+
+# Inventario, catalogo publico, compras y operacion sin conexion.
+from app.inventario.api import router as inventario_router
+from app.catalogo_publico.catalogo import router as catalog_router
+from app.compras_reservas.compras.router import router as compras_router
+from app.compras_reservas.compras.history import router as historial_compras_router
+from app.compras_reservas.postventa.router import customer_router as postventa_cliente_router
+from app.compras_reservas.postventa.router import staff_router as postventa_personal_router
+from app.operacion_sin_conexion.mobile_download import router as mobile_router
+
 
 def create_app(settings: Settings | None = None, *, engine=None) -> FastAPI:
     settings = settings or get_settings()
@@ -32,7 +53,7 @@ def create_app(settings: Settings | None = None, *, engine=None) -> FastAPI:
     app.state.settings = settings
     app.state.engine = database_engine
     app.state.session_factory = build_session_factory(database_engine)
-    app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_credentials=False, allow_methods=["GET", "POST", "PATCH", "OPTIONS"], allow_headers=["Authorization", "Content-Type", "X-Empresa-Id"])
+    app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_credentials=False, allow_methods=["GET", "POST", "PATCH", "PUT", "OPTIONS"], allow_headers=["Authorization", "Content-Type", "X-Empresa-Id", "ngsw-bypass"])
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(_: Request, error: RequestValidationError):
@@ -54,16 +75,34 @@ def create_app(settings: Settings | None = None, *, engine=None) -> FastAPI:
     def health_database(db: Session = Depends(get_db)):
         db.execute(text("SELECT 1"))
         return {"status": "ok", "database": "vestinova_mvp"}
-
+    # Autenticacion y usuarios.
     app.include_router(auth_router)
     app.include_router(customer_auth_router)
-    app.include_router(admin_router)
-    app.include_router(catalog_router)
-    app.include_router(organizations_router)
-    app.include_router(inventory_router)
-    app.include_router(mobile_router)
-    app.include_router(purchases_router)
     app.include_router(staff_router)
+
+    # Organizacion empresarial.
+    app.include_router(audit_router)
+    app.include_router(branches_router)
+    app.include_router(organizations_router)
+    app.include_router(platform_companies_router)
+    app.include_router(platform_plans_router)
+    app.include_router(plans_router)
+
+    # Catalogo y abastecimiento.
+    app.include_router(categories_router)
+    app.include_router(admin_router)
+    app.include_router(variantes_router)
+    app.include_router(promotions_router)
+    app.include_router(procurement_router)
+
+    # Inventario, catalogo publico, compras y operacion sin conexion.
+    app.include_router(inventario_router)
+    app.include_router(catalog_router)
+    app.include_router(compras_router)
+    app.include_router(historial_compras_router)
+    app.include_router(postventa_cliente_router)
+    app.include_router(postventa_personal_router)
+    app.include_router(mobile_router)
     return app
 
 

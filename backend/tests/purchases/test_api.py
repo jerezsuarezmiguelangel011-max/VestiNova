@@ -8,13 +8,13 @@ from sqlalchemy import Integer, String, event, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
-from app.inventory.domain import InventoryKey, StockBalance
-from app.purchases.domain import (
+from app.inventario.domain import InventoryKey, StockBalance
+from app.compras_reservas.compras.domain import (
     PurchaseConflict, PurchaseContext, PurchaseForbidden, PurchaseLine, PurchaseUnavailable,
 )
-from app.purchases.persistence import PurchaseLineRecord, PurchaseRecord
-from app.purchases.service import PurchaseUnauthenticated
-import app.purchases.service as purchase_service
+from app.compras_reservas.compras.persistence import PurchaseLineRecord, PurchaseRecord
+from app.compras_reservas.compras.service import PurchaseUnauthenticated
+import app.compras_reservas.compras.service as purchase_service
 
 
 CONTEXT = PurchaseContext('actor-a', 'empresa-a', 'cliente-a', 'sucursal-a')

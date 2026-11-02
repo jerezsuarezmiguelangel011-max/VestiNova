@@ -1,0 +1,42 @@
+<main class="fitting-room" aria-labelledby="fitting-title" [attr.aria-busy]="loading()">
+  <a class="fitting-room__back" routerLink="/catalogo">← Volver al catálogo</a>
+  @if (loading()) { <p role="status">Cargando prenda…</p> }
+  @else if (error(); as message) { <section class="fitting-room__message"><h1>No se puede abrir el vestidor</h1><p role="alert">{{ message }}</p></section> }
+  @else if (product(); as item) {
+    <header class="fitting-room__heading">
+      <p class="vn-eyebrow">VestiNova · CU18 · Vista referencial</p>
+      <h1 id="fitting-title">Vestidor virtual</h1>
+      <p>Visualiza la prenda {{ item.nombre }} frente a la cámara de tu dispositivo.</p>
+    </header>
+
+    <section class="fitting-room__workspace" aria-label="Vista de la prenda">
+      <div class="fitting-room__stage" [class.fitting-room__stage--camera]="cameraOn()">
+        <video #camera class="fitting-room__camera" [class.fitting-room__camera--visible]="cameraOn()" autoplay muted playsinline aria-label="Vista local de la cámara"></video>
+        @if (item.imagen_url) {
+          <img class="fitting-room__garment" [class.fitting-room__garment--overlay]="cameraOn()" [style.opacity]="cameraOn() ? opacity() : 1"
+            [src]="item.imagen_url" [alt]="'Imagen referencial de ' + item.nombre">
+        } @else { <div class="fitting-room__no-image">Esta prenda no tiene una imagen disponible.</div> }
+        @if (!cameraOn()) { <p class="fitting-room__hint">La imagen de la prenda se muestra aquí.</p> }
+      </div>
+
+      <div class="fitting-room__controls">
+        <h2>{{ item.nombre }}</h2>
+        <p class="fitting-room__price">Bs {{ item.precio }} {{ item.moneda }}</p>
+        @if (source() === 'local') { <p class="fitting-room__offline">Prenda obtenida de la copia local del catálogo.</p> }
+        @if (cameraOn()) {
+          <label class="fitting-room__opacity">Transparencia de la imagen
+            <input type="range" min="15" max="80" step="5" [value]="opacity() * 100" (input)="setOpacity($event)">
+          </label>
+          <button type="button" class="vn-button" (click)="stopCamera()">Apagar cámara</button>
+        } @else {
+          <button type="button" class="vn-button vn-button--primary" [disabled]="cameraBusy()" (click)="startCamera()">
+            {{ cameraBusy() ? 'Solicitando permiso…' : 'Activar cámara' }}
+          </button>
+        }
+        @if (cameraError(); as message) { <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p> }
+        <p class="fitting-room__disclaimer">Vista referencial 2D. No calcula talla, ajuste ni medidas. La cámara permanece en este dispositivo; VestiNova no captura ni envía video o imágenes.</p>
+        <a class="vn-button" routerLink="/catalogo">Seguir viendo prendas</a>
+      </div>
+    </section>
+  }
+</main>

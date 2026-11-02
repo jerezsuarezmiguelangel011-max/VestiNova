@@ -1,0 +1,74 @@
+<section class="catalog-detail" aria-label="Detalle del producto" [attr.aria-busy]="loading()">
+  <a class="catalog-back" routerLink="/catalogo">← Volver al catálogo</a>
+
+  @if (!loading() && source() === 'local') {
+    <aside class="catalog-local-notice" role="status">
+      <strong>Copia local</strong>
+      @if (downloadedAt(); as downloaded) {
+        <span class="catalog-local-date"> · Última descarga:
+          <time [attr.datetime]="downloaded">{{ downloaded | date:'dd/MM/yyyy HH:mm':'-0400' }}</time> (hora de Bolivia).
+        </span>
+      } @else {
+        <span class="catalog-local-date"> · Fecha de descarga no disponible.</span>
+      }
+      <p>La información puede estar desactualizada. Conéctate para consultar el catálogo actual.</p>
+    </aside>
+  }
+
+  @if (loading()) {
+    <div class="catalog-state" role="status">
+      <span class="catalog-spinner" aria-hidden="true"></span>
+      <p>Cargando producto…</p>
+    </div>
+  } @else if (notFound()) {
+    <div class="catalog-state" role="status">
+      <h1>Producto no disponible</h1>
+      <p>No encontramos este producto en el catálogo. Puede que ya no esté publicado.</p>
+    </div>
+  } @else if (error(); as message) {
+    <div class="catalog-state">
+      <h1>No pudimos cargar el producto</h1>
+      <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p>
+      <button class="vn-button" type="button" (click)="retry()">Reintentar</button>
+    </div>
+  } @else if (product(); as item) {
+    <article class="catalog-detail__product" aria-labelledby="catalog-detail-title">
+      <vn-catalog-image [url]="item.imagen_url" [name]="item.nombre" />
+      <div class="catalog-detail__content">
+        <p class="catalog-eyebrow">VestiNova · CU08 · Catálogo</p>
+        <h1 id="catalog-detail-title">{{ item.nombre }}</h1>
+        <p class="catalog-detail__price">@if (item.precio_promocional) { <strong>Bs {{ item.precio_promocional }}</strong> <del>Bs {{ item.precio }}</del><small>{{ item.promocion_nombre }}</small> } @else { Bs {{ item.precio }} } <span>{{ item.moneda }}</span></p>
+        <p class="catalog-detail__description">{{ item.descripcion }}</p>
+        @if (source() === 'network') {
+          <div class="catalog-availability">
+            <button type="button" class="vn-button" (click)="consultAvailability()" [disabled]="availabilityLoading()">
+              {{ availabilityLoading() ? 'Consultando sucursales…' : 'Consultar existencias por sucursal' }}
+            </button>
+            @if (availabilityError(); as message) {
+              <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p>
+            }
+            @if (availability(); as result) {
+              <p role="status">Existencias físicas referenciales al {{ result.consultado_en | date:'dd/MM/yyyy HH:mm':'-0400' }} (hora de Bolivia). No son una reserva ni garantizan unidades disponibles para comprar.</p>
+              @if (result.items.length === 0) {
+                <p>No hay variantes y sucursales activas con datos consultables.</p>
+              } @else {
+                <ul>
+                @for (stock of result.items; track stock.sucursal_id + '-' + stock.variante_id) {
+                  <li><strong>{{ stock.sucursal }}</strong> · {{ stock.talla }} / {{ stock.color }}:
+                    {{ stock.hay_existencias_fisicas ? 'Con existencias físicas' : stock.saldo_registrado ? 'Sin existencias físicas' : 'Sin saldo registrado' }}
+                  </li>
+                }
+                </ul>
+              }
+            }
+          </div>
+        }
+        @if (source() === 'network') {
+          <a class="vn-button" routerLink="/catalogo/acciones/reserva" [queryParams]="{ slug: item.slug }">Preparar reserva</a>
+        }
+        <a class="vn-button vn-button--primary" routerLink="/catalogo/acciones/compra" [queryParams]="{ slug: item.slug }">Seleccionar para comprar</a>
+        <a class="vn-button" [routerLink]="['/catalogo/vestidor', item.slug]">Probar en vestidor virtual · CU18</a>
+      </div>
+    </article>
+  }
+</section>

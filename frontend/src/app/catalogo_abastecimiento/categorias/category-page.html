@@ -1,0 +1,23 @@
+<section class="category-page" aria-labelledby="category-title">
+  <header class="category-heading"><div><p class="vn-eyebrow">CU04 · Catálogo de prendas</p><h1 class="vn-title" id="category-title">Categorías</h1><p>Organiza las prendas de {{ companies.active()?.nombre }} en grupos propios.</p></div></header>
+  @if (notice(); as message) { <p class="vn-alert category-notice" role="status">{{ message }}</p> }
+  @if (error(); as message) { <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p> }
+
+  <form class="vn-card category-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <div class="category-form__heading"><div><h2>{{ editing() ? 'Editar categoría' : 'Crear categoría' }}</h2><p>Las categorías se guardan dentro de la empresa seleccionada.</p></div>@if (editing()) { <button type="button" class="vn-button" (click)="newCategory()" [disabled]="saving()">Cancelar</button> }</div>
+    <div class="category-fields">
+      <label class="vn-field" for="category-name">Nombre<input id="category-name" formControlName="nombre" maxlength="100" placeholder="Camisas" aria-required="true" /></label>
+      <label class="vn-field" for="category-description">Descripción<input id="category-description" formControlName="descripcion" maxlength="500" placeholder="Prendas casuales y formales" /></label>
+    </div>
+    <div class="category-actions"><button type="submit" class="vn-button vn-button--primary" [disabled]="saving()">{{ saving() ? 'Guardando…' : editing() ? 'Guardar cambios' : 'Crear categoría' }}</button></div>
+  </form>
+
+  <div class="vn-card category-directory" [attr.aria-busy]="loading()">
+    <div class="category-directory__heading"><h2>Categorías de la empresa</h2><span>{{ categories().length }}</span></div>
+    @if (loading()) { <p role="status">Cargando categorías…</p> }
+    @else if (categories().length === 0) { <p class="category-empty">Todavía no hay categorías. Crea una para clasificar productos.</p> }
+    @else { <ul class="category-list">@for (category of categories(); track category.id) {
+      <li><div><strong>{{ category.nombre }}</strong><p>{{ category.descripcion || 'Sin descripción' }}</p></div><span class="category-status" [class.category-status--inactive]="!category.activo">{{ category.activo ? 'Activa' : 'Inactiva' }}</span><div class="category-row-actions"><button type="button" class="vn-button" (click)="edit(category)" [disabled]="saving()">Editar</button><button type="button" class="vn-button" (click)="toggleActive(category)" [disabled]="saving()">{{ category.activo ? 'Desactivar' : 'Activar' }}</button></div></li>
+    }</ul> }
+  </div>
+</section>

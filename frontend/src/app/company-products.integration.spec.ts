@@ -4,10 +4,10 @@ import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from './app.routes';
-import { authInterceptor } from './auth/auth.interceptor';
-import { SESSION_KEY } from './auth/auth.service';
-import { COMPANY_KEY, CompanyService } from './company/company.service';
-import { Product } from './products/product.model';
+import { authInterceptor } from './autenticacion_usuarios/autenticacion/auth.interceptor';
+import { SESSION_KEY } from './autenticacion_usuarios/autenticacion/auth.service';
+import { COMPANY_KEY, CompanyService } from './organizacion_empresarial/empresa/company.service';
+import { Product } from './catalogo_abastecimiento/productos/product.model';
 
 const ADMIN = { id: 1, nombre: 'Administración de prueba', correo: 'admin@vestinova.test', rol: 'ADMINISTRADOR', activo: true };
 const A = { id: 10, nombre: 'Empresa A', slug: 'empresa-a', activo: true, rol: 'ADMINISTRADOR' };

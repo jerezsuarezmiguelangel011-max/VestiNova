@@ -5,8 +5,8 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from app.inventory.domain import InventoryKey
-from app.reservations.domain import (
+from app.inventario.domain import InventoryKey
+from app.compras_reservas.reservas.domain import (
     InvalidReservation,
     InvalidTransition,
     Reservation,

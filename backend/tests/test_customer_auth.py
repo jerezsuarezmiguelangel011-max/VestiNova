@@ -5,7 +5,7 @@ import jwt
 import pytest
 from sqlalchemy import func, select
 
-from app.customer_auth import CLIENT_JWT_AUDIENCE
+from app.autenticacion_usuarios.customer_auth import CLIENT_JWT_AUDIENCE
 from app.models import Administrador, Cliente, Empresa, SesionCliente, utc_now
 from app.password_policy import PASSWORD_POLICY_MESSAGE
 from app.security import JWT_ISSUER, hash_password, verify_password

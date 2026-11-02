@@ -22,13 +22,13 @@ from sqlalchemy.exc import IntegrityError
 from app.config import BACKEND_ROOT, Settings, validate_local_database_url
 from app.db import Base, build_session_factory
 from app.main import create_app
-from app.mobile_download import download_db
+from app.operacion_sin_conexion.mobile_download import download_db
 from app.models import AccesoSucursal, Administrador, Cliente, Empresa, Existencia, MembresiaEmpresa, MovimientoInventario, Producto, SesionAdministrador, SesionCliente, Sucursal, VarianteProducto, utc_now
-from app.inventory.domain import InventoryKey
-from app.purchases.domain import Purchase, PurchaseCommand, PurchaseContext, PurchaseItem, PurchaseLine, identifier_token
-from app.purchases.persistence import PurchaseLineRecord, PurchaseRecord, add_purchase, find_purchase
+from app.inventario.domain import InventoryKey
+from app.compras_reservas.compras.domain import Purchase, PurchaseCommand, PurchaseContext, PurchaseItem, PurchaseLine, identifier_token
+from app.compras_reservas.compras.persistence import PurchaseLineRecord, PurchaseRecord, add_purchase, find_purchase
 from app.security import hash_password
-from app.permissions import PERMISSION_CODES, ensure_company_roles
+from app.autenticacion_usuarios.permissions import PERMISSION_CODES, ensure_company_roles
 from app.models import PermisoRol, RolEmpresa
 
 

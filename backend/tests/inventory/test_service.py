@@ -6,7 +6,7 @@ from uuid import UUID
 
 import pytest
 
-from app.inventory.domain import (
+from app.inventario.domain import (
     AdjustmentCommand,
     BranchReference,
     IncompatibleReference,
@@ -20,7 +20,7 @@ from app.inventory.domain import (
     StockBalance,
     VariantReference,
 )
-from app.inventory.service import InventoryService
+from app.inventario.service import InventoryService
 from tests.inventory.fakes import FakeAuthorizer, FakeReferenceResolver, FakeUnitOfWorkFactory, InventoryTestState
 
 

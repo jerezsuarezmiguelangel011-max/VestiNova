@@ -5,8 +5,8 @@ from uuid import uuid4
 
 import pytest
 
-from app.inventory.domain import IncompatibleReference, InventoryKey
-from app.purchases.domain import (
+from app.inventario.domain import IncompatibleReference, InventoryKey
+from app.compras_reservas.compras.domain import (
     Purchase, PurchaseCommand, PurchaseContext, PurchaseForbidden, PurchaseInvalid,
     PurchaseItem, PurchaseLine, identifier_token,
 )

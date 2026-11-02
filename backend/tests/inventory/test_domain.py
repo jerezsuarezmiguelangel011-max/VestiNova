@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from app.inventory.domain import (
+from app.inventario.domain import (
     AdjustmentCommand,
     BranchReference,
     IncompatibleReference,

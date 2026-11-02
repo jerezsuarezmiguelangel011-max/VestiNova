@@ -1,0 +1,1 @@
+@media print{.purchase-history__card{display:none!important;break-inside:avoid}.purchase-history__card--printing{display:block!important}.purchase-history__receipt summary{display:none}.purchase-history__receipt:not([open])>*:not(summary){display:block!important}}

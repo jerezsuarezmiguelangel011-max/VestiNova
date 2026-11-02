@@ -1,0 +1,71 @@
+<section class="products-page products-form-page" aria-labelledby="product-form-title">
+  <a class="products-back" routerLink="/admin/productos">← Volver a productos</a>
+  <header class="products-heading"><div><p class="products-eyebrow">Colección · {{ editing ? 'Edición' : 'Nuevo registro' }}</p><h1 id="product-form-title">{{ editing ? 'Editar producto' : 'Una nueva prenda' }}</h1><p class="products-description">Empresa: {{ companies.active()?.nombre }}. {{ editing ? 'Actualiza los datos que verá el catálogo.' : 'Añade los datos esenciales de tu producto.' }}</p></div>@if (original(); as product) { <a class="vn-button" [routerLink]="['/admin/productos', product.id, 'variantes']">Variantes</a> }</header>
+
+  @if (contextChanged() || !companies.canManage()) {
+    <div class="vn-card products-state"><p class="vn-alert" role="status">El contexto de empresa cambió o ya no tienes permiso de edición. Abre nuevamente el listado para continuar.</p><a class="vn-button" routerLink="/admin/productos">Volver a productos</a></div>
+  } @else if (saved(); as product) {
+    <div class="vn-card products-state"><h2>Producto guardado</h2><p role="status">{{ product.nombre }} se guardó correctamente en {{ companies.active()?.nombre }}.</p>@if (error(); as message) { <p class="vn-alert" role="alert">{{ message }}</p> }<a class="vn-button vn-button--primary" routerLink="/admin/productos">Volver al listado</a></div>
+  } @else if (loading()) {
+    <div class="vn-card products-state" role="status"><span class="products-spinner" aria-hidden="true"></span><p>Cargando producto…</p></div>
+  } @else if (loadError(); as message) {
+    <div class="vn-card products-state"><p class="vn-alert vn-alert--error" role="alert">{{ message }}</p><button type="button" class="vn-button" (click)="load()">Reintentar</button><a class="vn-button" routerLink="/admin/productos">Volver a productos</a></div>
+  } @else {
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="saving()" class="products-form">
+      <p class="products-required-note">Los campos indicados como obligatorios son necesarios para guardar.</p>
+      @if (error(); as message) { <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p> }
+      <div class="vn-card products-form-card">
+        <div class="products-section-heading"><span aria-hidden="true">01</span><div><h2>La prenda</h2><p>Nombre y descripción para reconocerla.</p></div></div>
+        <div class="products-form-fields">
+          <label class="vn-field" for="product-name">Nombre <span class="products-required">Obligatorio</span>
+            <input id="product-name" type="text" formControlName="nombre" maxlength="120" autocomplete="off" aria-required="true" [attr.aria-invalid]="fieldError('nombre') !== null" [attr.aria-describedby]="fieldError('nombre') ? 'product-name-error' : null" placeholder="Ej. Camisa de lino" />
+          </label>
+          @if (fieldError('nombre'); as message) { <p class="products-field-error" id="product-name-error">{{ message }}</p> }
+          <label class="vn-field" for="product-category">Categoría <span class="products-optional">Opcional</span>
+            <select id="product-category" formControlName="categoria_id" [attr.aria-describedby]="categoriesError() ? 'product-category-error' : 'product-category-hint'">
+              <option [ngValue]="null">General</option>
+              @for (category of categories(); track category.id) { <option [ngValue]="category.id" [disabled]="!category.activo && category.id !== original()?.categoria_id">{{ category.nombre }}{{ category.activo ? '' : ' · Inactiva' }}</option> }
+            </select>
+          </label>
+          <p class="products-hint" id="product-category-hint">Cada empresa mantiene sus propias categorías. <a routerLink="/admin/categorias">Administrar categorías</a></p>
+          @if (categoriesError(); as message) { <p class="products-field-error" id="product-category-error">{{ message }} <button type="button" class="products-inline-button" (click)="loadCategories()">Reintentar</button></p> }
+          <label class="vn-field" for="product-description">Descripción <span class="products-optional">Opcional</span>
+            <textarea id="product-description" formControlName="descripcion" maxlength="3000" rows="5" [attr.aria-invalid]="fieldError('descripcion') !== null" [attr.aria-describedby]="fieldError('descripcion') ? 'product-description-error' : 'product-description-hint'" placeholder="Describe sus características, material y detalles."></textarea>
+          </label>
+          <p class="products-hint" id="product-description-hint">Hasta 3000 caracteres. Utiliza información real del producto.</p>
+          @if (fieldError('descripcion'); as message) { <p class="products-field-error" id="product-description-error">{{ message }}</p> }
+        </div>
+      </div>
+      <div class="products-form-two">
+        <div class="vn-card products-form-card">
+          <div class="products-section-heading"><span aria-hidden="true">02</span><div><h2>Precio y visibilidad</h2><p>Los importes se registran en bolivianos.</p></div></div>
+          <div class="products-form-fields">
+            <label class="vn-field" for="product-price">Precio en Bs (BOB) <span class="products-required">Obligatorio</span>
+              <input id="product-price" type="text" inputmode="decimal" formControlName="precio" autocomplete="off" aria-required="true" [attr.aria-invalid]="fieldError('precio') !== null" [attr.aria-describedby]="fieldError('precio') ? 'product-price-error' : 'product-price-hint'" placeholder="0.00" />
+            </label>
+            <p class="products-hint" id="product-price-hint">Mayor a cero. Hasta dos decimales.</p>
+            @if (fieldError('precio'); as message) { <p class="products-field-error" id="product-price-error">{{ message }}</p> }
+            <label class="products-toggle" for="product-active"><input id="product-active" type="checkbox" formControlName="activo" aria-describedby="product-active-hint" /><span>Producto activo</span></label>
+            <p class="products-hint" id="product-active-hint">Solo los productos activos se podrán consultar en el catálogo público.</p>
+          </div>
+        </div>
+        <div class="vn-card products-form-card">
+          <div class="products-section-heading"><span aria-hidden="true">03</span><div><h2>Presentación</h2><p>Imagen y dirección para el catálogo.</p></div></div>
+          <div class="products-form-fields">
+            <label class="vn-field" for="product-image">URL de imagen <span class="products-optional">Opcional</span>
+              <input id="product-image" type="url" inputmode="url" formControlName="imagen_url" maxlength="2048" [attr.aria-invalid]="fieldError('imagen_url') !== null" [attr.aria-describedby]="fieldError('imagen_url') ? 'product-image-error' : 'product-image-hint'" placeholder="https://ejemplo.com/prenda.jpg" />
+            </label>
+            <p class="products-hint" id="product-image-hint">Introduce el enlace directo a una imagen pública de tu producto.</p>
+            @if (fieldError('imagen_url'); as message) { <p class="products-field-error" id="product-image-error">{{ message }}</p> }
+            <label class="vn-field" for="product-slug">Identificador público <span class="products-optional">{{ editing ? 'Existente' : 'Opcional' }}</span>
+              <input id="product-slug" type="text" formControlName="slug" maxlength="140" autocapitalize="none" spellcheck="false" [attr.aria-required]="editing" [attr.aria-invalid]="fieldError('slug') !== null" [attr.aria-describedby]="fieldError('slug') ? 'product-slug-error' : 'product-slug-hint'" placeholder="camisa-de-lino" />
+            </label>
+            <p class="products-hint" id="product-slug-hint">{{ editing ? 'Cambiarlo también cambia el identificador que utiliza el catálogo.' : 'Si lo dejas vacío, el servidor lo genera a partir del nombre.' }}</p>
+            @if (fieldError('slug'); as message) { <p class="products-field-error" id="product-slug-error">{{ message }}</p> }
+          </div>
+        </div>
+      </div>
+      <div class="products-form-actions"><a class="vn-button" [routerLink]="saving() ? null : '/admin/productos'" [attr.aria-disabled]="saving()" [attr.tabindex]="saving() ? -1 : null" (click)="saving() ? $event.preventDefault() : null">Cancelar</a><button type="submit" class="vn-button vn-button--primary" [disabled]="saving()" [attr.aria-busy]="saving()">{{ saving() ? 'Guardando…' : editing ? 'Guardar cambios' : 'Registrar producto' }}</button></div>
+    </form>
+  }
+</section>

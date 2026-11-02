@@ -9,14 +9,14 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from app.inventory.domain import BranchReference, InventoryKey, StockBalance, VariantReference
-from app.reservations.domain import (
+from app.inventario.domain import BranchReference, InventoryKey, StockBalance, VariantReference
+from app.compras_reservas.reservas.domain import (
     CustomerReference, InsufficientStock, InvalidReservation, InvalidTransition,
     Reservation, ReservationAuthorization, ReservationConfigurationError, ReservationConflict,
     ReservationForbidden, ReservationLine, ReservationNotFound, ReservationPermission,
     ReservationRequest, ReservationState,
 )
-from app.reservations.service import ReservationService
+from app.compras_reservas.reservas.service import ReservationService
 from tests.reservations.fakes import (
     FakeAuthorizer, FakePolicy, FakeReferences, FakeUnitOfWorkFactory, ReservationTestState,
 )

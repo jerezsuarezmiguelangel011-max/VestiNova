@@ -1,0 +1,38 @@
+<section class="branch-page" aria-labelledby="branch-title">
+  <header class="branch-heading">
+    <div><p class="vn-eyebrow">CU03 · Administración de empresa</p><h1 class="vn-title" id="branch-title">Sucursales</h1><p>Registra y actualiza las ubicaciones de {{ companies.active()?.nombre }}.</p></div>
+    <button type="button" class="vn-button vn-button--primary" (click)="newBranch()" [disabled]="saving()">Nueva sucursal</button>
+  </header>
+
+  @if (notice(); as message) { <p class="vn-alert branch-notice" role="status">{{ message }}</p> }
+  @if (error(); as message) { <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p> }
+
+  <form class="vn-card branch-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <div class="branch-form__heading"><div><h2>{{ editing() ? 'Editar sucursal' : 'Registrar sucursal' }}</h2><p>El código identifica la sucursal dentro de esta empresa.</p></div>@if (editing()) { <button type="button" class="vn-button" (click)="cancelEdit()" [disabled]="saving()">Cancelar</button> }</div>
+    <div class="branch-fields">
+      <label class="vn-field" for="branch-code">Código<input id="branch-code" formControlName="codigo" maxlength="40" autocomplete="off" placeholder="CENTRO" aria-required="true" /></label>
+      <label class="vn-field" for="branch-name">Nombre<input id="branch-name" formControlName="nombre" maxlength="120" autocomplete="organization" placeholder="Sucursal Centro" aria-required="true" /></label>
+      <label class="vn-field" for="branch-city">Ciudad<input id="branch-city" formControlName="ciudad" maxlength="100" autocomplete="address-level2" placeholder="Santa Cruz" /></label>
+      <label class="vn-field branch-fields__wide" for="branch-location">Ubicación<input id="branch-location" formControlName="ubicacion" maxlength="240" autocomplete="street-address" placeholder="Calle, número y referencia" /></label>
+      <label class="vn-field" for="branch-contact">Contacto<input id="branch-contact" formControlName="contacto" maxlength="120" autocomplete="tel" placeholder="Teléfono o correo de la sucursal" /></label>
+    </div>
+    <div class="branch-actions"><button type="submit" class="vn-button vn-button--primary" [disabled]="saving()">{{ saving() ? 'Guardando…' : editing() ? 'Guardar cambios' : 'Registrar sucursal' }}</button></div>
+  </form>
+
+  <div class="vn-card branch-directory" [attr.aria-busy]="loading()">
+    <div class="branch-directory__heading"><h2>Sucursales de la empresa</h2><span>{{ branches().length }}</span></div>
+    @if (loading()) { <p role="status">Cargando sucursales…</p> }
+    @else if (branches().length === 0) { <p class="branch-empty">Todavía no hay sucursales. Registra la primera para empezar.</p> }
+    @else {
+      <div class="branch-table-region" role="region" tabindex="0" aria-label="Sucursales registradas">
+        <table><thead><tr><th scope="col">Sucursal</th><th scope="col">Ciudad</th><th scope="col">Ubicación</th><th scope="col">Contacto</th><th scope="col">Estado</th><th scope="col">Acciones</th></tr></thead>
+          <tbody>@for (branch of branches(); track branch.id) { <tr>
+            <td><strong>{{ branch.nombre }}</strong><small>{{ branch.codigo }}</small></td><td>{{ branch.ciudad || '—' }}</td><td>{{ branch.ubicacion || '—' }}</td><td>{{ branch.contacto || '—' }}</td>
+            <td><span class="branch-status" [class.branch-status--inactive]="!branch.activo">{{ branch.activo ? 'Activa' : 'Inactiva' }}</span></td>
+            <td class="branch-row-actions"><button type="button" class="vn-button" (click)="edit(branch)" [disabled]="saving()">Editar</button><button type="button" class="vn-button" (click)="toggleActive(branch)" [disabled]="saving()">{{ branch.activo ? 'Desactivar' : 'Activar' }}</button></td>
+          </tr> }</tbody>
+        </table>
+      </div>
+    }
+  </div>
+</section>
