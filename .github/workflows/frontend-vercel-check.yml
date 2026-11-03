@@ -3,10 +3,12 @@ name: VestiNova Frontend CI
 on:
   push:
     branches:
+      - pruebas
       - deploy/vercel-angular
       - miguel
   pull_request:
     branches:
+      - pruebas
       - miguel
 
 jobs:
