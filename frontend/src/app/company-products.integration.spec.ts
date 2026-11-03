@@ -28,6 +28,8 @@ describe('Flujo administrativo con empresa: CU01 y registro/edición de CU05', (
 
   beforeEach(() => sessionStorage.clear());
   afterEach(() => {
+    // Los formularios administran categorías; no son la materia de este recorrido.
+    http?.match(request => request.url === '/api/admin/categorias').forEach(request => { if (!request.cancelled) request.flush([]); });
     http?.verify();
     sessionStorage.clear();
     vi.restoreAllMocks();

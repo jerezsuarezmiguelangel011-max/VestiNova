@@ -1,19 +1,34 @@
 from collections.abc import Iterator
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 import pytest
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.pool import StaticPool
 
 from app.config import Settings
 from app.db import Base, build_session_factory
 from app.main import create_app
-from app.models import Administrador, Empresa, MembresiaEmpresa
+from app.models import Administrador, Empresa, MembresiaEmpresa, PlanSaaS, SuscripcionEmpresa
 from app.security import hash_password
 
 
 TEST_PASSWORD = " Clave de prueba local 2026 "
 TEST_SECRET = "solo-pruebas-aisladas-no-usar-para-la-api-real-123456"
+
+
+def activate_test_subscription(db, empresa_id: int) -> None:
+    """Asigna un plan de prueba activo respetando las reglas SaaS reales."""
+    plan = db.scalar(select(PlanSaaS).where(PlanSaaS.codigo == "BASICO"))
+    if plan is None:
+        plan = PlanSaaS(codigo="BASICO", nombre="Básico de pruebas",
+                        descripcion="Plan aislado para pruebas automatizadas",
+                        max_sucursales=1000, max_productos=1000, max_usuarios=1000,
+                        activo=True)
+        db.add(plan)
+        db.flush()
+    db.add(SuscripcionEmpresa(empresa_id=empresa_id, plan_id=plan.id,
+                              estado="ACTIVA", inicia_en=datetime.now(timezone.utc) - timedelta(days=1)))
 
 
 @pytest.fixture
@@ -41,6 +56,7 @@ def administrator(session_factory):
         empresa = Empresa(slug="empresa-prueba", nombre="Empresa de prueba", activo=True)
         db.add(empresa)
         db.flush()
+        activate_test_subscription(db, empresa.id)
         db.add(MembresiaEmpresa(administrador_id=administrator.id, empresa_id=empresa.id, rol="ADMINISTRADOR", activo=True))
         db.commit()
         return administrator

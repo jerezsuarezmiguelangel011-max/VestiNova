@@ -5,6 +5,7 @@ import { CatalogOfflineStoreService, IDB_FACTORY } from './catalog-offline-store
 
 const PRODUCT: CatalogProduct = {
   id: 7, nombre: 'Camisa de lino', slug: 'camisa-de-lino', descripcion: 'Lino natural.',
+  categoria_id: null, categoria_nombre: 'General', precio_promocional: null, promocion_nombre: null,
   precio: '149.90', moneda: 'BOB', imagen_url: null, activo: true,
   creado_en: '2026-10-25T12:00:00Z', actualizado_en: '2026-10-25T12:00:00Z',
 };

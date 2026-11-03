@@ -59,7 +59,7 @@ describe('Información de la copia local del catálogo', () => {
     const { root } = await listSetup();
     expectLocalNotice(root);
     expect(root.querySelector('.catalog-card')?.textContent).toContain(PRODUCT.nombre);
-    expect(root.querySelector('.catalog-price')?.textContent).toBe('Bs 149.90');
+    expect(root.querySelector('.catalog-price')?.textContent?.trim()).toBe('Bs 149.90');
   });
 
   it('retira el aviso local cuando una nueva consulta obtiene datos de red', async () => {

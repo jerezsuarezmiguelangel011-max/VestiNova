@@ -61,7 +61,14 @@ def test_staff_actor_context_uses_database_membership_and_only_authorized_active
     assert len(companies) == 1
     assert {key: companies[0][key] for key in ("id", "slug", "nombre", "activo", "rol")} == {"id": access_scope.company.id, "slug": access_scope.company.slug, "nombre": access_scope.company.nombre, "activo": True, "rol": role}
     assert companies[0]["rol_sistema"] == role and companies[0]["rol_id"] is None
-    assert set(companies[0]["permisos"]) == {"catalogo.consultar", "sucursales.consultar", "inventario.consultar", "descarga.consultar"}
+    read_permissions = {"catalogo.consultar", "sucursales.consultar", "inventario.consultar",
+                        "descarga.consultar", "promociones.consultar", "postventa.consultar"}
+    role_permissions = {
+        "ENCARGADO_SUCURSAL": {"abastecimiento.consultar", "abastecimiento.gestionar", "postventa.gestionar"},
+        "CAJERO": {"postventa.gestionar"},
+        "OPERADOR": set(),
+    }
+    assert set(companies[0]["permisos"]) == read_permissions | role_permissions[role]
     context = client.get("/api/auth/contexto", headers={**headers, "X-Empresa-Id": str(access_scope.company.id)})
     assert context.status_code == 200 and context.headers["cache-control"] == "no-store"
     assert context.json()["empresa"] == companies[0]

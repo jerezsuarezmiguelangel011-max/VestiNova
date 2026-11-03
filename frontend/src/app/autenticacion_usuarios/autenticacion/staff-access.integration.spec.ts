@@ -47,12 +47,12 @@ describe('Recorrido web de actores de personal con HTTP controlado', () => {
     await setup();
     const navigation = harness.navigateByUrl('/admin/plataforma');
     (await request('/api/auth/me')).flush({ ...STAFF, es_superadministrador: true });
+    (await request(value => value.url === '/api/plataforma/empresas')).flush([]);
+    (await request('/api/plataforma/administradores')).flush([]);
     await navigation; await harness.fixture.whenStable(); harness.detectChanges();
-    expect(router.url).toBe('/admin/plataforma');
-    expect(root().textContent).toContain('Acceso de superadministración');
-    expect(root().textContent).toContain('Los permisos de plataforma y de cada empresa se validan por separado.');
+    expect(router.url).toBe('/admin/plataforma/empresas');
+    expect(root().textContent).toContain('Empresas contratantes');
     http.expectNone('/api/empresas');
-    http.expectNone(value => value.url.startsWith('/api/plataforma/'));
   });
 
   it('un administrador empresarial sin privilegio SaaS no entra a la plataforma', async () => {

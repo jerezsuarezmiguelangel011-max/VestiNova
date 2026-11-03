@@ -127,9 +127,13 @@ describe('Formulario de producto', () => {
     navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     const fixture = TestBed.createComponent(ProductFormPage);
     fixture.detectChanges();
+    http.expectOne('/api/admin/categorias').flush([]);
     return { fixture, component: fixture.componentInstance, root: fixture.nativeElement as HTMLElement, routeParams };
   }
-  afterEach(() => http?.verify());
+  afterEach(() => {
+    http?.match('/api/admin/categorias').forEach(request => { if (!request.cancelled) request.flush([]); });
+    http?.verify();
+  });
 
   it('asocia errores y etiquetas y no envía un formulario inválido', async () => {
     const { component, fixture, root } = await setup();
@@ -145,7 +149,7 @@ describe('Formulario de producto', () => {
 
   it('crea una sola vez mientras espera, conserva decimales y confirma solo tras respuesta', async () => {
     const { component, fixture, root } = await setup();
-    component.form.setValue({ nombre: '  Camisa de lino  ', descripcion: ' Lino natural. ', precio: '149,9', slug: '', imagen_url: '', activo: true });
+    component.form.setValue({ nombre: '  Camisa de lino  ', categoria_id: null, descripcion: ' Lino natural. ', precio: '149,9', slug: '', imagen_url: '', activo: true });
     component.submit();
     component.submit();
     fixture.detectChanges();

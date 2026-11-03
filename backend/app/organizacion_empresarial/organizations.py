@@ -11,6 +11,7 @@ from app.db import get_db
 from app.models import AccesoSucursal, Administrador, Empresa, MembresiaEmpresa
 from app.security import require_administrator
 from app.autenticacion_usuarios.permissions import effective_role, ensure_company_roles
+from app.organizacion_empresarial.audit import record_audit_event
 from app.autenticacion_usuarios.staff import check_assignable_role, check_target_authority, get_member, protect_last_administrator, replace_branches, validate_branches
 from app.tenancy import TenantContext, require_permission, require_tenant
 

@@ -68,7 +68,7 @@ describe('Catálogo público de prendas', () => {
     const card = root.querySelector('.catalog-card') as HTMLAnchorElement;
     expect(root.querySelectorAll('.catalog-card')).toHaveLength(1);
     expect(card.textContent).toContain('Camisa de lino');
-    expect(card.querySelector('.catalog-price')?.textContent).toBe('Bs 99999999.99');
+    expect(card.querySelector('.catalog-price')?.textContent?.trim()).toBe('Bs 99999999.99');
     expect(card.getAttribute('href')).toBe('/catalogo/camisa-de-lino');
     expect(card.getAttribute('aria-label')).toContain('Camisa de lino');
     expect(card.querySelector('vn-catalog-image')).not.toBeNull();
