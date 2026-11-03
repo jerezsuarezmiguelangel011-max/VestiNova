@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
+from sqlalchemy.engine import make_url
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -74,7 +75,7 @@ def create_app(settings: Settings | None = None, *, engine=None) -> FastAPI:
     @app.get("/api/health/db", tags=["Estado"])
     def health_database(db: Session = Depends(get_db)):
         db.execute(text("SELECT 1"))
-        return {"status": "ok", "database": "vestinova_mvp"}
+        return {"status": "ok", "database": make_url(settings.database_url).database}
     # Autenticacion y usuarios.
     app.include_router(auth_router)
     app.include_router(customer_auth_router)

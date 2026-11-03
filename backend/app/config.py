@@ -28,8 +28,10 @@ class Settings:
             validate_supabase_database_url(database_url)
         elif deploy_environment == "local":
             validate_local_database_url(database_url)
+        elif deploy_environment == "demo":
+            validate_demo_database_url(database_url)
         else:
-            raise ValueError("APP_ENV solo admite local o production.")
+            raise ValueError("APP_ENV solo admite local, demo o production.")
         if len(secret) < 32 or secret.startswith("GENERAR_"):
             raise ValueError("Configura JWT_SECRET con scripts.configure_local; se necesitan al menos 32 caracteres.")
         try:
@@ -49,6 +51,17 @@ def validate_local_database_url(value: str) -> None:
         raise ValueError("Configura DATABASE_URL mediante python -m scripts.configure_local.") from None
     if url.drivername != "postgresql+psycopg" or url.database != "vestinova_mvp" or url.host not in {"localhost", "127.0.0.1", "::1"} or url.query:
         raise ValueError("Este MVP solo permite PostgreSQL local, controlador postgresql+psycopg y base vestinova_mvp.")
+
+
+def validate_demo_database_url(value: str) -> None:
+    """Permite exclusivamente la base de demostración aislada en PostgreSQL local."""
+    try:
+        url = make_url(value)
+    except Exception:
+        raise ValueError("Configura la base local de demostración mediante scripts.demo_environment.") from None
+    if (url.drivername != "postgresql+psycopg" or url.database != "vestinova_pruebas"
+            or url.host not in {"localhost", "127.0.0.1", "::1"} or url.query):
+        raise ValueError("El modo demo solo admite la base vestinova_pruebas en PostgreSQL local.")
 
 
 def validate_supabase_database_url(value: str) -> None:
