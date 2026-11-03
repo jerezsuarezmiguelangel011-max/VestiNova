@@ -3,10 +3,12 @@ name: VestiNova Backend CI
 on:
   push:
     branches:
+      - pruebas
       - deploy/render-supabase
       - miguel
   pull_request:
     branches:
+      - pruebas
       - miguel
 
 jobs:
