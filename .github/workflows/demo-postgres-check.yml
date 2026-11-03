@@ -1,0 +1,83 @@
+name: VestiNova Demo PostgreSQL CI
+
+on:
+  pull_request:
+    branches:
+      - pruebas
+    paths:
+      - 'backend/**'
+      - '.github/workflows/demo-postgres-check.yml'
+
+jobs:
+  demo-postgres-seed:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_demo_password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 8
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: backend/requirements.lock.txt
+      - name: Install requirements
+        run: python -m pip install -r requirements.lock.txt
+      - name: Set up ephemeral local configuration
+        run: |
+          printf '%s\n' \
+            'APP_ENV=local' \
+            'DATABASE_URL=postgresql+psycopg://postgres:ci_demo_password@127.0.0.1:5432/vestinova_mvp' \
+            'JWT_SECRET=solo-ci-aislado-para-datos-demo-20261103-123456' > .env
+      - name: Migrate and seed PostgreSQL twice
+        run: |
+          python - <<'PY'
+          from sqlalchemy import func, select
+          from app.config import Settings
+          from app.db import build_engine, build_session_factory
+          from app.models import Administrador, Empresa, Existencia, Producto, MovimientoInventario
+          from scripts.demo_environment import use_demo_database
+          from scripts.seed_demo import prepare_demo_database, seed_data
+
+          demo_url = use_demo_database()
+          assert demo_url.database == "vestinova_pruebas"
+          prepare_demo_database(demo_url)
+          engine = build_engine(Settings.from_env())
+          try:
+              factory = build_session_factory(engine)
+              with factory.begin() as session:
+                  result = seed_data(session, "ClaveDemo2026!")
+                  assert len(result) == 2
+              with factory() as session:
+                  def counts():
+                      return tuple(session.scalar(select(func.count()).select_from(model))
+                                   for model in (Administrador, Empresa, Producto, Existencia, MovimientoInventario))
+                  first = counts()
+              with factory.begin() as session:
+                  result_second = seed_data(session, "ClaveDemo2026!")
+                  assert result_second == result
+              with factory() as session:
+                  second = tuple(session.scalar(select(func.count()).select_from(model))
+                                 for model in (Administrador, Empresa, Producto, Existencia, MovimientoInventario))
+              assert first == second, (first, second)
+              assert first[:4] == (7, 3, 6, 15), first
+              print("PostgreSQL demo: migraciones, poblado y reejecución sin duplicados, OK.")
+          finally:
+              engine.dispose()
+          PY

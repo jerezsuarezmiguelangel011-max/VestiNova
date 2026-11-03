@@ -13,6 +13,7 @@ from alembic.config import Config
 import psycopg
 from psycopg import sql
 from sqlalchemy import func, select
+from sqlalchemy.exc import DBAPIError
 
 from app.autenticacion_usuarios.permissions import ensure_company_roles
 from app.config import BACKEND_ROOT, Settings
@@ -266,6 +267,22 @@ def prepare_demo_database(demo_url):
     command.upgrade(config, "head")
 
 
+def safe_error_message(error: Exception) -> str:
+    """Diagnóstico sin URLs, contraseñas, SQL ni parámetros sensibles."""
+    if isinstance(error, ValueError):
+        # Valores propios del script: política de contraseña, rol y plan.
+        return str(error)
+    if isinstance(error, DBAPIError):
+        original = error.orig
+        sqlstate = getattr(original, "sqlstate", None)
+        constraint = getattr(getattr(original, "diag", None), "constraint_name", None)
+        details = f" (SQLSTATE {sqlstate})" if sqlstate else ""
+        if constraint:
+            details += f" [restricción: {constraint}]"
+        return f"PostgreSQL rechazó la operación{details}."
+    return f"Error de tipo {type(error).__name__}. No se muestran datos sensibles."
+
+
 def main():
     demo_url = use_demo_database()
     print("Destino de demostración: vestinova_pruebas (PostgreSQL local).")
@@ -295,8 +312,11 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (Exception, KeyboardInterrupt):
-        # Evitar imprimir URLs de PostgreSQL, credenciales o excepciones con parámetros.
-        print("No se completó el poblado. No se modifica vestinova_mvp. "
-              "Revisa PostgreSQL local, .env y las migraciones de demo.")
+    except KeyboardInterrupt:
+        print("Operación cancelada. No se modifica vestinova_mvp.")
+        raise SystemExit(130) from None
+    except Exception as error:
+        # Sin stacktrace: puede contener DSN, hashes o contraseñas.
+        print(f"No se completó el poblado: {safe_error_message(error)}")
+        print("La transacción de datos demo se revierte si falla; vestinova_mvp no se modifica.")
         raise SystemExit(1) from None
