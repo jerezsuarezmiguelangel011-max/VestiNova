@@ -1,7 +1,7 @@
-<section class="catalog-detail" aria-label="Detalle del producto" [attr.aria-busy]="loading()">
+<section class="catalog-detail" [class.storefront-detail]="inStorefront" aria-label="Detalle del producto" [attr.aria-busy]="loading()">
   <a class="catalog-back" [routerLink]="inAdmin ? '/admin/catalogo-consulta' : inStorefront ? ['/tienda', shop.tienda(), 'catalogo'] : '/catalogo'" [queryParams]="inAdmin || inStorefront ? null : { tienda: shop.tienda() }">← Volver al catálogo</a>
 
-  @if (!loading() && source() === 'network') {
+  @if (!inStorefront && !loading() && source() === 'network') {
     <p class="catalog-source-online" role="status">Información consultada en línea. La disponibilidad puede cambiar hasta la confirmación de una compra o reserva.</p>
   }
 
@@ -42,7 +42,7 @@
         <p class="catalog-eyebrow">{{ inStorefront ? 'UNA PRENDA DE ESTA TIENDA' : 'VestiNova · CU08 · Catálogo' }}</p>
         <h1 id="catalog-detail-title">{{ item.nombre }}</h1>
         <p class="catalog-detail__price">@if (item.precio_promocional) { <strong>Bs {{ item.precio_promocional }}</strong> <del>Bs {{ item.precio }}</del><small>{{ item.promocion_nombre }}</small> } @else { Bs {{ item.precio }} } <span>{{ item.moneda }}</span></p>
-        <p class="catalog-product-updated">Ficha actualizada:
+        <p class="catalog-product-updated" [hidden]="inStorefront">Ficha actualizada:
           <time [attr.datetime]="item.actualizado_en">{{ item.actualizado_en | date:'dd/MM/yyyy HH:mm':'-0400' }}</time> (hora de Bolivia).
         </p>
         <p class="catalog-detail__description">{{ item.descripcion }}</p>
@@ -55,7 +55,7 @@
         }
         @if (shop.tienda()) {
           <section class="catalog-variants" aria-labelledby="catalog-variants-title">
-            <h2 id="catalog-variants-title">Variantes publicadas</h2>
+            <h2 id="catalog-variants-title">{{ inStorefront ? 'Elige talla y color' : 'Variantes publicadas' }}</h2>
             @if (variantsLoading()) { <p role="status">Consultando tallas y colores…</p> }
             @if (variantsError(); as message) { <p role="alert">{{ message }}</p> }
             @if (!variantsLoading() && !variantsError()) {
@@ -69,12 +69,12 @@
                 </ul>
               }
             }
-            <p>Consulta los atributos registrados para cada prenda. Las variantes inactivas no se publican.</p>
+            @if (!inStorefront) { <p>Consulta los atributos registrados para cada prenda. Las variantes inactivas no se publican.</p> }
             @if (variants().length > 0) {
-              <label class="catalog-variant-choice" for="catalog-selected-variant">Variante para consultar existencias
+              <label class="catalog-variant-choice" for="catalog-selected-variant">{{ inStorefront ? 'Selecciona la variante que deseas' : 'Variante para consultar existencias' }}
                 <select id="catalog-selected-variant" [value]="selectedVariantId() ?? ''"
                   (change)="chooseVariant($any($event.target).value)">
-                  <option value="">Todas las variantes</option>
+                  <option value="">{{ inStorefront ? 'Elegir talla y color' : 'Todas las variantes' }}</option>
                   @for (variant of variants(); track variant.id) {
                     <option [value]="variant.id">Talla {{ variant.talla }} · {{ variant.color }}</option>
                   }
@@ -144,11 +144,39 @@
             }
           </div>
         }
-        @if (source() === 'network') {
-          <a class="vn-button" routerLink="/catalogo/acciones/reserva" [queryParams]="{ slug: item.slug, tienda: shop.tienda() }">Preparar reserva</a>
+        @if (inStorefront) {
+          <div class="storefront-product-actions">
+            <button type="button" class="vn-button vn-button--primary storefront-add-cart"
+                    (click)="addToCart()" [disabled]="variantsLoading() || source() !== 'network'">
+              Agregar al carrito
+            </button>
+            @if (source() === 'network') {
+              <a class="vn-button" routerLink="/catalogo/acciones/reserva"
+                 [queryParams]="{ slug: item.slug, tienda: shop.tienda() }">Preparar reserva</a>
+            }
+            <a class="storefront-fitting-link" [routerLink]="['/catalogo/vestidor', item.slug]"
+               [queryParams]="{ tienda: shop.tienda() }">Probar virtualmente ↗</a>
+          </div>
+          @if (cartError(); as message) { <p class="storefront-cart-error" role="alert">{{ message }}</p> }
+          @if (cartNotice()) {
+            <div class="storefront-cart-notice" role="status">
+              <strong>Prenda agregada a tu carrito.</strong>
+              <p>Puedes seguir explorando. Solo necesitarás iniciar sesión cuando quieras finalizar el pago.</p>
+              <div>
+                <a class="vn-button vn-button--primary" routerLink="/catalogo/acciones/compra"
+                   [queryParams]="{ tienda: shop.tienda() }">Revisar carrito</a>
+                <a class="vn-button" [routerLink]="['/tienda', shop.tienda(), 'catalogo']">Seguir explorando</a>
+              </div>
+            </div>
+          }
+          <p class="storefront-stock-tip">La disponibilidad y el precio final se verifican antes de iniciar el pago.</p>
+        } @else {
+          @if (source() === 'network') {
+            <a class="vn-button" routerLink="/catalogo/acciones/reserva" [queryParams]="{ slug: item.slug, tienda: shop.tienda() }">Preparar reserva</a>
+          }
+          <a class="vn-button vn-button--primary" routerLink="/catalogo/acciones/compra" [queryParams]="{ slug: item.slug, tienda: shop.tienda() }">Seleccionar para comprar</a>
+          <a class="vn-button" [routerLink]="['/catalogo/vestidor', item.slug]" [queryParams]="{ tienda: shop.tienda() }">Probar en vestidor virtual · CU18</a>
         }
-        <a class="vn-button vn-button--primary" routerLink="/catalogo/acciones/compra" [queryParams]="{ slug: item.slug, tienda: shop.tienda() }">Seleccionar para comprar</a>
-        <a class="vn-button" [routerLink]="['/catalogo/vestidor', item.slug]" [queryParams]="{ tienda: shop.tienda() }">Probar en vestidor virtual · CU18</a>
       </div>
     </article>
   }
