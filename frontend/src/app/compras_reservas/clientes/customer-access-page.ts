@@ -54,7 +54,7 @@ export class CustomerAccessPage {
     this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
       this.revision++; this.changed.next(); this.slug = params.get('tienda') ?? '';
       this.currentShop.set(this.slug);
-      this.form.reset(); this.registering.set(false); this.error.set(null); this.sending.set(false); this.showPassword.set(false);
+      this.form.reset(); this.registering.set(this.route.snapshot.queryParamMap.get('registro') === '1'); this.error.set(null); this.sending.set(false); this.showPassword.set(false);
       this.auth.selectStore(this.slug);
       if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(this.slug)) { this.store.set(null); this.loadError.set('El enlace de tienda no es válido.'); return; }
       this.load();
