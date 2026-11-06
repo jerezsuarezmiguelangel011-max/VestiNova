@@ -113,6 +113,10 @@ export class StripePurchasePage {
           next: variants => {
             if (this.shop.tienda() !== slug) return;
             this.variants.update(values => ({ ...values, [line.product.id]: variants }));
+            const preferred = this.lines().find(item => item.product.id === line.product.id)?.varianteId;
+            if (preferred && variants.some(v => v.id === preferred)) {
+              this.chosenVariants.update(values => ({ ...values, [line.product.id]: preferred }));
+            }
           },
           error: () => this.error.set('No se pudieron consultar las variantes de una prenda.'),
         });
@@ -153,6 +157,7 @@ export class StripePurchasePage {
     const id = Number(raw);
     if (!this.variants()[productId]?.some(v => v.id === id)) return;
     this.chosenVariants.update(v => ({ ...v, [productId]: id }));
+    this.selection.chooseVariant(productId, id);
     this.operation = null;
   }
   changeQuantity(productId: number, value: string): void {
@@ -205,7 +210,7 @@ export class StripePurchasePage {
         this.catalog.get(item.slug).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
           next: response => {
             if (this.shop.tienda() !== slug || response.data.id !== item.id) return;
-            this.selection.add(response);
+            this.selection.add(response, item.variant);
             this.selection.updateQuantity(item.id, String(item.quantity));
             this.chosenVariants.update(ids => ({ ...ids, [item.id]: item.variant }));
           },
@@ -213,6 +218,11 @@ export class StripePurchasePage {
         });
       }
     } catch { /* copia local inválida: no se envía al backend */ }
+  }
+
+  prepareAccess(): void {
+    const slug = this.shop.tienda();
+    if (slug) this.saveCart(slug);
   }
 
   proceed(): void {
