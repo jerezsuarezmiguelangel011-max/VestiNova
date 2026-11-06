@@ -139,3 +139,8 @@
 @media(max-width:850px){.storefront-catalog-mode .catalog-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:500px){.storefront-catalog-mode .catalog-grid{grid-template-columns:1fr}.storefront-catalog-mode .storefront-search-tools{align-items:stretch}}
 @media(prefers-reduced-motion:reduce){.storefront-catalog-mode .catalog-card{transition:none}.storefront-catalog-mode .catalog-card:hover{transform:none}}
+
+/* Catálogo completo, distinto de la portada con novedades de cada tienda. */
+.storefront-catalog-header{margin:0 0 29px}
+.storefront-catalog-header h1{font:400 clamp(36px,5vw,55px)/1.16 Georgia,serif;letter-spacing:-.05em;color:#1e392c;margin:0 0 14px}
+.storefront-catalog-header p:last-child{max-width:640px;font-size:14px;line-height:1.7;color:#657968}
