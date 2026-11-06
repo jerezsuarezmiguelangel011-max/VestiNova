@@ -34,7 +34,27 @@
     </div>
   </aside>
   <div class="workspace__body">
-    <header class="workspace__header"><div class="workspace__company"><span class="workspace__company-label">Empresa de trabajo</span><strong>{{ companies.active()?.nombre ?? 'Selecciona una empresa' }}</strong>@if (companies.active(); as company) { <span class="workspace__company-role">{{ company.rol_nombre ?? company.rol }}</span> }</div>@if (!companies.active() || companies.companies().length > 1) { <a routerLink="/admin/empresa" class="workspace__change">{{ companies.active() ? 'Cambiar empresa' : 'Elegir empresa' }}</a> }</header>
+    <header class="workspace__header">
+      <div class="workspace__company">
+        <span class="workspace__company-label">Empresa de trabajo</span>
+        <strong>{{ companies.active()?.nombre ?? 'Selecciona una empresa' }}</strong>
+        @if (companies.active(); as company) {
+          <span class="workspace__company-role">{{ company.rol_nombre ?? company.rol }}</span>
+        }
+      </div>
+      <div class="workspace__public-actions">
+        @if (companies.active(); as company) {
+          <a class="workspace__public-shop" [routerLink]="['/tienda', company.slug]"
+             target="_blank" rel="noopener noreferrer"
+             [attr.aria-label]="'Ver tienda pública de ' + company.nombre + ' en nueva pestaña'">
+            Ver mi tienda pública <span aria-hidden="true">↗</span>
+          </a>
+        }
+        @if (!companies.active() || companies.companies().length > 1) {
+          <a routerLink="/admin/empresa" class="workspace__change">{{ companies.active() ? 'Cambiar empresa' : 'Elegir empresa' }}</a>
+        }
+      </div>
+    </header>
     <main id="main-content" class="workspace__main" tabindex="-1">
       @if (logoutError(); as message) { <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p> }
       <router-outlet />
