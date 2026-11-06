@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subject, finalize, forkJoin, takeUntil } from 'rxjs';
 import { CustomerAuthService } from './customer-auth.service';
 import { PublicStore } from './customer.models';
@@ -23,7 +23,7 @@ function customerEmail(control: AbstractControl): ValidationErrors | null {
 }
 
 @Component({
-  selector: 'vn-customer-access', imports: [ReactiveFormsModule],
+  selector: 'vn-customer-access', imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './customer-access-page.html', styleUrl: './customer.css',
 })
 export class CustomerAccessPage {
@@ -33,6 +33,7 @@ export class CustomerAccessPage {
   private readonly destroyRef = inject(DestroyRef);
   private readonly changed = new Subject<void>();
   private slug = '';
+  readonly currentShop = signal('');
   private revision = 0;
   readonly store = signal<PublicStore | null>(null);
   readonly loading = signal(false);
@@ -52,6 +53,7 @@ export class CustomerAccessPage {
   ngOnInit(): void {
     this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
       this.revision++; this.changed.next(); this.slug = params.get('tienda') ?? '';
+      this.currentShop.set(this.slug);
       this.form.reset(); this.registering.set(false); this.error.set(null); this.sending.set(false); this.showPassword.set(false);
       this.auth.selectStore(this.slug);
       if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(this.slug)) { this.store.set(null); this.loadError.set('El enlace de tienda no es válido.'); return; }
