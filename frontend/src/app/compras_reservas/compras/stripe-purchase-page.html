@@ -11,7 +11,7 @@
     @if (!customers.token(shop.tienda()!)) {
       <div class="stripe-alert" role="status">
         Para completar tu compra debes iniciar sesión como cliente de esta tienda.
-        <a [routerLink]="['/tienda', shop.tienda(), 'acceso']">Acceder a mi cuenta</a>
+        <a [routerLink]="['/tienda', shop.tienda(), 'acceso']" [queryParams]="{ continuar: 'compra' }">Acceder a mi cuenta</a>
       </div>
     }
     @if (error(); as message) {
