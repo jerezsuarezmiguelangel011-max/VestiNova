@@ -4,7 +4,7 @@
 .public-topbar{position:relative;background:#f6f3e9;z-index:2;border-bottom:1px solid #e2e6dc}
 .public-logo{display:flex;align-items:center;gap:11px;font:600 27px/1.15 Georgia,serif;letter-spacing:-.06em;color:#1e352c;text-decoration:none}
 .public-logo-dot{color:#b7a778;margin-left:-11px}
-.public-monogram{display:grid;place-items:center;width:37px;height:37px;border:1px solid #507765;color:#1a5941;font:600 21px Georgia,serif}
+.public-monogram{display:grid;place-items:center;width:41px;height:41px;border:1px solid #507765;color:#1a5941;font:600 16px Georgia,serif;letter-spacing:-.08em}
 .public-topbar nav{display:flex;gap:clamp(14px,3vw,32px);align-items:center;flex-wrap:wrap}
 .public-topbar nav a{font-size:12px;font-weight:600;text-decoration:none;color:#284b3a}
 .public-topbar nav a:hover,.public-footer a:hover{text-decoration:underline;text-underline-offset:5px}
@@ -47,6 +47,7 @@
 .public-steps h3{font:500 21px Georgia,serif;margin:0 0 8px}
 .public-steps p{margin:0 0 0 41px;line-height:1.7;color:#637568;font-size:13px}
 .public-directory{background:#f4f3ed;scroll-margin-top:30px}
+.public-intro{scroll-margin-top:30px}
 .public-section-heading{display:flex;justify-content:space-between;gap:24px;align-items:end;margin-bottom:35px}
 .public-section-heading p:not(.public-eyebrow){color:#657368;font-size:14px;margin:16px 0 0}
 .public-count{font-size:12px;color:#587560;white-space:nowrap}
@@ -81,3 +82,6 @@
 @media(max-width:850px){.public-hero{grid-template-columns:1fr}.public-hero-copy{padding:65px 28px 60px}.public-hero-art{min-height:330px}.public-hero-index{display:none}.public-intro{grid-template-columns:1fr;gap:32px}.public-topbar nav a:not(.public-staff){display:none}}
 @media(max-width:620px){.public-topbar,.public-footer{padding:17px 20px;flex-wrap:wrap}.public-topbar nav{margin-left:auto}.public-topbar .public-staff{font-size:11px}.public-shop-grid{grid-template-columns:1fr}.public-section-heading{display:block}.public-directory,.public-intro{padding:64px 20px}.public-hero h1{font-size:47px}.public-hero-art{min-height:265px}.public-fashion-shape{height:75%}.public-float-tag{padding:8px;font-size:10px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+.public-topbar nav a:focus-visible,.public-actions a:focus-visible,.public-closing a:focus-visible{outline:3px solid #407d55;outline-offset:3px}
+.public-shop-card:focus-visible{outline:3px solid #397b54;outline-offset:3px}
