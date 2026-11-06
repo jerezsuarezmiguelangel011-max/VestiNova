@@ -1,5 +1,6 @@
 ﻿<main class="customer-shell">
   <div class="customer-brand"><span aria-hidden="true">VN</span> VestiNova</div>
+  <a class="customer-store-back" [routerLink]="['/tienda', currentShop()]">← Volver a la tienda</a>
   <section class="customer-card vn-card" aria-labelledby="customer-title" [attr.aria-busy]="loading() || sending()">
     <p class="vn-eyebrow">Tu cuenta en la tienda</p><h1 id="customer-title" class="vn-title">{{ store()?.nombre ?? 'Acceso de cliente' }}</h1>
     @if (loading()) { <p role="status"><span class="vn-spinner" aria-hidden="true"></span> Comprobando tienda y sesión…</p> }
