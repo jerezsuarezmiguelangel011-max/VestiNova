@@ -209,6 +209,7 @@ class MovimientoInventario(Base):
         ForeignKeyConstraint(["variante_id", "empresa_id"], ["variantes_producto.id", "variantes_producto.empresa_id"], name="fk_movimientos_variante_empresa"),
         CheckConstraint("(tipo = 'ENTRADA' AND delta > 0) OR (tipo = 'SALIDA' AND delta < 0)", name="ck_movimientos_tipo_delta"),
         CheckConstraint("saldo_resultante >= 0", name="ck_movimientos_saldo"),
+        CheckConstraint("(usuario_id IS NOT NULL AND cliente_id IS NULL) OR (usuario_id IS NULL AND cliente_id IS NOT NULL)", name="ck_movimientos_actor_identificado"),
         CheckConstraint("clase IN ('MOVIMIENTO', 'AJUSTE', 'REINGRESO')", name="ck_movimientos_clase"),
         CheckConstraint("(clase = 'REINGRESO' AND tipo = 'ENTRADA' AND origen_tipo = 'POSTVENTA' AND origen_id IS NOT NULL) OR (clase != 'REINGRESO' AND origen_tipo IS NULL AND origen_id IS NULL)", name="ck_movimientos_reingreso_origen"),
         UniqueConstraint("empresa_id", "origen_tipo", "origen_id", "variante_id", name="uq_movimientos_reingreso_origen"),
@@ -219,7 +220,8 @@ class MovimientoInventario(Base):
     empresa_id: Mapped[int] = mapped_column(Integer, nullable=False)
     sucursal_id: Mapped[int] = mapped_column(Integer, nullable=False)
     variante_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    usuario_id: Mapped[int] = mapped_column(ForeignKey("administradores.id"), nullable=False)
+    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("administradores.id"), nullable=True)
+    cliente_id: Mapped[int | None] = mapped_column(ForeignKey("clientes.id"), nullable=True)
     tipo: Mapped[str] = mapped_column(String(10), nullable=False)
     clase: Mapped[str] = mapped_column(String(12), nullable=False, default="MOVIMIENTO", server_default="MOVIMIENTO")
     origen_tipo: Mapped[str | None] = mapped_column(String(20), nullable=True)
