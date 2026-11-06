@@ -1,5 +1,5 @@
 <section class="catalog-detail" aria-label="Detalle del producto" [attr.aria-busy]="loading()">
-  <a class="catalog-back" [routerLink]="inAdmin ? '/admin/catalogo-consulta' : inStorefront ? ['/tienda', shop.tienda()] : '/catalogo'" [queryParams]="inAdmin || inStorefront ? null : { tienda: shop.tienda() }">← Volver al catálogo</a>
+  <a class="catalog-back" [routerLink]="inAdmin ? '/admin/catalogo-consulta' : inStorefront ? ['/tienda', shop.tienda(), 'catalogo'] : '/catalogo'" [queryParams]="inAdmin || inStorefront ? null : { tienda: shop.tienda() }">← Volver al catálogo</a>
 
   @if (!loading() && source() === 'network') {
     <p class="catalog-source-online" role="status">Información consultada en línea. La disponibilidad puede cambiar hasta la confirmación de una compra o reserva.</p>
