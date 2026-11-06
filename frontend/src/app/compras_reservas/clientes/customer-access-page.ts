@@ -66,12 +66,26 @@ export class CustomerAccessPage {
       .pipe(takeUntil(this.changed), takeUntilDestroyed(this.destroyRef), finalize(() => this.loading.set(false))).subscribe({
         next: result => {
           if (revision !== this.revision) return;
-          if (result.customer) { void this.router.navigate(['/tienda', this.slug, 'cuenta']); return; }
+          if (result.customer) { this.navigateAfterAccess(); return; }
           this.store.set(result.store);
         },
         error: error => { if (revision === this.revision) this.loadError.set(customerError(error)); },
       });
   }
+  /**
+   * Solo destinos internos conocidos. Nunca interpreta una URL enviada
+   * por el navegador como redirección arbitraria.
+   */
+  private navigateAfterAccess(): void {
+    if (this.route.snapshot.queryParamMap.get('continuar') === 'compra') {
+      void this.router.navigate(['/catalogo/acciones/compra'], {
+        queryParams: { tienda: this.slug },
+      });
+      return;
+    }
+    void this.router.navigate(['/tienda', this.slug, 'cuenta']);
+  }
+
   mode(registering: boolean): void {
     if (this.sending()) return;
     this.registering.set(registering); this.error.set(null); this.form.controls.password.reset(); this.form.controls.confirmacion.reset(); this.showPassword.set(false);
@@ -99,7 +113,7 @@ export class CustomerAccessPage {
     this.sending.set(true);
     const request = registration ? this.auth.register(this.slug, { ...credentials, nombre: value.nombre.trim() }) : this.auth.login(this.slug, credentials);
     request.pipe(takeUntil(this.changed), takeUntilDestroyed(this.destroyRef), finalize(() => this.sending.set(false))).subscribe({
-      next: () => { if (revision === this.revision) { this.form.controls.password.reset(); this.form.controls.confirmacion.reset(); void this.router.navigate(['/tienda', this.slug, 'cuenta']); } },
+      next: () => { if (revision === this.revision) { this.form.controls.password.reset(); this.form.controls.confirmacion.reset(); this.navigateAfterAccess(); } },
       error: error => { if (revision === this.revision) this.error.set(customerError(error, registration)); },
     });
   }
