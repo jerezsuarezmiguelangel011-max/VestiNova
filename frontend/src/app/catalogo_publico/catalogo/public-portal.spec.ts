@@ -38,6 +38,10 @@ describe('VestiNova · portal multitenant', () => {
     expect(cards[1].getAttribute('href')).toBe('/tienda/demo-moda-urbana');
     expect(html.querySelector('#public-how-title')?.textContent).toContain('De descubrir tu estilo');
     expect(html.textContent).not.toContain('sk_test_');
+    expect(html.textContent).not.toContain('Acceso para empresas');
+    expect(html.textContent).not.toContain('Entrar al panel empresarial');
+    expect(html.querySelector('.public-monogram')?.textContent).toBe('VN');
+    expect(html.querySelector('#public-closing-title')?.textContent).toContain('Cada tienda');
   });
 
   it('conserva independencia de sucursales al cambiar de empresa', () => {
