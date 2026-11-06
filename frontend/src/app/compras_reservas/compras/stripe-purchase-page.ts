@@ -6,6 +6,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { CatalogApiService } from '../../catalogo_publico/catalogo/catalog-api.service';
 import { CatalogDataService } from '../../catalogo_publico/catalogo/catalog-data.service';
 import { CatalogShopService } from '../../catalogo_publico/catalogo/catalog-shop.service';
+import { StorefrontContextService } from '../../catalogo_publico/catalogo/storefront-context.service';
 import { CustomerAuthService } from '../clientes/customer-auth.service';
 import { PurchaseSelectionService, validPurchaseQuantity } from './purchase-selection.service';
 import { StripePurchaseApiService, StripeCheckoutState, StripeCheckoutInput } from './stripe-purchase-api.service';
@@ -21,6 +22,7 @@ interface BranchChoice { id: number; nombre: string; }
 })
 export class StripePurchasePage {
   readonly shop = inject(CatalogShopService);
+  private readonly storefront = inject(StorefrontContextService);
   readonly customers = inject(CustomerAuthService);
   private readonly catalog = inject(CatalogDataService);
   private readonly directory = inject(CatalogApiService);
@@ -80,8 +82,10 @@ export class StripePurchasePage {
         next: branches => {
           if (this.shop.tienda() !== slug) return;
           this.branches.set(branches);
-          if (this.pendingBranch !== null && branches.some(b => b.id === this.pendingBranch)) {
-            this.branch.set(this.pendingBranch);
+          const preferred = this.pendingBranch ??
+            (this.storefront.company() === slug ? this.storefront.branch() : null);
+          if (preferred !== null && branches.some(b => b.id === preferred)) {
+            this.branch.set(preferred);
           }
           this.pendingBranch = null;
           this.loading.set(false);
