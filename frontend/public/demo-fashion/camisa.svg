@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 780" role="img" aria-label="Ilustración original de camisa de demostración">
+<defs><linearGradient id="bg" x2="0.9" y2="1"><stop stop-color="#e6eff0"/><stop offset="1" stop-color="#bed7d7"/></linearGradient><linearGradient id="cloth" x2="1" y2="1"><stop stop-color="#69949a"/><stop offset="1" stop-color="#345f66"/></linearGradient><filter id="shadow"><feDropShadow dx="4" dy="15" stdDeviation="15" flood-color="#294331" flood-opacity=".22"/></filter></defs>
+<rect width="640" height="780" rx="15" fill="url(#bg)"/><circle cx="520" cy="140" r="230" fill="#ffffff" opacity=".13"/><circle cx="105" cy="645" r="245" fill="#ffffff" opacity=".13"/>
+<path d="M245 165 L290 131 L320 157 L350 131 L395 165 L478 242 L427 296 L395 270 L405 606 L235 606 L245 270 L213 296 L162 242 Z" fill="url(#cloth)" stroke="#345f66" stroke-width="4" stroke-linejoin="round" filter="url(#shadow)"/>
+<path d="M290 131 L320 211 L350 131 M320 211 L320 602 M262 353 L298 353 M345 353 L382 353 M245 185 L245 270 M395 185 L395 270" fill="none" stroke="#e6eff0" stroke-width="6" opacity=".7" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M94 705 H546" stroke="#345f66" stroke-width="1.5" opacity=".25"/>
+<text x="96" y="733" font-family="Georgia,serif" fill="#345f66" font-size="21" letter-spacing="3">VESTINOVA · DEMO</text>
+</svg>
