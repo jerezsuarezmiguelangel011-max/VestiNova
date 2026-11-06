@@ -72,3 +72,41 @@ y webhook del equipo autorizado. Las pruebas con mocks no sustituyen a Stripe re
 movimientos de ventas digitales, sin borrar registros anteriores.
 La migración a `vestinova_pruebas` no vuelve a ejecutar semillas;
 `vestinova_mvp` no debe modificarse durante estas pruebas.
+
+## Portal público multitenant y navegación de compra
+
+La ruta `/` ahora muestra una portada de VestiNova y el directorio dinámico
+obtenido de `/api/catalogo/tiendas` (sin nombres de empresas hardcodeados).
+
+Cada empresa comparte la misma plantilla angular:
+
+- `/tienda/demo-moda-andina`: catálogo y sucursales de Moda Andina.
+- `/tienda/demo-moda-urbana`: catálogo y sucursales de Moda Urbana.
+- `/tienda/<slug>/prenda/<producto-slug>`: detalle de producto de la empresa.
+- `/tienda/<slug>/acceso`: registro o acceso del cliente. Si llegó desde
+  el carrito con `continuar=compra`, retorna a CU09, sin redirecciones externas.
+- `/catalogo/acciones/compra?tienda=<slug>`: carrito y Stripe Checkout (CU09).
+
+El selector de sucursal comienza en **Todas las sucursales**. Nunca bloquea
+el catálogo y solo preselecciona la consulta de disponibilidad. En el carrito
+se sugiere la misma sucursal, pero la confirmación y todo acceso al stock se
+revalidan en backend por empresa, sucursal y variante.
+
+Administración tiene un botón **Ver mi tienda pública** que abre en una pestaña
+separada la empresa activa. El carrito en memoria se vacía al cambiar de empresa.
+
+El portal utiliza transiciones CSS progresivas y admite
+`prefers-reduced-motion: reduce`. No se requieren nuevas migraciones para
+esta navegación: se aprovechan las APIs públicas existentes de CU08.
+
+## Plan para enriquecer la demostración
+
+Primero validar el recorrido real con las dos empresas de demostración.
+Después crear un **script opcional e idempotente de datos visuales demo**,
+separado de `seed_demo`, con categorías, prendas, variantes por talla/color,
+existencias, promociones en vigencia e imágenes de fuentes autorizadas.
+
+Ese script no debe sobrescribir clientes, roles ni inventario existentes,
+ni modificar `vestinova_mvp`, ni exigir que se recree `vestinova_pruebas`.
+Las imágenes no deben depender de URLs de terceros sin permiso.
+
