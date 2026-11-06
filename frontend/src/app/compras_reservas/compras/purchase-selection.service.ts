@@ -8,6 +8,7 @@ export interface PurchaseSelection {
   cantidad: string;
   source: 'network' | 'local';
   downloadedAt: string | null;
+  varianteId?: number;
 }
 
 export function validPurchaseQuantity(value: string): boolean {
@@ -35,12 +36,25 @@ export class PurchaseSelectionService {
     this.clear();
   }
 
-  add(response: CatalogResult<CatalogProduct>): void {
+  add(response: CatalogResult<CatalogProduct>, varianteId?: number): void {
     this.ensureCompany();
-    if (this.selected().some(line => line.product.id === response.data.id)) return;
+    const safeVariant = Number.isSafeInteger(varianteId) && (varianteId ?? 0) > 0 ? varianteId : undefined;
+    if (this.selected().some(line => line.product.id === response.data.id)) {
+      if (safeVariant !== undefined) this.chooseVariant(response.data.id, safeVariant);
+      return;
+    }
     this.selected.update(lines => [...lines, {
-      product: response.data, cantidad: '1', source: response.source, downloadedAt: response.downloadedAt,
+      product: response.data, cantidad: '1', source: response.source,
+      downloadedAt: response.downloadedAt, varianteId: safeVariant,
     }]);
+    this.operation = null;
+  }
+
+  chooseVariant(productId: number, varianteId: number): void {
+    this.ensureCompany();
+    if (!Number.isSafeInteger(varianteId) || varianteId <= 0) return;
+    this.selected.update(lines => lines.map(line => line.product.id === productId
+      ? { ...line, varianteId } : line));
     this.operation = null;
   }
 
