@@ -7,10 +7,18 @@ import { variantLeaveGuard } from './catalogo_abastecimiento/productos/variant-p
 import { staffLeaveGuard, staffPermissionGuard } from './autenticacion_usuarios/personal/staff.guards';
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'admin/productos' },
+  { path: '', pathMatch: 'full', loadComponent: () => import('./catalogo_publico/catalogo/public-portal').then(m => m.PublicPortalPage) },
   { path: 'tienda/:tienda/acceso', loadComponent: () => import('./compras_reservas/clientes/customer-access-page').then(m => m.CustomerAccessPage) },
   { path: 'tienda/:tienda/cuenta', canActivate: [customerGuard], loadComponent: () => import('./compras_reservas/clientes/customer-account-page').then(m => m.CustomerAccountPage) },
   { path: 'tienda/:tienda/compras', canActivate: [customerGuard], loadComponent: () => import('./compras_reservas/compras/purchase-history-page').then(m => m.PurchaseHistoryPage) },
+  {
+    path: 'tienda/:tienda',
+    loadComponent: () => import('./catalogo_publico/catalogo/storefront-layout').then(m => m.StorefrontLayout),
+    children: [
+      { path: '', pathMatch: 'full', loadComponent: () => import('./catalogo_publico/catalogo/catalog-list').then(m => m.CatalogListPage) },
+      { path: 'prenda/:slug', loadComponent: () => import('./catalogo_publico/catalogo/catalog-detail').then(m => m.CatalogDetailPage) },
+    ],
+  },
   {
     path: 'catalogo',
     loadComponent: () => import('./catalogo_publico/catalogo/catalog-layout').then(m => m.CatalogLayout),
