@@ -1,0 +1,131 @@
+<section class="stripe-purchase" aria-labelledby="cu09-title">
+  <a class="stripe-back" [routerLink]="['/catalogo']" [queryParams]="{ tienda: shop.tienda() }">← Volver al catálogo</a>
+  <p class="stripe-kicker">Compra digital · CU09</p>
+  <h1 id="cu09-title">Realizar compra digital</h1>
+  <p>Selecciona variantes y cantidades. El pago se procesa en Stripe Checkout de prueba.
+    La compra solo se confirma después de verificar el pago y el inventario en el servidor.</p>
+
+  @if (!shop.tienda()) {
+    <p role="alert" class="stripe-alert">Selecciona primero una empresa desde el catálogo.</p>
+  } @else {
+    @if (!customers.token(shop.tienda()!)) {
+      <div class="stripe-alert" role="status">
+        Para completar tu compra debes iniciar sesión como cliente de esta tienda.
+        <a [routerLink]="['/tienda', shop.tienda(), 'acceso']">Acceder a mi cuenta</a>
+      </div>
+    }
+    @if (error(); as message) {
+      <p role="alert" class="stripe-alert">{{ message }}</p>
+    }
+
+    @if (returnId(); as purchaseId) {
+      <section class="stripe-panel" aria-labelledby="stripe-status-title">
+        <p class="stripe-kicker">Verificación de pago</p>
+        <h2 id="stripe-status-title">Estado de la compra</h2>
+        <p>Identificador: <code>{{ purchaseId }}</code></p>
+        @if (status(); as payment) {
+          @if (payment.estado === 'CONFIRMADA' && payment.comprobante) {
+            <p role="status"><strong>Compra confirmada y pagada.</strong> La entrega todavía está pendiente.</p>
+            <p class="stripe-total">Total: Bs {{ payment.comprobante.total }} {{ payment.comprobante.moneda }}</p>
+            <p>Comprobante digital N.º {{ payment.comprobante.numero }}</p>
+            <ul>
+              @for (line of payment.comprobante.items; track line.variante_id) {
+                <li>{{ line.nombre }} · Variante {{ line.variante_id }} · {{ line.cantidad }} unidad(es)</li>
+              }
+            </ul>
+          } @else if (payment.estado === 'INCIDENCIA') {
+            <p role="alert">El pago requiere atención. No se confirmó la orden ni se descontó el inventario.</p>
+            <p>{{ payment.detalle }}</p>
+          } @else if (payment.estado === 'RECHAZADA' || payment.estado === 'EXPIRADA') {
+            <p role="status">No se ha registrado una compra pagada. Puedes volver al catálogo para revisar tu selección.</p>
+          } @else {
+            <p role="status">Pago pendiente de verificación. No hay una compra confirmada todavía.</p>
+          }
+        } @else {
+          <p role="status">Consultando el resultado registrado en VestiNova…</p>
+        }
+        <button type="button" (click)="checkPayment()" [disabled]="submitting()">Actualizar estado del pago</button>
+        <a class="stripe-link" [routerLink]="['/catalogo']" [queryParams]="{ tienda: shop.tienda() }">Volver al catálogo</a>
+      </section>
+    } @else {
+      <div class="stripe-layout">
+        <section class="stripe-panel" aria-labelledby="stripe-cart-title">
+          <h2 id="stripe-cart-title">Carrito de prendas</h2>
+          @if (lines().length === 0) {
+            <p>Aún no agregaste prendas. Selecciónalas desde el catálogo público.</p>
+          }
+          @for (line of lines(); track line.product.id) {
+            <article class="stripe-item">
+              <div>
+                <strong>{{ line.product.nombre }}</strong>
+                <p>Precio referencial: Bs {{ line.product.precio_promocional || line.product.precio }}</p>
+                @if (line.product.promocion_nombre) {
+                  <p>Promoción en catálogo: {{ line.product.promocion_nombre }}</p>
+                }
+                @if (line.source === 'local') {
+                  <p class="stripe-warning">Copia offline: no se puede pagar sin consultar datos actuales.</p>
+                }
+              </div>
+              <label>
+                Variante
+                <select [value]="chosenVariants()[line.product.id] ?? ''"
+                        (change)="chooseVariant(line.product.id, $any($event.target).value)">
+                  <option value="">Elegir talla y color</option>
+                  @for (variant of variants()[line.product.id] || []; track variant.id) {
+                    <option [value]="variant.id">Talla {{ variant.talla }} · {{ variant.color }}</option>
+                  }
+                </select>
+              </label>
+              <label>
+                Cantidad
+                <input type="number" min="1" max="10000" step="1" [value]="line.cantidad"
+                       (input)="changeQuantity(line.product.id, $any($event.target).value)"
+                       [attr.aria-invalid]="!line.cantidad || +line.cantidad <= 0"/>
+              </label>
+              <button class="stripe-remove" type="button" (click)="remove(line.product.id)">Quitar</button>
+            </article>
+          }
+          <a class="stripe-link" [routerLink]="['/catalogo']" [queryParams]="{ tienda: shop.tienda() }">Añadir otras prendas</a>
+        </section>
+
+        <aside class="stripe-panel" aria-labelledby="stripe-checkout-title">
+          <p class="stripe-kicker">Paso siguiente</p>
+          <h2 id="stripe-checkout-title">Entrega y pago</h2>
+          <label>
+            Sucursal para preparar la compra
+            <select [value]="branch() ?? ''" (change)="selectBranch($any($event.target).value)">
+              <option value="">Seleccionar sucursal</option>
+              @for (item of branches(); track item.id) {
+                <option [value]="item.id">{{ item.nombre }}</option>
+              }
+            </select>
+          </label>
+          <label>
+            Método de entrega
+            <select [value]="delivery()" (change)="selectDelivery($any($event.target).value)">
+              <option value="RETIRO">Retiro en sucursal</option>
+              <option value="DOMICILIO">Entrega a domicilio</option>
+            </select>
+          </label>
+          @if (delivery() === 'DOMICILIO') {
+            <label>
+              Dirección de entrega
+              <textarea rows="3" maxlength="250" [value]="address()"
+                        (input)="setAddress($any($event.target).value)"
+                        placeholder="Dirección para coordinar la entrega"></textarea>
+            </label>
+          }
+          <p>Importes y disponibilidad se recalculan en el servidor. No se reserva stock al consultar.</p>
+          @if (!enabled()) {
+            <p role="status" class="stripe-warning">Stripe de prueba no está configurado o disponible. No se iniciarán cobros.</p>
+          }
+          <button class="stripe-primary" type="button" (click)="proceed()"
+                  [disabled]="!canPay()" [attr.aria-busy]="submitting()">
+            {{ submitting() ? 'Preparando pago…' : 'Proceder al pago con Stripe' }}
+          </button>
+          <small>El pedido nunca se marca como entregado por el mero hecho de pagar.</small>
+        </aside>
+      </div>
+    }
+  }
+</section>
