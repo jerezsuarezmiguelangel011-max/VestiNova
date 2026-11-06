@@ -221,8 +221,8 @@ def create_checkout(
                 "name": f"{line['nombre']} · {line['talla']} / {line['color']}"},
                 "unit_amount": line["precio_centavos"]}, "quantity": line["cantidad"]}
                 for line in attempt.datos["items"]],
-            success_url=f"{base}/catalogo/acciones/compra?checkout={attempt.id}&resultado=retorno",
-            cancel_url=f"{base}/catalogo/acciones/compra?checkout={attempt.id}&resultado=cancelado",
+            success_url=f"{base}/catalogo/acciones/compra?tienda={company.slug}&checkout={attempt.id}&resultado=retorno",
+            cancel_url=f"{base}/catalogo/acciones/compra?tienda={company.slug}&checkout={attempt.id}&resultado=cancelado",
         )
     except stripe.StripeError:
         raise HTTPException(503, "Stripe no pudo iniciar el pago; el carrito permanece sin confirmar.") from None
