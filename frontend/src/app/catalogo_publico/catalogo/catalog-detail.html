@@ -1,5 +1,5 @@
 <section class="catalog-detail" aria-label="Detalle del producto" [attr.aria-busy]="loading()">
-  <a class="catalog-back" [routerLink]="inAdmin ? '/admin/catalogo-consulta' : '/catalogo'" [queryParams]="inAdmin ? null : { tienda: shop.tienda() }">← Volver al catálogo</a>
+  <a class="catalog-back" [routerLink]="inAdmin ? '/admin/catalogo-consulta' : inStorefront ? ['/tienda', shop.tienda()] : '/catalogo'" [queryParams]="inAdmin || inStorefront ? null : { tienda: shop.tienda() }">← Volver al catálogo</a>
 
   @if (!loading() && source() === 'network') {
     <p class="catalog-source-online" role="status">Información consultada en línea. La disponibilidad puede cambiar hasta la confirmación de una compra o reserva.</p>
@@ -39,7 +39,7 @@
     <article class="catalog-detail__product" aria-labelledby="catalog-detail-title">
       <vn-catalog-image [url]="item.imagen_url" [name]="item.nombre" />
       <div class="catalog-detail__content">
-        <p class="catalog-eyebrow">VestiNova · CU08 · Catálogo</p>
+        <p class="catalog-eyebrow">{{ inStorefront ? 'UNA PRENDA DE ESTA TIENDA' : 'VestiNova · CU08 · Catálogo' }}</p>
         <h1 id="catalog-detail-title">{{ item.nombre }}</h1>
         <p class="catalog-detail__price">@if (item.precio_promocional) { <strong>Bs {{ item.precio_promocional }}</strong> <del>Bs {{ item.precio }}</del><small>{{ item.promocion_nombre }}</small> } @else { Bs {{ item.precio }} } <span>{{ item.moneda }}</span></p>
         <p class="catalog-product-updated">Ficha actualizada:
