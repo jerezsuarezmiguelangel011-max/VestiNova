@@ -99,14 +99,82 @@ El portal utiliza transiciones CSS progresivas y admite
 `prefers-reduced-motion: reduce`. No se requieren nuevas migraciones para
 esta navegación: se aprovechan las APIs públicas existentes de CU08.
 
-## Plan para enriquecer la demostración
+## Interfaz pública centrada en cliente y vitrina enriquecida
 
-Primero validar el recorrido real con las dos empresas de demostración.
-Después crear un **script opcional e idempotente de datos visuales demo**,
-separado de `seed_demo`, con categorías, prendas, variantes por talla/color,
-existencias, promociones en vigencia e imágenes de fuentes autorizadas.
+Las rutas vigentes son:
 
-Ese script no debe sobrescribir clientes, roles ni inventario existentes,
-ni modificar `vestinova_mvp`, ni exigir que se recree `vestinova_pruebas`.
-Las imágenes no deben depender de URLs de terceros sin permiso.
+- `/`: inicio general VN, información de VestiNova y directorio de empresas
+  activas con suscripción SaaS vigente.
+- `/tienda/<slug>`: portada individual reutilizable con novedades,
+  categorías y promociones activas obtenidas del catálogo de CU08.
+- `/tienda/<slug>/catalogo`: lista completa con filtros y precio BOB.
+- `/tienda/<slug>/catalogo?categoria=<id>`: categoría de esa empresa.
+- `/tienda/<slug>/prenda/<producto-slug>`: ficha comercial, consulta de
+  variantes y disponibilidad; agregar al carrito con notificación.
+- `/catalogo/acciones/compra?tienda=<slug>`: carrito CU09, sucursal
+  y enlace a Stripe de prueba.
+- `/tienda/<slug>/acceso?continuar=compra`: acceso con retorno al carrito;
+  añadir `&registro=1` para abrir directamente Crear cuenta.
+- `/admin/login`: personal y Superadministrador SaaS. **No aparece como
+  botón prioritario en el portal público**; permanece accesible directamente.
 
+En Administración, **Ver mi tienda pública** sigue disponible para la empresa
+seleccionada. El diseño comparte los componentes de catálogo y no duplica
+lógica del backend.
+
+La vista individual abre con novedades y ofertas **reales** de la API
+(`precio_promocional`); no se inventan colecciones ni descuentos. Si no
+hay promociones se indica. Las fotos ausentes se reemplazan solo en los datos
+demo mediante ilustraciones SVG originales, nunca en catálogos reales.
+
+### Seed opcional de exhibición: solo vestinova_pruebas
+
+Este script NO se ejecuta al iniciar la aplicación ni desde `seed_demo`.
+Solo después de probar las pantallas, el operador puede ejecutarlo manualmente
+en el backend, con su PostgreSQL local:
+
+```powershell
+cd D:\Proyectos\vestinova-mvp\backend
+.\.venv\Scripts\python.exe -m scripts.migrate_demo
+.\.venv\Scripts\python.exe -m scripts.seed_showcase_demo
+```
+
+La ejecución usa `use_demo_database()` para asegurar el destino
+`vestinova_pruebas`. Añade **12 prendas nuevas por empresa** (24 en total),
+tres variantes con talla/color por prenda, stock inicial en las sucursales
+existentes y tres promociones por empresa. Completa imágenes faltantes solo en
+los seis productos originales de `seed_demo`, con SVG originales servidos
+por Angular desde `frontend/public/demo-fashion/`. No se borran ni regeneran
+usuarios, contraseñas, ventas, pedidos, reservas, ajustes ni existencias
+existentes; la repetición del script conserva lo ya creado.
+
+Las ilustraciones son representaciones originales para **pruebas locales,
+no fotografías de mercancía real**. Los enlaces
+`http://127.0.0.1:4201/demo-fashion/` son deliberadamente locales
+y deben sustituirse antes de desplegar la vitrina fuera del ordenador.
+
+El script exige un plan activo, valida cupos de productos y usa una transacción.
+Si falla, el procesamiento de esa ejecución se revierte.
+
+### Validación manual del recorrido
+
+1. Abrir `http://127.0.0.1:4201/`. Verificar logo **VN** y que los
+   botones «Cómo funciona», «Descubrir tiendas» y «Explorar tiendas» desplazan
+   correctamente.
+2. Abrir Moda Andina desde su tarjeta. «Explorar colección» debe bajar a
+   novedades de **esa tienda**, sin cambiar a la vista general.
+3. Revisar categorías y promociones, y abrir una prenda.
+4. Elegir talla/color, añadir al carrito y usar el aviso «Revisar carrito».
+   Probar la ruta inversa «Seguir explorando».
+5. Sin sesión, desde el carrito elegir iniciar sesión o crear cuenta;
+   comprobar que vuelve a CU09 y conserva la variante.
+6. Cambiar a Moda Urbana y comprobar que el carrito de Andina NO aparece.
+7. En Administración, seleccionar empresa y pulsar «Ver mi tienda pública».
+8. Probar tamaños de pantalla y **prefers-reduced-motion**. Ninguna animación
+   debe impedir la lectura.
+9. Stripe: nunca simular un pago real; la confirmación depende del webhook
+   firmado. Sin claves de prueba autorizadas, debe permanecer deshabilitado.
+
+Las pruebas automatizadas incluyen la seed repetida y su protección de
+saldos, aislamiento de carrito y consulta pública por tenant, pero la
+aprobación visual y las pruebas manuales de sandbox siguen pendientes.
