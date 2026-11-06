@@ -1015,3 +1015,17 @@ def test_cu09_webhook_payment_with_insufficient_stock_keeps_financial_incident(
         assert db.get(Existencia, (scope.a.id, scope.a1.id, v["id"])).cantidad == 0
         assert db.scalar(select(func.count()).select_from(MovimientoInventario).where(
             MovimientoInventario.motivo == f"Compra digital {pid}")) == 0
+
+
+def test_cu09_payment_gateway_missing_fails_closed(client, scope, monkeypatch):
+    """4A: sin Stripe ninguna solicitud produce cobro ni registro."""
+    from app.compras_reservas.compras import stripe_checkout
+    monkeypatch.setattr(stripe_checkout, "_configuration", lambda: None)
+    assert client.get(f"/api/tiendas/{scope.a.slug}/compras/capacidades").json()["habilitado"] is False
+    order = client.post(f"/api/tiendas/{scope.a.slug}/compras/checkout", json={
+        "id": str(uuid4()), "sucursal_id": scope.a1.id, "entrega": "RETIRO",
+        "items": [{"producto_id": 1, "variante_id": 1, "cantidad": 1}],
+    })
+    # Sin sesión se exige autenticación, aun si el proveedor está caído.
+    assert order.status_code == 401
+    assert client.post("/api/webhooks/stripe", content=b"{}").status_code == 503
