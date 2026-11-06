@@ -78,3 +78,9 @@
 @media(max-width:720px) {
   .inventory-reentry-form .inventory-primary { width:100%; }
 }
+
+/* Kardex: navegación visible y accesible desde cada fila. */
+.inventory-kardex-link { display:inline-flex; align-items:center; justify-content:center; text-decoration:none; }
+.inventory-kardex-link:hover { text-decoration:underline; }
+.inventory-history { scroll-margin-top:32px; }
+:host :is(a,button,input,select,textarea):focus-visible { outline:3px solid #116149; outline-offset:2px; }

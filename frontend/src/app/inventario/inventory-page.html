@@ -100,7 +100,8 @@
                   <td><strong>{{ item.cantidad_disponible }}</strong></td>
                   <td>{{ item.actualizado_en }}</td>
                   <td>
-                    <button type="button" class="inventory-secondary inventory-small-button"
+                    <button type="button" class="inventory-secondary inventory-small-button inventory-kardex-link"
+                      [attr.aria-label]="'Ver kardex de ' + (item.producto_nombre || 'variante ' + item.variante_id)"
                       (click)="showHistory(item.variante_id)">Ver kardex</button>
                   </td>
                 </tr>
@@ -158,17 +159,23 @@
         </section>
       }
 
-      <section class="inventory-card" aria-labelledby="history-heading">
+      <section #historySection class="inventory-card inventory-history" aria-labelledby="history-heading">
         <div class="inventory-card-head"><div><p class="inventory-eyebrow">Trazabilidad</p><h2 id="history-heading">Historial de movimientos</h2></div>
           @if (selectedHistoryVariant() !== null) {
-            <button type="button" class="inventory-secondary" (click)="showAllHistory()">Ver todas las variantes</button>
+            <button type="button" class="inventory-secondary" (click)="showAllHistory()">Ver todo el kardex</button>
           }
         </div>
         @if (selectedHistoryVariant() !== null) {
           <p class="inventory-note">Kardex de la variante {{ selectedHistoryVariant() }}. Consulta de solo lectura.</p>
         }
-        @if (movements().items.length === 0) { <p>Aún no se registraron movimientos en la sucursal.</p> }
-        @else {
+        @if (loadingHistory()) { <p role="status">Cargando los movimientos de la variante seleccionada…</p> }
+        @if (historyError(); as message) { <p class="inventory-alert inventory-alert--error" role="alert">{{ message }}</p> }
+        @if (!loadingHistory() && !historyError() && movements().items.length === 0) {
+          <p>{{ selectedHistoryVariant() === null
+            ? 'Aún no se registraron movimientos en la sucursal.'
+            : 'Esta variante todavía no tiene movimientos registrados en el kardex.' }}</p>
+        }
+        @else if (!loadingHistory() && !historyError()) {
           <div class="inventory-scroll"><table>
             <thead><tr><th>Fecha</th><th>Variante</th><th>Clase</th><th>Tipo</th><th>Variación</th><th>Saldo físico</th><th>Responsable ID</th><th>Origen</th><th>Motivo</th></tr></thead>
             <tbody>

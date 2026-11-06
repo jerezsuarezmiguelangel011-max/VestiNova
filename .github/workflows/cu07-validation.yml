@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - trabajo/cu07-miguel
+      - trabajo/cu07-kardex-miguel
   workflow_dispatch:
 
 jobs:

@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize, forkJoin } from 'rxjs';
@@ -33,6 +33,7 @@ export class InventoryPage {
   private readonly api = inject(InventoryApiService);
   private readonly categoryService = inject(CategoryService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly historySection = viewChild<ElementRef<HTMLElement>>('historySection');
   readonly branches = signal<InventoryBranch[]>([]);
   readonly categories = signal<ProductCategory[]>([]);
   readonly activeFilters = signal<InventoryFilters>({});
@@ -49,6 +50,8 @@ export class InventoryPage {
   readonly movements = signal<InventoryPageResult<InventoryMovement>>({ items: [], total: 0, offset: 0, limit: 100 });
   readonly loadingBranches = signal(false);
   readonly loadingInventory = signal(false);
+  readonly loadingHistory = signal(false);
+  readonly historyError = signal<string | null>(null);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly success = signal<string | null>(null);
@@ -66,10 +69,14 @@ export class InventoryPage {
     apta_para_venta: new FormControl(false, { nonNullable: true, validators: [Validators.requiredTrue] }),
   });
   private generation = 0;
+  private historyRequest = 0;
 
   ngOnInit(): void {
     this.companies.changes$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       this.generation++;
+      this.historyRequest++;
+      this.loadingHistory.set(false);
+      this.historyError.set(null);
       this.loadingBranches.set(false);
       this.loadingInventory.set(false);
       this.branches.set([]);
@@ -163,6 +170,9 @@ export class InventoryPage {
     if (!Number.isSafeInteger(id) || !this.branches().some(branch => branch.id === id)) return;
     this.selectedBranch.set(id);
     this.selectedHistoryVariant.set(null);
+    this.historyRequest++;
+    this.loadingHistory.set(false);
+    this.historyError.set(null);
     this.pendingAdjustment = null;
     this.pendingReentry = null;
     this.success.set(null);
@@ -173,6 +183,9 @@ export class InventoryPage {
     const branchId = this.selectedBranch();
     if (branchId === null || !this.companies.active()) return;
     const current = ++this.generation;
+    this.historyRequest++;
+    this.loadingHistory.set(false);
+    this.historyError.set(null);
     this.loadingInventory.set(true);
     this.error.set(null);
     forkJoin({
@@ -194,15 +207,43 @@ export class InventoryPage {
   }
 
   showHistory(variantId: number): void {
-    if (this.loadingInventory()) return;
+    if (this.loadingInventory() || this.selectedBranch() === null) return;
     this.selectedHistoryVariant.set(variantId);
-    this.loadInventory();
+    this.loadSelectedHistory();
+    this.historySection()?.nativeElement.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
   }
 
   showAllHistory(): void {
-    if (this.loadingInventory()) return;
+    if (this.loadingInventory() || this.selectedBranch() === null) return;
     this.selectedHistoryVariant.set(null);
-    this.loadInventory();
+    this.loadSelectedHistory();
+  }
+
+  /** Solo refresca el kardex: evita ocultar todo el formulario al consultarlo. */
+  private loadSelectedHistory(): void {
+    const branchId = this.selectedBranch();
+    if (branchId === null || !this.companies.active()) return;
+    const variantId = this.selectedHistoryVariant();
+    const revision = this.companies.revision();
+    const request = ++this.historyRequest;
+    this.loadingHistory.set(true);
+    this.historyError.set(null);
+    this.api.movements(branchId, 0, variantId).pipe(
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe({
+      next: result => {
+        if (request !== this.historyRequest || revision !== this.companies.revision()
+            || branchId !== this.selectedBranch() || variantId !== this.selectedHistoryVariant()) return;
+        this.movements.set(result);
+        this.loadingHistory.set(false);
+      },
+      error: error => {
+        if (request !== this.historyRequest || revision !== this.companies.revision()
+            || branchId !== this.selectedBranch()) return;
+        this.historyError.set(inventoryMessage(error));
+        this.loadingHistory.set(false);
+      },
+    });
   }
 
   submit(): void {
