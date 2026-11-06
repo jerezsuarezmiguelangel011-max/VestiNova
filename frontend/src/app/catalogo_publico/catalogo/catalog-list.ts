@@ -10,6 +10,7 @@ import { CatalogShopService } from './catalog-shop.service';
 import { CatalogApiService } from './catalog-api.service';
 import { CatalogImage } from './catalog-image';
 import { CatalogLocalError } from './catalog.models';
+import { StorefrontContextService } from './storefront-context.service';
 import type { CatalogList, CatalogQuery } from './catalog.models';
 
 @Component({
@@ -21,7 +22,11 @@ import type { CatalogList, CatalogQuery } from './catalog.models';
 export class CatalogListPage {
   readonly catalog = inject(CatalogDataService);
   readonly shop = inject(CatalogShopService);
-  readonly inAdmin = inject(ActivatedRoute).parent?.snapshot.routeConfig?.path === 'catalogo-consulta';
+  private readonly currentRoute = inject(ActivatedRoute);
+  readonly inAdmin = this.currentRoute.parent?.snapshot.routeConfig?.path === 'catalogo-consulta';
+  readonly inStorefront = this.currentRoute.parent?.snapshot.routeConfig?.path === 'tienda/:tienda';
+  readonly storefront = inject(StorefrontContextService);
+  readonly filtersExpanded = signal(false);
   private readonly api = inject(CatalogApiService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly requests = new Subject<CatalogQuery>();
