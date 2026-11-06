@@ -1,17 +1,23 @@
 <section class="stripe-purchase" aria-labelledby="cu09-title">
-  <a class="stripe-back" [routerLink]="['/catalogo']" [queryParams]="{ tienda: shop.tienda() }">← Volver al catálogo</a>
-  <p class="stripe-kicker">Compra digital · CU09</p>
-  <h1 id="cu09-title">Realizar compra digital</h1>
-  <p>Selecciona variantes y cantidades. El pago se procesa en Stripe Checkout de prueba.
-    La compra solo se confirma después de verificar el pago y el inventario en el servidor.</p>
+  <a class="stripe-back" [routerLink]="['/tienda',shop.tienda(),'catalogo']">← Volver a la tienda</a>
+  <p class="stripe-kicker">ESTÁS A UN PASO DE TU NUEVA PRENDA</p>
+  <h1 id="cu09-title">Mi carrito</h1>
+  <p>Revisa tus prendas, elige la sucursal y decide cómo recibir tu compra. Confirmaremos el precio y la disponibilidad antes de continuar al pago.</p>
 
   @if (!shop.tienda()) {
     <p role="alert" class="stripe-alert">Selecciona primero una empresa desde el catálogo.</p>
   } @else {
     @if (!customers.token(shop.tienda()!)) {
       <div class="stripe-alert" role="status">
-        Para completar tu compra debes iniciar sesión como cliente de esta tienda.
-        <a [routerLink]="['/tienda', shop.tienda(), 'acceso']" [queryParams]="{ continuar: 'compra' }">Acceder a mi cuenta</a>
+        <strong>Tu selección está lista para continuar.</strong>
+        <p>Para finalizar la compra, inicia sesión o crea una cuenta de esta tienda.
+          Conservaremos tus prendas y podrás regresar al carrito.</p>
+        <div class="stripe-account-actions">
+          <a (click)="prepareAccess()" [routerLink]="['/tienda', shop.tienda(), 'acceso']"
+             [queryParams]="{ continuar: 'compra' }">Iniciar sesión</a>
+          <a (click)="prepareAccess()" [routerLink]="['/tienda', shop.tienda(), 'acceso']"
+             [queryParams]="{ continuar: 'compra', registro: '1' }">Crear cuenta</a>
+        </div>
       </div>
     }
     @if (error(); as message) {
@@ -45,7 +51,7 @@
           <p role="status">Consultando el resultado registrado en VestiNova…</p>
         }
         <button type="button" (click)="checkPayment()" [disabled]="submitting()">Actualizar estado del pago</button>
-        <a class="stripe-link" [routerLink]="['/catalogo']" [queryParams]="{ tienda: shop.tienda() }">Volver al catálogo</a>
+        <a class="stripe-link" [routerLink]="['/tienda', shop.tienda(), 'catalogo']">Volver al catálogo</a>
       </section>
     } @else {
       <div class="stripe-layout">
@@ -85,7 +91,7 @@
               <button class="stripe-remove" type="button" (click)="remove(line.product.id)">Quitar</button>
             </article>
           }
-          <a class="stripe-link" [routerLink]="['/catalogo']" [queryParams]="{ tienda: shop.tienda() }">Añadir otras prendas</a>
+          <a class="stripe-link" [routerLink]="['/tienda', shop.tienda(), 'catalogo']">Añadir otras prendas</a>
         </section>
 
         <aside class="stripe-panel" aria-labelledby="stripe-checkout-title">
