@@ -17,7 +17,7 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', loadComponent: () => import('./catalogo_publico/catalogo/catalog-list').then(m => m.CatalogListPage) },
       { path: 'acciones/reserva', loadComponent: () => import('./compras_reservas/reservas/reservation-draft').then(m => m.ReservationDraftPage) },
-      { path: 'acciones/compra', loadComponent: () => import('./compras_reservas/compras/purchase-page').then(m => m.PurchasePage) },
+      { path: 'acciones/compra', loadComponent: () => import('./compras_reservas/compras/stripe-purchase-page').then(m => m.StripePurchasePage) },
       { path: 'acciones/sincronizacion', loadComponent: () => import('./operacion_sin_conexion/sincronizacion/sync-page').then(m => m.SyncPage) },
       { path: 'vestidor/:slug', loadComponent: () => import('./catalogo_publico/vestidor_virtual/virtual-fitting-room-page').then(m => m.VirtualFittingRoomPage) },
       { path: ':slug', loadComponent: () => import('./catalogo_publico/catalogo/catalog-detail').then(m => m.CatalogDetailPage) },
