@@ -6,3 +6,4 @@ psycopg[binary]==3.3.6
 PyJWT==2.15.1
 argon2-cffi==25.1.0
 python-dotenv==1.2.4
+stripe==16.1.0
