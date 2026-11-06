@@ -44,7 +44,8 @@ class MovimientoResponse(OperationalResponse):
     empresa_id: int
     sucursal_id: int
     variante_id: int
-    usuario_id: int
+    usuario_id: int | None
+    cliente_id: int | None = None
     tipo: Literal["ENTRADA", "SALIDA"]
     clase: Literal["MOVIMIENTO", "AJUSTE", "REINGRESO"] = "MOVIMIENTO"
     origen_tipo: str | None = None
