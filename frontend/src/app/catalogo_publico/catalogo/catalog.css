@@ -120,3 +120,22 @@
 .catalog-availability-offline p { color:#60523e; font-size:13px; line-height:1.7; }
 .catalog-availability li { margin-block:8px; }
 .catalog-availability li small { display:block; font-size:11px; color:var(--vn-muted); }
+
+/* Presentación comercial de la misma consulta CU08 dentro de una tienda. */
+.storefront-catalog-mode .storefront-search-tools{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+.storefront-catalog-mode .storefront-filters-toggle{background:#fff;border:1px solid #adc7af;border-radius:7px;color:#295d3f;padding:12px 20px;min-height:46px;font-weight:700}
+.storefront-catalog-mode .storefront-filters-toggle span{font-size:17px;margin-left:14px}
+.storefront-catalog-mode .storefront-selection-note{font-size:12px;color:#63826a;line-height:1.6;max-width:480px}
+.storefront-catalog-mode .storefront-filters-hidden{display:none}
+.storefront-catalog-mode .catalog-search{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));background:#fff;border-radius:9px}
+.storefront-catalog-mode .catalog-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:25px}
+.storefront-catalog-mode .catalog-card{border:0;border-radius:5px;box-shadow:0 3px 20px #193b2a0d;transition:transform .3s ease,box-shadow .3s ease}
+.storefront-catalog-mode .catalog-card:hover{transform:translateY(-6px);box-shadow:0 20px 36px #193b2a24}
+.storefront-catalog-mode .catalog-card__image{background:#f0eee9;aspect-ratio:4/4.8}
+.storefront-catalog-mode .catalog-card__body{position:relative;padding:23px}
+.storefront-catalog-mode .catalog-card__name{font:500 22px Georgia,serif;letter-spacing:-.03em}
+.storefront-catalog-mode .storefront-offer-tag{display:inline-flex;padding:6px 9px;background:#dcece0;color:#2d6947;font-size:10px;font-weight:700;letter-spacing:.03em;margin-bottom:9px;border-radius:4px}
+.storefront-catalog-mode .catalog-price{font-size:14px}
+@media(max-width:850px){.storefront-catalog-mode .catalog-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:500px){.storefront-catalog-mode .catalog-grid{grid-template-columns:1fr}.storefront-catalog-mode .storefront-search-tools{align-items:stretch}}
+@media(prefers-reduced-motion:reduce){.storefront-catalog-mode .catalog-card{transition:none}.storefront-catalog-mode .catalog-card:hover{transform:none}}
