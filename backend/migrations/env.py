@@ -6,6 +6,7 @@ from app.config import Settings, validate_local_database_url
 from app.db import Base, build_engine
 from app import models  # noqa: F401, registra todos los modelos del MVP.
 from app.compras_reservas.compras import persistence  # noqa: F401, registra únicamente las tablas propias de CU10.
+from app.compras_reservas.compras import stripe_checkout  # noqa: F401, registra intentos Stripe CU09.
 from app.compras_reservas.postventa import persistence as postventa_persistence  # noqa: F401, registra las tablas de CU17.
 
 
