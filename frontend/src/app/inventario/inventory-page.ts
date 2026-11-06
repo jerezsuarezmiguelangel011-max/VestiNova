@@ -3,10 +3,11 @@ import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize, forkJoin } from 'rxjs';
+import { CategoryService, ProductCategory } from '../catalogo_abastecimiento/categorias/category.service';
 import { CompanyService } from '../organizacion_empresarial/empresa/company.service';
 import {
   InventoryApiService, InventoryBalance, InventoryBranch,
-  InventoryMovement, InventoryPageResult,
+  InventoryFilters, InventoryMovement, InventoryPageResult,
 } from './inventory-api.service';
 
 export function inventoryMessage(error: unknown): string {
@@ -30,9 +31,20 @@ export function inventoryMessage(error: unknown): string {
 export class InventoryPage {
   readonly companies = inject(CompanyService);
   private readonly api = inject(InventoryApiService);
+  private readonly categoryService = inject(CategoryService);
   private readonly destroyRef = inject(DestroyRef);
   readonly branches = signal<InventoryBranch[]>([]);
+  readonly categories = signal<ProductCategory[]>([]);
+  readonly activeFilters = signal<InventoryFilters>({});
+  readonly filterForm = new FormGroup({
+    q: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(120)] }),
+    categoria_id: new FormControl<number | null>(null),
+    variante_id: new FormControl<number | null>(null, [Validators.min(1)]),
+  });
   readonly selectedBranch = signal<number | null>(null);
+  readonly selectedHistoryVariant = signal<number | null>(null);
+  private pendingAdjustment: { fingerprint: string; id: string } | null = null;
+  private pendingReentry: { fingerprint: string; id: string } | null = null;
   readonly balances = signal<InventoryPageResult<InventoryBalance>>({ items: [], total: 0, offset: 0, limit: 100 });
   readonly movements = signal<InventoryPageResult<InventoryMovement>>({ items: [], total: 0, offset: 0, limit: 100 });
   readonly loadingBranches = signal(false);
@@ -42,9 +54,16 @@ export class InventoryPage {
   readonly success = signal<string | null>(null);
   readonly movementForm = new FormGroup({
     variante_id: new FormControl<number | null>(null, [Validators.required, Validators.min(1)]),
-    tipo: new FormControl<'ENTRADA' | 'SALIDA'>('ENTRADA', { nonNullable: true }),
+    tipo: new FormControl<'INCREMENTO' | 'DISMINUCION'>('INCREMENTO', { nonNullable: true }),
     cantidad: new FormControl<number | null>(null, [Validators.required, Validators.min(1), Validators.max(1_000_000_000)]),
     motivo: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.minLength(3), Validators.maxLength(300)] }),
+  });
+  readonly reentryForm = new FormGroup({
+    solicitud_id: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    variante_id: new FormControl<number | null>(null, [Validators.required, Validators.min(1)]),
+    cantidad: new FormControl<number | null>(null, [Validators.required, Validators.min(1)]),
+    motivo: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.minLength(3), Validators.maxLength(300)] }),
+    apta_para_venta: new FormControl(false, { nonNullable: true, validators: [Validators.requiredTrue] }),
   });
   private generation = 0;
 
@@ -54,14 +73,69 @@ export class InventoryPage {
       this.loadingBranches.set(false);
       this.loadingInventory.set(false);
       this.branches.set([]);
+      this.categories.set([]);
+      this.activeFilters.set({});
+      this.filterForm.reset({ q: '', categoria_id: null, variante_id: null });
       this.selectedBranch.set(null);
+      this.selectedHistoryVariant.set(null);
+      this.pendingAdjustment = null;
+      this.pendingReentry = null;
       this.balances.set({ items: [], total: 0, offset: 0, limit: 100 });
       this.movements.set({ items: [], total: 0, offset: 0, limit: 100 });
       this.error.set(null);
       this.success.set(null);
-      if (this.companies.active()) this.loadBranches();
+      if (this.companies.active()) {
+        this.loadCategories();
+        this.loadBranches();
+      }
     });
     this.loadBranches();
+    this.loadCategories();
+  }
+
+  loadCategories(): void {
+    if (!this.companies.active()) return;
+    const revision = this.companies.revision();
+    this.categoryService.list().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: categories => {
+        if (revision === this.companies.revision()) this.categories.set(categories);
+      },
+      error: error => {
+        if (revision === this.companies.revision()) this.error.set(inventoryMessage(error));
+      },
+    });
+  }
+
+  applyFilters(): void {
+    if (this.saving() || this.loadingInventory()) return;
+    if (this.filterForm.invalid) {
+      this.filterForm.markAllAsTouched();
+      this.error.set('Revisa el nombre y el identificador de la variante antes de buscar.');
+      return;
+    }
+    const { q, categoria_id, variante_id } = this.filterForm.getRawValue();
+    if (
+      (categoria_id !== null && (!Number.isSafeInteger(categoria_id) || categoria_id < 1)) ||
+      (variante_id !== null && (!Number.isSafeInteger(variante_id) || variante_id < 1))
+    ) {
+      this.error.set('Los identificadores de categoría y variante deben ser enteros positivos.');
+      return;
+    }
+    const filters: InventoryFilters = {};
+    if (q.trim()) filters.q = q.trim();
+    if (categoria_id !== null) filters.categoria_id = categoria_id;
+    if (variante_id !== null) filters.variante_id = variante_id;
+    this.activeFilters.set(filters);
+    this.success.set(null);
+    this.loadInventory();
+  }
+
+  clearFilters(): void {
+    if (this.saving() || this.loadingInventory()) return;
+    this.filterForm.reset({ q: '', categoria_id: null, variante_id: null });
+    this.activeFilters.set({});
+    this.success.set(null);
+    this.loadInventory();
   }
 
   loadBranches(): void {
@@ -88,6 +162,9 @@ export class InventoryPage {
     const id = Number(raw);
     if (!Number.isSafeInteger(id) || !this.branches().some(branch => branch.id === id)) return;
     this.selectedBranch.set(id);
+    this.selectedHistoryVariant.set(null);
+    this.pendingAdjustment = null;
+    this.pendingReentry = null;
     this.success.set(null);
     this.loadInventory();
   }
@@ -99,8 +176,8 @@ export class InventoryPage {
     this.loadingInventory.set(true);
     this.error.set(null);
     forkJoin({
-      balances: this.api.balances(branchId),
-      movements: this.api.movements(branchId),
+      balances: this.api.balances(branchId, 0, this.activeFilters()),
+      movements: this.api.movements(branchId, 0, this.selectedHistoryVariant()),
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: result => {
         if (current !== this.generation || branchId !== this.selectedBranch()) return;
@@ -116,14 +193,26 @@ export class InventoryPage {
     });
   }
 
+  showHistory(variantId: number): void {
+    if (this.loadingInventory()) return;
+    this.selectedHistoryVariant.set(variantId);
+    this.loadInventory();
+  }
+
+  showAllHistory(): void {
+    if (this.loadingInventory()) return;
+    this.selectedHistoryVariant.set(null);
+    this.loadInventory();
+  }
+
   submit(): void {
     const branchId = this.selectedBranch();
-    if (!this.companies.canManage() || branchId === null || this.saving() || this.loadingInventory()) return;
+    if (!this.companies.hasPermission('inventario.ajustar') || branchId === null || this.saving() || this.loadingInventory()) return;
     this.error.set(null);
     this.success.set(null);
     if (this.movementForm.invalid) {
       this.movementForm.markAllAsTouched();
-      this.error.set('Completa la variante, el tipo, una cantidad positiva y el motivo.');
+      this.error.set('Completa la variante, el tipo de ajuste, una cantidad positiva y el motivo.');
       return;
     }
     const values = this.movementForm.getRawValue();
@@ -137,8 +226,21 @@ export class InventoryPage {
     }
     const revision = this.companies.revision();
     this.saving.set(true);
-    this.api.register({
-      id: crypto.randomUUID(),
+    const input = {
+      sucursal_id: branchId,
+      variante_id: variantId,
+      tipo: values.tipo,
+      cantidad: quantity,
+      motivo: values.motivo.trim(),
+    };
+    const fingerprint = JSON.stringify({ ...input, revision });
+    if (this.pendingAdjustment?.fingerprint !== fingerprint) {
+      this.pendingAdjustment = { fingerprint, id: crypto.randomUUID() };
+    }
+    const adjustmentId = this.pendingAdjustment?.id;
+    if (!adjustmentId) return;
+    this.api.adjust({
+      id: adjustmentId,
       sucursal_id: branchId,
       variante_id: variantId,
       tipo: values.tipo,
@@ -147,8 +249,60 @@ export class InventoryPage {
     }).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.saving.set(false))).subscribe({
       next: () => {
         if (revision !== this.companies.revision() || branchId !== this.selectedBranch()) return;
-        this.success.set('Movimiento registrado y saldo actualizado correctamente.');
-        this.movementForm.reset({ variante_id: null, tipo: 'ENTRADA', cantidad: null, motivo: '' });
+        this.success.set('Ajuste registrado y existencias recalculadas correctamente.');
+        this.pendingAdjustment = null;
+        this.movementForm.reset({ variante_id: null, tipo: 'INCREMENTO', cantidad: null, motivo: '' });
+        this.loadInventory();
+      },
+      error: error => {
+        if (revision === this.companies.revision()) this.error.set(inventoryMessage(error));
+      },
+    });
+  }
+
+  submitReentry(): void {
+    const branchId = this.selectedBranch();
+    if (!this.companies.hasPermission('inventario.ajustar') ||
+        !this.companies.hasPermission('postventa.consultar') ||
+        branchId === null || this.saving() || this.loadingInventory()) return;
+    this.error.set(null);
+    this.success.set(null);
+    if (this.reentryForm.invalid) {
+      this.reentryForm.markAllAsTouched();
+      this.error.set('Completa la solicitud, variante, cantidad, motivo y confirma la aptitud para venta.');
+      return;
+    }
+    const { solicitud_id, variante_id, cantidad, motivo, apta_para_venta } = this.reentryForm.getRawValue();
+    if (!solicitud_id.trim() || !Number.isSafeInteger(variante_id) || !Number.isSafeInteger(cantidad) ||
+        variante_id === null || cantidad === null || variante_id < 1 || cantidad < 1 ||
+        motivo.trim().length < 3 || !apta_para_venta) {
+      this.error.set('Los datos del reingreso no son válidos.');
+      return;
+    }
+    const revision = this.companies.revision();
+    const input = {
+      solicitud_id: solicitud_id.trim(),
+      sucursal_id: branchId,
+      variante_id,
+      cantidad,
+      motivo: motivo.trim(),
+      apta_para_venta: true as const,
+    };
+    const fingerprint = JSON.stringify({ ...input, revision });
+    if (this.pendingReentry?.fingerprint !== fingerprint) {
+      this.pendingReentry = { fingerprint, id: crypto.randomUUID() };
+    }
+    const reentryId = this.pendingReentry?.id;
+    if (!reentryId) return;
+    this.saving.set(true);
+    this.api.reenter({
+      id: reentryId, ...input,
+    }).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.saving.set(false))).subscribe({
+      next: () => {
+        if (revision !== this.companies.revision() || branchId !== this.selectedBranch()) return;
+        this.pendingReentry = null;
+        this.success.set('Reingreso vinculado a postventa registrado una única vez.');
+        this.reentryForm.reset({ solicitud_id: '', variante_id: null, cantidad: null, motivo: '', apta_para_venta: false });
         this.loadInventory();
       },
       error: error => {

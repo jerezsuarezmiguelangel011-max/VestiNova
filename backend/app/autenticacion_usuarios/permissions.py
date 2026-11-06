@@ -14,6 +14,7 @@ PERMISSIONS = (
     ("sucursales.gestionar", "Gestionar sucursales", "Registrar y editar sucursales de la empresa.", ("sucursales.consultar",)),
     ("inventario.consultar", "Consultar inventario", "Consultar saldos e historial de sucursales autorizadas.", ("sucursales.consultar", "catalogo.consultar")),
     ("inventario.registrar", "Registrar movimientos", "Registrar entradas y salidas de inventario en sucursales autorizadas.", ("inventario.consultar",)),
+    ("inventario.ajustar", "Ajustar inventario", "Registrar incrementos, disminuciones y reingresos autorizados por sucursal.", ("inventario.consultar",)),
     ("abastecimiento.consultar", "Consultar abastecimiento", "Consultar proveedores y órdenes de compra de la empresa.", ("sucursales.consultar", "catalogo.consultar", "inventario.consultar")),
     ("abastecimiento.gestionar", "Gestionar abastecimiento", "Crear órdenes y registrar recepciones para sucursales autorizadas.", ("abastecimiento.consultar",)),
     ("promociones.consultar", "Consultar promociones", "Consultar descuentos y liquidaciones de la empresa.", ("catalogo.consultar",)),
@@ -35,7 +36,7 @@ PERMISSION_REQUIREMENTS = {code: frozenset(required) for code, _, _, required in
 READ_PERMISSIONS = frozenset({"catalogo.consultar", "sucursales.consultar", "inventario.consultar", "descarga.consultar", "promociones.consultar", "postventa.consultar"})
 SYSTEM_ROLES = {
     "ADMINISTRADOR": ("Administrador de empresa", "Administración completa de la empresa.", PERMISSION_CODES),
-    "ENCARGADO_SUCURSAL": ("Encargado de sucursal", "Gestión de abastecimiento y consulta de información en sucursales asignadas.", READ_PERMISSIONS | {"abastecimiento.consultar", "abastecimiento.gestionar", "postventa.gestionar"}),
+    "ENCARGADO_SUCURSAL": ("Encargado de sucursal", "Gestión de abastecimiento y consulta de información en sucursales asignadas.", READ_PERMISSIONS | {"abastecimiento.consultar", "abastecimiento.gestionar", "postventa.gestionar", "inventario.ajustar"}),
     "CAJERO": ("Cajero", "Consulta de información en sucursales asignadas.", READ_PERMISSIONS | {"postventa.gestionar"}),
     "OPERADOR": ("Operador", "Perfil histórico de consulta en sucursales asignadas.", READ_PERMISSIONS),
 }

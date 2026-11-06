@@ -6,15 +6,33 @@
   </div>
 
   @if (companies.active(); as company) {
-    <section class="inventory-card inventory-filter" aria-label="Seleccionar sucursal">
-      <div><span class="inventory-eyebrow">Empresa autorizada</span><strong>{{ company.nombre }}</strong></div>
-      <label for="inventory-branch">Sucursal</label>
-      <select id="inventory-branch" #branchSelect (change)="chooseBranch(branchSelect.value)" [disabled]="loadingBranches() || saving()">
-        @for (branch of branches(); track branch.id) {
-          <option [value]="branch.id" [selected]="selectedBranch() === branch.id">{{ branch.codigo }} · {{ branch.nombre }}</option>
+    <section class="inventory-card inventory-filter" aria-label="Sucursal de inventario">
+      <div class="inventory-branch-company">
+        <span class="inventory-eyebrow">Empresa autorizada</span>
+        <strong>{{ company.nombre }}</strong>
+      </div>
+      <div class="inventory-branch-controls">
+        @if (branches().length > 1) {
+          <div class="inventory-branch-field">
+            <label for="inventory-branch">Sucursal</label>
+            <div class="inventory-select-wrap">
+              <select id="inventory-branch" #branchSelect (change)="chooseBranch(branchSelect.value)" [disabled]="loadingBranches() || saving()">
+                @for (branch of branches(); track branch.id) {
+                  <option [value]="branch.id" [selected]="selectedBranch() === branch.id">{{ branch.codigo }} · {{ branch.nombre }}</option>
+                }
+              </select>
+            </div>
+          </div>
+        } @else if (branches().length === 1) {
+          @if (branches()[0]; as branch) {
+            <div class="inventory-fixed-branch">
+              <span class="inventory-eyebrow">Sucursal asignada</span>
+              <strong>{{ branch.codigo }} · {{ branch.nombre }}</strong>
+            </div>
+          }
         }
-      </select>
-      <button class="inventory-secondary" type="button" (click)="loadBranches()" [disabled]="loadingBranches() || saving()">Actualizar sucursales</button>
+        <button class="inventory-secondary" type="button" (click)="loadBranches()" [disabled]="loadingBranches() || saving()">Actualizar sucursales</button>
+      </div>
     </section>
 
     @if (error(); as message) { <p class="inventory-alert inventory-alert--error" role="alert">{{ message }}</p> }
@@ -24,49 +42,148 @@
     @else if (branches().length === 0) {
       <div class="inventory-card"><p>No tienes sucursales activas autorizadas. Solicita que se registre una sucursal para empezar.</p></div>
     } @else {
+      <section class="inventory-card" aria-labelledby="inventory-filter-heading">
+        <div class="inventory-card-head">
+          <div>
+            <p class="inventory-eyebrow">Búsqueda por sucursal</p>
+            <h2 id="inventory-filter-heading">Filtrar existencias</h2>
+          </div>
+        </div>
+        <form [formGroup]="filterForm" (ngSubmit)="applyFilters()" class="inventory-search">
+          <label for="inventory-product-name">
+            Producto
+            <input id="inventory-product-name" type="search" formControlName="q" maxlength="120"
+              placeholder="Buscar por nombre de prenda" />
+          </label>
+          <label for="inventory-category">
+            Categoría
+            <select id="inventory-category" formControlName="categoria_id">
+              <option [ngValue]="null">Todas las categorías</option>
+              @for (category of categories(); track category.id) {
+                <option [ngValue]="category.id">{{ category.nombre }}</option>
+              }
+            </select>
+          </label>
+          <label for="inventory-variant-id">
+            Variante (opcional)
+            <input id="inventory-variant-id" type="number" min="1" step="1"
+              formControlName="variante_id" placeholder="ID de variante" />
+          </label>
+          <div class="inventory-search-actions">
+            <button class="inventory-primary" type="submit" [disabled]="saving() || loadingInventory()">Buscar</button>
+            <button class="inventory-secondary" type="button" (click)="clearFilters()"
+              [disabled]="saving() || loadingInventory()">Limpiar</button>
+          </div>
+        </form>
+      </section>
+
       <section class="inventory-card" aria-labelledby="balances-heading">
         <div class="inventory-card-head">
           <div><p class="inventory-eyebrow">Consulta de stock</p><h2 id="balances-heading">Existencias por variante</h2></div>
           <button class="inventory-secondary" type="button" (click)="loadInventory()" [disabled]="loadingInventory()">Actualizar</button>
         </div>
         @if (balances().items.length === 0) {
-          <p>No hay existencias registradas en esta sucursal. El saldo se crea al realizar un movimiento válido.</p>
+          <p>No se encontraron existencias registradas para esta sucursal y los filtros aplicados.</p>
         } @else {
           <div class="inventory-scroll"><table>
-            <thead><tr><th>Variante ID</th><th>Cantidad física</th><th>Última actualización</th></tr></thead>
+            <thead><tr><th>Prenda y variante</th><th>ID variante</th><th>Físico</th><th>Comprometido</th><th>Disponible</th><th>Última actualización</th><th>Acción</th></tr></thead>
             <tbody>
               @for (item of balances().items; track item.variante_id) {
-                <tr><td>{{ item.variante_id }}</td><td>{{ item.cantidad }}</td><td>{{ item.actualizado_en }}</td></tr>
+                <tr>
+                  <td>
+                    <strong class="inventory-product-name">{{ item.producto_nombre || 'Prenda sin nombre' }}</strong>
+                    <span class="inventory-variant-details">Talla {{ item.talla || '—' }} · {{ item.color || 'Sin color' }}</span>
+                  </td>
+                  <td>{{ item.variante_id }}</td>
+                  <td>{{ item.cantidad }}</td>
+                  <td>{{ item.cantidad_comprometida }}</td>
+                  <td><strong>{{ item.cantidad_disponible }}</strong></td>
+                  <td>{{ item.actualizado_en }}</td>
+                  <td>
+                    <button type="button" class="inventory-secondary inventory-small-button"
+                      (click)="showHistory(item.variante_id)">Ver kardex</button>
+                  </td>
+                </tr>
               }
             </tbody>
           </table></div>
           @if (balances().total > balances().items.length) { <p>Primeras {{ balances().items.length }} de {{ balances().total }} existencias. Se muestran hasta 100 por consulta.</p> }
+          <p class="inventory-note">Disponible = físico − comprometido. El registro central de reservas de CU10 todavía debe conectarse con este saldo.</p>
         }
       </section>
 
-      @if (companies.canManage()) {
+      @if (companies.hasPermission('inventario.ajustar')) {
         <section class="inventory-card" aria-labelledby="movement-heading">
-          <div class="inventory-card-head"><div><p class="inventory-eyebrow">Movimiento autorizado</p><h2 id="movement-heading">Registrar entrada o salida</h2></div></div>
-          <p>Indica el identificador de una variante existente y activa del catálogo de tu empresa. El servidor evita saldos negativos y movimientos duplicados.</p>
+          <div class="inventory-card-head">
+            <div><p class="inventory-eyebrow">Operación autorizada</p><h2 id="movement-heading">Registrar ajuste de inventario</h2></div>
+          </div>
+          <p>Registra la corrección de unidades físicas por variante. Las disminuciones no pueden reducir el stock por debajo de lo comprometido. El motivo quedará en el kardex.</p>
           <form [formGroup]="movementForm" (ngSubmit)="submit()" class="inventory-form">
             <label>Variante ID <input type="number" min="1" step="1" formControlName="variante_id" required /></label>
-            <label>Tipo <select formControlName="tipo"><option value="ENTRADA">Entrada</option><option value="SALIDA">Salida</option></select></label>
+            <label>Tipo de ajuste
+              <select formControlName="tipo">
+                <option value="INCREMENTO">Incremento de existencias</option>
+                <option value="DISMINUCION">Disminución de existencias</option>
+              </select>
+            </label>
             <label>Cantidad <input type="number" min="1" step="1" formControlName="cantidad" required /></label>
-            <label>Motivo <textarea formControlName="motivo" minlength="3" maxlength="300" required placeholder="Ej.: Recepción de mercadería"></textarea></label>
-            <button type="submit" class="inventory-primary" [disabled]="saving() || loadingInventory()">{{ saving() ? 'Registrando…' : 'Registrar movimiento' }}</button>
+            <label>Motivo obligatorio <textarea formControlName="motivo" minlength="3" maxlength="300" required placeholder="Ej.: Diferencia comprobada en recuento físico"></textarea></label>
+            <button type="submit" class="inventory-primary" [disabled]="saving() || loadingInventory()">{{ saving() ? 'Registrando…' : 'Registrar ajuste' }}</button>
           </form>
+        </section>
+        @if (companies.hasPermission('postventa.consultar')) {
+          <section class="inventory-card" aria-labelledby="reentry-heading">
+            <div class="inventory-card-head">
+              <div><p class="inventory-eyebrow">Cambio o devolución</p><h2 id="reentry-heading">Reingreso de prenda apta para venta</h2></div>
+            </div>
+            <p>Solo para solicitudes de postventa completadas. Indica la misma variante y cantidad del proceso original; el sistema enlaza el movimiento y evita registrarlo dos veces.</p>
+            <form [formGroup]="reentryForm" (ngSubmit)="submitReentry()" class="inventory-form inventory-reentry-form">
+              <label>ID de solicitud de postventa
+                <input type="text" formControlName="solicitud_id" maxlength="36" required placeholder="UUID de solicitud completada" />
+              </label>
+              <label>Variante ID <input type="number" min="1" step="1" formControlName="variante_id" required /></label>
+              <label>Cantidad <input type="number" min="1" step="1" formControlName="cantidad" required /></label>
+              <label>Motivo del reingreso <textarea formControlName="motivo" minlength="3" maxlength="300" required placeholder="Ej.: Prenda inspeccionada y apta para reventa"></textarea></label>
+              <label class="inventory-check">
+                <input type="checkbox" formControlName="apta_para_venta" required />
+                Confirmo que la prenda recibida fue inspeccionada y es apta para volver al stock vendible.
+              </label>
+              <button type="submit" class="inventory-primary" [disabled]="saving() || loadingInventory()">{{ saving() ? 'Registrando…' : 'Registrar reingreso' }}</button>
+            </form>
+          </section>
+        }
+      } @else {
+        <section class="inventory-card">
+          <p>Tu perfil tiene permiso para consultar existencias y kardex, pero no para registrar ajustes.</p>
         </section>
       }
 
       <section class="inventory-card" aria-labelledby="history-heading">
-        <div class="inventory-card-head"><div><p class="inventory-eyebrow">Trazabilidad</p><h2 id="history-heading">Historial de movimientos</h2></div></div>
+        <div class="inventory-card-head"><div><p class="inventory-eyebrow">Trazabilidad</p><h2 id="history-heading">Historial de movimientos</h2></div>
+          @if (selectedHistoryVariant() !== null) {
+            <button type="button" class="inventory-secondary" (click)="showAllHistory()">Ver todas las variantes</button>
+          }
+        </div>
+        @if (selectedHistoryVariant() !== null) {
+          <p class="inventory-note">Kardex de la variante {{ selectedHistoryVariant() }}. Consulta de solo lectura.</p>
+        }
         @if (movements().items.length === 0) { <p>Aún no se registraron movimientos en la sucursal.</p> }
         @else {
           <div class="inventory-scroll"><table>
-            <thead><tr><th>Fecha</th><th>Variante</th><th>Tipo</th><th>Variación</th><th>Saldo</th><th>Motivo</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Variante</th><th>Clase</th><th>Tipo</th><th>Variación</th><th>Saldo físico</th><th>Responsable ID</th><th>Origen</th><th>Motivo</th></tr></thead>
             <tbody>
               @for (item of movements().items; track item.id) {
-                <tr><td>{{ item.creado_en }}</td><td>{{ item.variante_id }}</td><td>{{ item.tipo }}</td><td>{{ item.delta }}</td><td>{{ item.saldo_resultante }}</td><td>{{ item.motivo }}</td></tr>
+                <tr>
+                  <td>{{ item.creado_en }}</td>
+                  <td>{{ item.variante_id }}</td>
+                  <td>{{ item.clase }}</td>
+                  <td>{{ item.tipo }}</td>
+                  <td>{{ item.delta }}</td>
+                  <td>{{ item.saldo_resultante }}</td>
+                  <td>{{ item.usuario_id }}</td>
+                  <td>{{ item.origen_tipo ? (item.origen_tipo + ': ' + item.origen_id) : '—' }}</td>
+                  <td>{{ item.motivo }}</td>
+                </tr>
               }
             </tbody>
           </table></div>

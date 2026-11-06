@@ -330,3 +330,338 @@ def test_database_foreign_keys_prevent_cross_company_variant_stock_and_grants(cl
 def test_new_private_endpoints_reject_missing_session(client, method, path):
     response = getattr(client, method)(path, json={}) if method == "post" else client.get(path)
     assert response.status_code == 401
+
+
+def test_inventory_filters_scope_product_category_variant_and_name(client, scope):
+    def category(headers, name):
+        response = client.post("/api/admin/categorias", headers=headers,
+                               json={"nombre": name, "descripcion": "Filtro para inventario"})
+        assert response.status_code == 201, response.text
+        return response.json()["id"]
+
+    shirts = category(scope.ah, "Camisas")
+    dresses = category(scope.ah, "Vestidos")
+    foreign_category = category(scope.bh, "Exclusivo empresa B")
+    shirt_blue = product(client, scope.ah, "Camisa Azul", categoria_id=shirts)
+    shirt_green = product(client, scope.ah, "Camisa Verde", categoria_id=shirts)
+    dress = product(client, scope.ah, "Vestido Rojo", categoria_id=dresses)
+    foreign = product(client, scope.bh, "Camisa Ajena", categoria_id=foreign_category)
+
+    blue = variant(client, scope.ah, shirt_blue["id"], talla="S", color="AZUL")
+    green = variant(client, scope.ah, shirt_green["id"], talla="L", color="VERDE")
+    red = variant(client, scope.ah, dress["id"], talla="M", color="ROJO")
+    foreign_variant = variant(client, scope.bh, foreign["id"], talla="XL", color="NEGRO")
+    for item in (blue, green, red):
+        post_movement(client, scope.ah, movement(scope.a1, item["id"], 5))
+    post_movement(client, scope.bh, movement(scope.b1, foreign_variant["id"], 7))
+    post_movement(client, scope.ah, movement(scope.a2, blue["id"], 2))
+
+    endpoint = f"/api/admin/inventario/existencias?sucursal_id={scope.a1.id}"
+
+    def result(extra=""):
+        response = client.get(endpoint + extra, headers=scope.ah)
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    complete = result()
+    assert complete["total"] == 3
+    assert [row["variante_id"] for row in complete["items"]] == [blue["id"], green["id"], red["id"]]
+    assert complete["items"][0]["producto_nombre"] == "Camisa Azul"
+    assert complete["items"][0]["producto_id"] == shirt_blue["id"]
+    assert complete["items"][0]["categoria_id"] == shirts
+    assert complete["items"][0]["talla"] == "S"
+    assert complete["items"][0]["color"] == "AZUL"
+
+    assert result(f"&categoria_id={shirts}")["total"] == 2
+    assert [row["variante_id"] for row in result(f"&producto_id={shirt_blue['id']}")["items"]] == [blue["id"]]
+    assert [row["variante_id"] for row in result(f"&variante_id={red['id']}")["items"]] == [red["id"]]
+    assert result("&q=CAMISA")["total"] == 2
+    assert result("&q=azul")["total"] == 1
+    assert result(f"&categoria_id={dresses}&q=camisa")["total"] == 0
+    assert client.get(endpoint + f"&categoria_id={foreign_category}", headers=scope.ah).status_code == 404
+    assert client.get(endpoint + f"&producto_id={foreign['id']}", headers=scope.ah).status_code == 404
+    assert client.get(endpoint + f"&variante_id={foreign_variant['id']}", headers=scope.ah).status_code == 404
+    assert result(f"&categoria_id={shirts}&limit=1&offset=1")["total"] == 2
+    assert len(result(f"&categoria_id={shirts}&limit=1&offset=1")["items"]) == 1
+    assert client.get(
+        f"/api/admin/inventario/existencias?sucursal_id={scope.a2.id}&q=camisa",
+        headers=scope.oh,
+    ).status_code == 404
+
+
+@pytest.mark.parametrize("query", [
+    "producto_id=0", "producto_id=-1", "categoria_id=0", "categoria_id=-1",
+    "variante_id=0", "variante_id=-1", "variante_id=texto", "q=" + "a" * 121,
+])
+def test_inventory_filters_reject_invalid_parameters(client, scope, query):
+    response = client.get(
+        f"/api/admin/inventario/existencias?sucursal_id={scope.a1.id}&{query}",
+        headers=scope.ah,
+    )
+    assert response.status_code == 422, response.text
+
+
+def adjustment(branch, variant_id, quantity, kind="DISMINUCION", **extra):
+    return {
+        "id": str(uuid4()), "sucursal_id": branch.id,
+        "variante_id": variant_id, "tipo": kind,
+        "cantidad": quantity, "motivo": "Recuento físico documentado", **extra,
+    }
+
+
+def test_cu07_stock_physical_reserved_available_and_adjustment_is_atomic(client, scope, session_factory):
+    item = product(client, scope.ah, "Stock comprometido")
+    v = variant(client, scope.ah, item["id"])
+    post_movement(client, scope.ah, movement(scope.a1, v["id"], 10))
+    with session_factory() as db:
+        balance = db.get(Existencia, (scope.a.id, scope.a1.id, v["id"]))
+        balance.cantidad_comprometida = 6
+        db.commit()
+
+    url = f"/api/admin/inventario/existencias?sucursal_id={scope.a1.id}"
+    before = client.get(url, headers=scope.ah).json()["items"][0]
+    assert (before["cantidad"], before["cantidad_comprometida"], before["cantidad_disponible"]) == (10, 6, 4)
+
+    invalid = adjustment(scope.a1, v["id"], 5)
+    rejected = client.post("/api/admin/inventario/ajustes", json=invalid, headers=scope.ah)
+    assert rejected.status_code == 409
+    assert "comprometidas" in rejected.json()["detail"]
+
+    valid = adjustment(scope.a1, v["id"], 4)
+    result = client.post("/api/admin/inventario/ajustes", json=valid, headers=scope.ah)
+    assert result.status_code == 201, result.text
+    assert result.json()["clase"] == "AJUSTE"
+    assert result.json()["tipo"] == "SALIDA"
+    assert result.json()["delta"] == -4
+    assert result.json()["saldo_resultante"] == 6
+
+    after = client.get(url, headers=scope.ah).json()["items"][0]
+    assert (after["cantidad"], after["cantidad_comprometida"], after["cantidad_disponible"]) == (6, 6, 0)
+    with session_factory() as db:
+        assert db.get(Existencia, (scope.a.id, scope.a1.id, v["id"])).cantidad_comprometida == 6
+        assert db.scalar(
+            select(func.count()).select_from(MovimientoInventario)
+            .where(MovimientoInventario.clase == "AJUSTE")
+        ) == 1
+
+
+def test_cu07_adjustment_replay_changes_and_read_only_kardex(client, scope, session_factory):
+    item = product(client, scope.ah, "Ajustes trazables")
+    v = variant(client, scope.ah, item["id"])
+    payload = adjustment(scope.a1, v["id"], 8, "INCREMENTO")
+    first = client.post("/api/admin/inventario/ajustes", json=payload, headers=scope.ah)
+    assert first.status_code == 201, first.text
+    repeated = client.post("/api/admin/inventario/ajustes", json=payload, headers=scope.ah)
+    assert repeated.status_code == 200 and repeated.json() == first.json()
+    changed = client.post("/api/admin/inventario/ajustes", json={**payload, "cantidad": 9}, headers=scope.ah)
+    assert changed.status_code == 409
+    cross_endpoint = client.post("/api/admin/inventario/movimientos", headers=scope.ah, json={
+        **payload, "tipo": "ENTRADA",
+    })
+    assert cross_endpoint.status_code == 409
+    history = f"/api/admin/inventario/movimientos?sucursal_id={scope.a1.id}&variante_id={v['id']}"
+    for _ in range(2):
+        page = client.get(history, headers=scope.ah)
+        assert page.status_code == 200
+        assert page.json()["total"] == 1
+        assert page.json()["items"][0]["usuario_id"] == scope.owner_a.id
+        assert page.json()["items"][0]["clase"] == "AJUSTE"
+    with session_factory() as db:
+        assert db.get(Existencia, (scope.a.id, scope.a1.id, v["id"])).cantidad == 8
+
+
+@pytest.mark.parametrize("change", [
+    {"cantidad": 0}, {"cantidad": -1}, {"cantidad": 1.5},
+    {"cantidad": True}, {"motivo": " "}, {"tipo": "SALIDA"},
+    {"id": "identificador-invalido"}, {"variante_id": -1},
+])
+def test_cu07_adjustment_invalid_inputs_have_no_effect(client, scope, session_factory, change):
+    item = product(client, scope.ah, "Variante valida")
+    v = variant(client, scope.ah, item["id"])
+    result = client.post(
+        "/api/admin/inventario/ajustes", headers=scope.ah,
+        json=adjustment(scope.a1, v["id"], 3, **change),
+    )
+    assert result.status_code == 422, result.text
+    with session_factory() as db:
+        assert db.scalar(select(func.count()).select_from(MovimientoInventario)) == 0
+        assert db.scalar(select(func.count()).select_from(Existencia)) == 0
+
+
+def test_cu07_readonly_operator_cannot_adjust_but_encargado_can(client, scope, session_factory):
+    item = product(client, scope.ah, "Prenda de encargado")
+    v = variant(client, scope.ah, item["id"])
+    data = adjustment(scope.a1, v["id"], 2, "INCREMENTO")
+    denied = client.post("/api/admin/inventario/ajustes", headers=scope.oh, json=data)
+    assert denied.status_code == 403
+    assert client.get(
+        f"/api/admin/inventario/existencias?sucursal_id={scope.a1.id}",
+        headers=scope.oh,
+    ).status_code == 200
+    with session_factory() as db:
+        member = db.get(MembresiaEmpresa, (scope.operator.id, scope.a.id))
+        member.rol = "ENCARGADO_SUCURSAL"
+        member.rol_empresa_id = None
+        db.commit()
+    allowed = client.post("/api/admin/inventario/ajustes", headers=scope.oh, json=data)
+    assert allowed.status_code == 201, allowed.text
+    assert allowed.json()["usuario_id"] == scope.operator.id
+    outside = client.post(
+        "/api/admin/inventario/ajustes", headers=scope.oh,
+        json=adjustment(scope.a2, v["id"], 1, "INCREMENTO"),
+    )
+    assert outside.status_code == 404
+    assert client.post(
+        "/api/admin/inventario/ajustes", headers=scope.ah,
+        json=adjustment(scope.b1, v["id"], 1, "INCREMENTO"),
+    ).status_code == 404
+    foreign = product(client, scope.bh, "Producto de otra empresa")
+    foreign_v = variant(client, scope.bh, foreign["id"])
+    assert client.post(
+        "/api/admin/inventario/ajustes", headers=scope.oh,
+        json=adjustment(scope.a1, foreign_v["id"], 1, "INCREMENTO"),
+    ).status_code == 404
+
+
+def test_cu07_adjustments_revalidate_after_intervening_stock_change(client, scope, session_factory):
+    item = product(client, scope.ah, "Actualizacion entre consultas")
+    v = variant(client, scope.ah, item["id"])
+    post_movement(client, scope.ah, movement(scope.a1, v["id"], 5))
+    previous = client.get(
+        f"/api/admin/inventario/existencias?sucursal_id={scope.a1.id}",
+        headers=scope.ah,
+    )
+    assert previous.status_code == 200 and previous.json()["items"][0]["cantidad"] == 5
+    spent = adjustment(scope.a1, v["id"], 4, "DISMINUCION")
+    assert client.post("/api/admin/inventario/ajustes", headers=scope.ah, json=spent).status_code == 201
+    stale = adjustment(scope.a1, v["id"], 3, "DISMINUCION")
+    assert client.post("/api/admin/inventario/ajustes", headers=scope.ah, json=stale).status_code == 409
+    with session_factory() as db:
+        assert db.get(Existencia, (scope.a.id, scope.a1.id, v["id"])).cantidad == 1
+
+
+def test_cu07_generic_stock_exit_also_respects_existing_commitments(client, scope, session_factory):
+    item = product(client, scope.ah, "Stock protegido")
+    v = variant(client, scope.ah, item["id"])
+    post_movement(client, scope.ah, movement(scope.a1, v["id"], 6))
+    with session_factory() as db:
+        row = db.get(Existencia, (scope.a.id, scope.a1.id, v["id"]))
+        row.cantidad_comprometida = 5
+        db.commit()
+    assert client.post(
+        "/api/admin/inventario/movimientos", headers=scope.ah,
+        json=movement(scope.a1, v["id"], 2, "SALIDA"),
+    ).status_code == 409
+    with session_factory() as db:
+        assert db.get(Existencia, (scope.a.id, scope.a1.id, v["id"])).cantidad == 6
+
+
+def test_cu07_reentry_rejects_invalid_or_unknown_origin_without_stock(client, scope, session_factory):
+    item = product(client, scope.ah, "Devolucion")
+    v = variant(client, scope.ah, item["id"])
+    payload = {
+        "id": str(uuid4()), "solicitud_id": str(uuid4()),
+        "sucursal_id": scope.a1.id, "variante_id": v["id"], "cantidad": 2,
+        "motivo": "Reingreso apto para venta", "apta_para_venta": True,
+    }
+    assert client.post(
+        "/api/admin/inventario/reingresos", headers=scope.ah,
+        json=payload,
+    ).status_code == 404
+    assert client.post(
+        "/api/admin/inventario/reingresos", headers=scope.ah,
+        json={**payload, "apta_para_venta": False},
+    ).status_code == 422
+    with session_factory() as db:
+        assert db.scalar(select(func.count()).select_from(MovimientoInventario)) == 0
+
+
+def test_cu07_reentry_is_linked_to_completed_postventa_exactly_once(client, scope, session_factory):
+    from decimal import Decimal
+    from app.models import Cliente, utc_now
+    from app.compras_reservas.compras.domain import identifier_token
+    from app.compras_reservas.compras.persistence import PurchaseRecord
+    from app.compras_reservas.postventa.persistence import SolicitudPostventa, LineaSolicitudPostventa
+
+    item = product(client, scope.ah, "Prenda devuelta")
+    v = variant(client, scope.ah, item["id"])
+    purchase_id = str(uuid4())
+    request_id = str(uuid4())
+    with session_factory() as db:
+        customer = Cliente(
+            empresa_id=scope.a.id, nombre="Cliente CU07",
+            correo="devolucion.cu07@vestinova.test",
+            password_hash=scope.owner_a.password_hash, activo=True,
+        )
+        db.add(customer)
+        db.flush()
+        company_key = identifier_token(scope.a.id)
+        db.add(PurchaseRecord(
+            id=purchase_id, empresa_clave=company_key,
+            cliente_clave=identifier_token(customer.id),
+            sucursal_clave=identifier_token(scope.a1.id),
+            contexto={
+                "actor_id": customer.id, "empresa_id": scope.a.id,
+                "cliente_id": customer.id, "sucursal_id": scope.a1.id,
+            },
+            huella="a" * 64, creado_en=utc_now(),
+            total=Decimal("300.00"), moneda="BOB",
+        ))
+        db.flush()
+        request = SolicitudPostventa(
+            id=request_id, empresa_id=scope.a.id, empresa_clave=company_key,
+            cliente_id=customer.id, compra_id=purchase_id,
+            sucursal_id=scope.a1.id, tipo="DEVOLUCION",
+            estado="COMPLETADA", motivo="Cambio aprobado y completado",
+            line_records=[
+                LineaSolicitudPostventa(
+                    empresa_clave=company_key, producto_id=item["id"],
+                    compra_posicion=0, nombre=item["nombre"],
+                    variante_ref=v["id"], cantidad=3,
+                    precio_unitario=Decimal("100.00"),
+                )
+            ],
+        )
+        db.add(request)
+        db.commit()
+    payload = {
+        "id": str(uuid4()), "solicitud_id": request_id,
+        "sucursal_id": scope.a1.id, "variante_id": v["id"], "cantidad": 3,
+        "motivo": "Prenda inspeccionada apta para venta", "apta_para_venta": True,
+    }
+    first = client.post("/api/admin/inventario/reingresos", json=payload, headers=scope.ah)
+    assert first.status_code == 201, first.text
+    assert first.json()["clase"] == "REINGRESO"
+    assert first.json()["origen_tipo"] == "POSTVENTA"
+    assert first.json()["origen_id"] == request_id
+    repeated = client.post("/api/admin/inventario/reingresos", json=payload, headers=scope.ah)
+    assert repeated.status_code == 200 and repeated.json() == first.json()
+    duplicate = client.post(
+        "/api/admin/inventario/reingresos",
+        json={**payload, "id": str(uuid4())}, headers=scope.ah,
+    )
+    assert duplicate.status_code == 409
+    with session_factory() as db:
+        row = db.get(Existencia, (scope.a.id, scope.a1.id, v["id"]))
+        assert row.cantidad == 3 and row.cantidad_comprometida == 0
+        assert db.scalar(select(func.count()).select_from(MovimientoInventario)) == 1
+
+
+def test_cu07_transaction_rollback_on_audit_failure(client, scope, session_factory, monkeypatch):
+    from app.inventario import api
+
+    item = product(client, scope.ah, "Rollback de ajuste")
+    v = variant(client, scope.ah, item["id"])
+
+    def fail_audit(*args, **kwargs):
+        raise RuntimeError("Fallo simulado al preparar auditoría")
+
+    monkeypatch.setattr(api, "record_audit_event", fail_audit)
+    with pytest.raises(RuntimeError, match="Fallo simulado"):
+        client.post(
+            "/api/admin/inventario/ajustes", headers=scope.ah,
+            json=adjustment(scope.a1, v["id"], 3, "INCREMENTO"),
+        )
+    with session_factory() as db:
+        assert db.scalar(select(func.count()).select_from(MovimientoInventario)) == 0
+        assert db.scalar(select(func.count()).select_from(Existencia)) == 0

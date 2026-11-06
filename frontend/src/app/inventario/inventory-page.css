@@ -27,3 +27,54 @@
 .inventory-card th{background:#f7f9f5;color:#526358;font-size:11px;text-transform:uppercase;}
 :host :is(button,input,select,textarea):focus-visible{outline:3px solid #116149;outline-offset:2px;}
 @media(max-width:720px){.inventory-form{grid-template-columns:1fr;}.inventory-form label:nth-child(4){grid-column:auto;}.inventory-card{padding:18px;}.inventory-filter>*{width:100%;}.inventory-filter select{min-width:0;}.inventory-card-head{align-items:flex-start;flex-direction:column;}}
+
+.inventory-search { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)) auto; gap:12px; align-items:end; }
+.inventory-search label { display:grid; gap:8px; min-width:0; font-size:13px; font-weight:600; }
+.inventory-search input,.inventory-search select { min-width:0; width:100%; box-sizing:border-box; }
+.inventory-search-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.inventory-product-name { display:block; font-size:14px; color:#202a25; }
+.inventory-variant-details { display:block; margin-top:4px; color:#607268; font-size:12px; }
+.inventory-note { margin-top:12px; font-size:12px!important; }
+@media(max-width:1000px){.inventory-search{grid-template-columns:repeat(2,minmax(0,1fr));}.inventory-search-actions{align-self:end;}}
+@media(max-width:720px){.inventory-search{grid-template-columns:1fr;}.inventory-search-actions>*{flex:1;}}
+
+
+/* CU07: empresa a la izquierda, control de sucursal alineado a la derecha. */
+.inventory-filter { display:flex; align-items:center; justify-content:space-between; gap:18px; }
+.inventory-filter > .inventory-branch-company { display:grid; gap:6px; margin-right:auto; }
+.inventory-filter > .inventory-branch-controls { display:flex; align-items:end; justify-content:flex-end; flex-wrap:wrap; gap:16px; margin-right:0; }
+.inventory-branch-field { display:grid; gap:8px; }
+.inventory-branch-field > label { font-size:13px; font-weight:600; margin:0; line-height:1.4; }
+.inventory-select-wrap { position:relative; }
+.inventory-select-wrap select {
+  box-sizing:border-box; width:100%; min-width:245px; height:48px;
+  padding:10px 46px 10px 15px; appearance:none; -webkit-appearance:none;
+  border:1px solid #bac7bd; background:#fff; border-radius:8px; color:#202a25;
+}
+.inventory-select-wrap::after {
+  content:""; position:absolute; right:17px; top:50%;
+  width:8px; height:8px; border-right:2px solid #526358;
+  border-bottom:2px solid #526358; transform:translateY(-70%) rotate(45deg);
+  pointer-events:none;
+}
+.inventory-fixed-branch { display:grid; gap:5px; min-width:210px; }
+.inventory-fixed-branch strong { font-size:14px; }
+@media(max-width:720px) {
+  .inventory-filter { align-items:stretch; }
+  .inventory-branch-controls { width:100%; align-items:stretch; }
+  .inventory-branch-field, .inventory-select-wrap, .inventory-select-wrap select { width:100%; min-width:0; }
+  .inventory-branch-controls > button { width:100%; }
+}
+
+.inventory-small-button { padding:7px 10px; min-height:35px; white-space:nowrap; }
+.inventory-reentry-form label:first-child { grid-column:1/-1; }
+.inventory-reentry-form label:nth-child(4) { grid-column:1/-1; }
+.inventory-check { display:flex!important; flex-direction:row; align-items:center; gap:11px!important; grid-column:1/-1; line-height:1.5; cursor:pointer; }
+.inventory-check input[type="checkbox"] {
+  box-sizing:border-box; flex:0 0 18px; width:18px; height:18px;
+  min-height:18px; margin:0; padding:0; accent-color:#116149;
+}
+.inventory-reentry-form .inventory-primary { justify-self:start; }
+@media(max-width:720px) {
+  .inventory-reentry-form .inventory-primary { width:100%; }
+}

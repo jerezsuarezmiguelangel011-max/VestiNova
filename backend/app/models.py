@@ -187,12 +187,14 @@ class Existencia(Base):
         ForeignKeyConstraint(["sucursal_id", "empresa_id"], ["sucursales.id", "sucursales.empresa_id"], name="fk_existencias_sucursal_empresa"),
         ForeignKeyConstraint(["variante_id", "empresa_id"], ["variantes_producto.id", "variantes_producto.empresa_id"], name="fk_existencias_variante_empresa"),
         CheckConstraint("cantidad >= 0", name="ck_existencias_no_negativas"),
+        CheckConstraint("cantidad_comprometida >= 0 AND cantidad_comprometida <= cantidad", name="ck_existencias_comprometido_valido"),
     )
 
     empresa_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     sucursal_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     variante_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     cantidad: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cantidad_comprometida: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     actualizado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
 
 
@@ -204,6 +206,9 @@ class MovimientoInventario(Base):
         ForeignKeyConstraint(["variante_id", "empresa_id"], ["variantes_producto.id", "variantes_producto.empresa_id"], name="fk_movimientos_variante_empresa"),
         CheckConstraint("(tipo = 'ENTRADA' AND delta > 0) OR (tipo = 'SALIDA' AND delta < 0)", name="ck_movimientos_tipo_delta"),
         CheckConstraint("saldo_resultante >= 0", name="ck_movimientos_saldo"),
+        CheckConstraint("clase IN ('MOVIMIENTO', 'AJUSTE', 'REINGRESO')", name="ck_movimientos_clase"),
+        CheckConstraint("(clase = 'REINGRESO' AND tipo = 'ENTRADA' AND origen_tipo = 'POSTVENTA' AND origen_id IS NOT NULL) OR (clase != 'REINGRESO' AND origen_tipo IS NULL AND origen_id IS NULL)", name="ck_movimientos_reingreso_origen"),
+        UniqueConstraint("empresa_id", "origen_tipo", "origen_id", "variante_id", name="uq_movimientos_reingreso_origen"),
         Index("ix_movimientos_empresa_sucursal_variante", "empresa_id", "sucursal_id", "variante_id"),
     )
 
@@ -213,6 +218,9 @@ class MovimientoInventario(Base):
     variante_id: Mapped[int] = mapped_column(Integer, nullable=False)
     usuario_id: Mapped[int] = mapped_column(ForeignKey("administradores.id"), nullable=False)
     tipo: Mapped[str] = mapped_column(String(10), nullable=False)
+    clase: Mapped[str] = mapped_column(String(12), nullable=False, default="MOVIMIENTO", server_default="MOVIMIENTO")
+    origen_tipo: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    origen_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     motivo: Mapped[str] = mapped_column(String(300), nullable=False)
     delta: Mapped[int] = mapped_column(Integer, nullable=False)
     saldo_resultante: Mapped[int] = mapped_column(Integer, nullable=False)
