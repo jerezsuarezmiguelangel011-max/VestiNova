@@ -93,7 +93,7 @@ def test_public_catalog_shape_and_slug_contract_remain_compatible(client, scope)
     page = client.get("/api/catalogo/productos?limit=1&offset=1").json()
     assert page == {"items": [a], "total": 2, "limit": 1, "offset": 1}
     assert set(a) == {"id", "slug", "nombre", "categoria_id", "categoria_nombre", "descripcion",
-                      "precio", "precio_promocional", "promocion_nombre", "moneda", "imagen_url",
+                      "material", "medidas", "temporada", "precio", "precio_promocional", "promocion_nombre", "moneda", "imagen_url",
                       "activo", "creado_en", "actualizado_en"}
     assert a["precio"] == "150.90" and a["moneda"] == "BOB"
     assert client.get(f"/api/catalogo/productos/{b['slug']}").json() == b
@@ -665,3 +665,200 @@ def test_cu07_transaction_rollback_on_audit_failure(client, scope, session_facto
     with session_factory() as db:
         assert db.scalar(select(func.count()).select_from(MovimientoInventario)) == 0
         assert db.scalar(select(func.count()).select_from(Existencia)) == 0
+
+def test_cu08_catalog_scoped_search_filters_and_public_directory(client, scope):
+    a = product(client, scope.ah, "Camisa lino", precio="120.00")
+    another = product(client, scope.ah, "Vestido rojo", precio="250.00")
+    other_tenant = product(client, scope.bh, "Camisa de empresa B", precio="90.00")
+    variant(client, scope.ah, a["id"], talla="M", color="AZUL")
+    variant(client, scope.ah, another["id"], talla="L", color="ROJO")
+    variant(client, scope.bh, other_tenant["id"], talla="M", color="AZUL")
+
+    stores = client.get("/api/catalogo/tiendas")
+    assert stores.status_code == 200
+    public_stores = {row["slug"] for row in stores.json()}
+    assert {scope.a.slug, scope.b.slug}.issubset(public_stores)
+    assert all(set(row) == {"slug", "nombre"} for row in stores.json())
+
+    endpoint = f"/api/catalogo/productos?tienda={scope.a.slug}"
+    page = client.get(endpoint)
+    assert page.status_code == 200, page.text
+    assert page.json()["total"] == 2
+    assert {row["slug"] for row in page.json()["items"]} == {a["slug"], another["slug"]}
+    assert client.get(endpoint + "&q=CAMISA").json()["total"] == 1
+    assert client.get(endpoint + "&talla=m&color=azul").json()["items"][0]["id"] == a["id"]
+    assert client.get(endpoint + "&talla=M&color=rojo").json()["total"] == 0
+    assert client.get(endpoint + "&precio_min=100&precio_max=200").json()["items"][0]["id"] == a["id"]
+    assert client.get(endpoint + f"&categoria_id={a['categoria_id']}").json()["total"] == 2
+    assert client.get(endpoint + "&precio_min=400&precio_max=100").status_code == 422
+    assert client.get(endpoint + "&categoria_id=0").status_code == 422
+    assert client.get(endpoint + "&talla=" + "x" * 31).status_code == 422
+    assert client.get("/api/catalogo/productos?tienda=tienda-no-existente").status_code == 404
+    assert client.get(f"/api/catalogo/productos/{other_tenant['slug']}?tienda={scope.a.slug}").status_code == 404
+    assert client.get(f"/api/catalogo/productos/{a['slug']}?tienda={scope.b.slug}").status_code == 404
+
+    categories = client.get(f"/api/catalogo/categorias?tienda={scope.a.slug}")
+    assert categories.status_code == 200, categories.text
+    assert any(category["id"] == a["categoria_id"] for category in categories.json())
+    assert all(set(category) == {"id", "nombre"} for category in categories.json())
+
+
+def test_cu08_public_variants_and_availability_do_not_cross_tenants(client, scope):
+    own = product(client, scope.ah, "Prenda de consulta")
+    foreign = product(client, scope.bh, "Prenda ajena")
+    v = variant(client, scope.ah, own["id"], talla="S", color="VERDE")
+    hidden = variant(client, scope.ah, own["id"], talla="XL", color="NEGRO", activo=False)
+    variant(client, scope.bh, foreign["id"], talla="S", color="VERDE")
+    post_movement(client, scope.ah, movement(scope.a1, v["id"], 4))
+
+    base = f"/api/catalogo/productos/{own['slug']}"
+    detail = client.get(base + f"?tienda={scope.a.slug}")
+    assert detail.status_code == 200 and detail.json()["id"] == own["id"]
+    listed = client.get(base + f"/variantes?tienda={scope.a.slug}")
+    assert listed.status_code == 200
+    assert listed.json() == [{"id": v["id"], "talla": "S", "color": "VERDE"}]
+    assert hidden["id"] not in [row["id"] for row in listed.json()]
+    assert client.get(base + f"/variantes?tienda={scope.b.slug}").status_code == 404
+
+    variants = client.get(f"/api/catalogo/variantes?tienda={scope.a.slug}&limit=1&offset=0")
+    assert variants.status_code == 200, variants.text
+    assert variants.json()["total"] == 1
+    assert variants.json()["items"][0] == {
+        "id": v["id"], "producto_slug": own["slug"], "talla": "S", "color": "VERDE",
+    }
+    assert client.get(f"/api/catalogo/variantes?tienda={scope.b.slug}").json()["total"] == 1
+    assert client.get("/api/catalogo/variantes?tienda=desconocida").status_code == 404
+
+    available = client.get(base + f"/disponibilidad?tienda={scope.a.slug}&sucursal_id={scope.a1.id}&variante_id={v['id']}")
+    assert available.status_code == 200
+    assert available.json()["alcance"] == "STOCK_FISICO_REFERENCIAL"
+    assert len(available.json()["items"]) == 1
+    assert available.json()["items"][0]["saldo_registrado"] is True
+    assert available.json()["items"][0]["hay_existencias_fisicas"] is True
+    assert client.get(base + f"/disponibilidad?tienda={scope.b.slug}").status_code == 404
+
+
+def test_cu08_accepts_cu07_migrated_role_without_bypassing_unknown_permissions(client, scope, session_factory):
+    """Una base ya migrada para CU07 no debe ocultar los tenants en CU08."""
+    from app.autenticacion_usuarios.permissions import ensure_company_roles, effective_role
+    from app.models import PermisoRol
+
+    with session_factory() as db:
+        roles = ensure_company_roles(db, scope.a.id)
+        member = db.get(MembresiaEmpresa, (scope.owner_a.id, scope.a.id))
+        assert member is not None
+        member.rol_empresa_id = roles["ADMINISTRADOR"].id
+        manager = db.get(MembresiaEmpresa, (scope.operator.id, scope.a.id))
+        assert manager is not None
+        manager.rol = "ENCARGADO_SUCURSAL"
+        manager.rol_empresa_id = roles["ENCARGADO_SUCURSAL"].id
+        db.commit()
+        assert effective_role(db, member) is not None
+        assert effective_role(db, manager) is not None
+
+    for headers, expected_role in (
+        (scope.ah, "ADMINISTRADOR"),
+        (scope.oh, "ENCARGADO_SUCURSAL"),
+    ):
+        response = client.get("/api/empresas", headers=headers)
+        assert response.status_code == 200, response.text
+        assert len(response.json()) == 1
+        company = response.json()[0]
+        assert company["id"] == scope.a.id
+        assert company["rol"] == expected_role
+        assert "inventario.ajustar" in company["permisos"]
+
+    # Conserva el comportamiento seguro frente a permisos verdaderamente desconocidos.
+    with session_factory() as db:
+        db.add(PermisoRol(
+            rol_empresa_id=roles["ADMINISTRADOR"].id,
+            codigo="permiso.desconocido",
+        ))
+        db.commit()
+    invalid = client.get("/api/empresas", headers=scope.ah)
+    assert invalid.status_code == 200
+    assert invalid.json() == []
+
+
+def test_cu08_optional_material_measures_and_season_filters(client, scope):
+    own = product(
+        client, scope.ah, "Abrigo de lana",
+        material="Lana 80 %", medidas="M: 100 cm de pecho",
+        temporada="Invierno",
+    )
+    other = product(client, scope.ah, "Camiseta ligera", temporada="Verano")
+    external = product(client, scope.bh, "Abrigo ajeno", temporada="Invierno")
+    assert own["material"] == "Lana 80 %"
+    assert own["medidas"] == "M: 100 cm de pecho"
+    assert own["temporada"] == "Invierno"
+    page = client.get(f"/api/catalogo/productos?tienda={scope.a.slug}&temporada=invierno")
+    assert page.status_code == 200
+    assert [row["id"] for row in page.json()["items"]] == [own["id"]]
+    assert all(row["id"] not in [other["id"], external["id"]] for row in page.json()["items"])
+    assert client.get(
+        f"/api/catalogo/productos?tienda={scope.a.slug}&temporada=" + "x" * 61
+    ).status_code == 422
+    edited = client.patch(
+        f"/api/admin/productos/{own['id']}", headers=scope.ah,
+        json={"material": "Algodón", "temporada": "Otoño", "medidas": "Largo 70 cm"},
+    )
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["material"] == "Algodón"
+    assert edited.json()["temporada"] == "Otoño"
+    assert client.get(f"/api/catalogo/productos?tienda={scope.a.slug}&temporada=invierno").json()["total"] == 0
+    assert client.get(f"/api/catalogo/productos?tienda={scope.a.slug}&temporada=otoño").json()["total"] == 1
+
+
+def test_cu08_availability_subtracts_committed_stock_and_marks_unknown(client, scope, session_factory):
+    own = product(client, scope.ah, "Prenda comprometida")
+    v = variant(client, scope.ah, own["id"])
+    post_movement(client, scope.ah, movement(scope.a1, v["id"], 5))
+    url = (f"/api/catalogo/productos/{own['slug']}/disponibilidad"
+           f"?tienda={scope.a.slug}&sucursal_id={scope.a1.id}&variante_id={v['id']}")
+    first = client.get(url)
+    assert first.status_code == 200, first.text
+    assert first.json()["items"][0]["hay_disponibilidad"] is True
+    assert first.json()["items"][0]["actualizado_en"] is not None
+    with session_factory() as db:
+        row = db.scalar(select(Existencia).where(
+            Existencia.empresa_id == scope.a.id,
+            Existencia.sucursal_id == scope.a1.id,
+            Existencia.variante_id == v["id"],
+        ))
+        assert row is not None
+        row.cantidad_comprometida = 5
+        db.commit()
+    committed = client.get(url)
+    assert committed.status_code == 200
+    state = committed.json()["items"][0]
+    assert state["saldo_registrado"] is True
+    assert state["hay_existencias_fisicas"] is True
+    assert state["hay_disponibilidad"] is False
+
+    not_recorded = client.get(
+        f"/api/catalogo/productos/{own['slug']}/disponibilidad"
+        f"?tienda={scope.a.slug}&sucursal_id={scope.a2.id}&variante_id={v['id']}"
+    )
+    unknown = not_recorded.json()["items"][0]
+    assert unknown["saldo_registrado"] is False
+    assert unknown["hay_disponibilidad"] is False
+    assert unknown["actualizado_en"] is None
+    assert client.get(url.replace(f"tienda={scope.a.slug}", f"tienda={scope.b.slug}")).status_code == 404
+
+
+def test_cu08_public_branches_are_scoped_and_only_active(client, scope, session_factory):
+    response = client.get(f"/api/catalogo/sucursales?tienda={scope.a.slug}")
+    assert response.status_code == 200, response.text
+    assert {row["id"] for row in response.json()} == {scope.a1.id, scope.a2.id}
+    assert all(set(row) == {"id", "nombre"} for row in response.json())
+    assert scope.b1.id not in {row["id"] for row in response.json()}
+    assert client.get(f"/api/catalogo/sucursales?tienda={scope.b.slug}").json() == [
+        {"id": scope.b1.id, "nombre": scope.b1.nombre}
+    ]
+    with session_factory() as db:
+        db.get(Sucursal, scope.a2.id).activo = False
+        db.commit()
+    changed = client.get(f"/api/catalogo/sucursales?tienda={scope.a.slug}")
+    assert {row["id"] for row in changed.json()} == {scope.a1.id}
+    assert client.get("/api/catalogo/sucursales?tienda=desconocida").status_code == 404
+    assert client.get("/api/catalogo/sucursales").status_code == 422

@@ -56,6 +56,18 @@ describe('Copia pública del catálogo en IndexedDB', () => {
     expect(await store.read()).toEqual(empty);
   });
 
+  it('guarda sucursales publicadas en el ámbito de cada empresa y rechaza duplicados', async () => {
+    const scoped = { ...SNAPSHOT, scope: 'public-catalog:demo-moda-andina',
+      branches: [{ id: 1, nombre: 'Andina Centro' }] };
+    await store.replace(scoped);
+    expect(await store.read(scoped.scope)).toEqual(scoped);
+    expect(await store.read()).toBeNull();
+    await expect(store.replace({ ...scoped, branches: [
+      { id: 1, nombre: 'Andina Centro' }, { id: 1, nombre: 'Duplicada' },
+    ] })).rejects.toThrow();
+    expect(await store.read(scoped.scope)).toEqual(scoped);
+  });
+
   it('persiste todos los datos y permite leerlos después de reabrir el servicio y la base', async () => {
     await store.replace(SNAPSHOT);
     TestBed.resetTestingModule();

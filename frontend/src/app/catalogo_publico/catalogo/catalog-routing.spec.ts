@@ -23,6 +23,7 @@ describe('Navegación pública del catálogo', () => {
   it('abre listado y detalle con las rutas reales sin restaurar una sesión administrativa', async () => {
     const ensureSession = vi.spyOn(TestBed.inject(AuthService), 'ensureSession');
     const harness = await RouterTestingHarness.create('/catalogo');
+    http.expectOne('/api/catalogo/tiendas').flush([{slug: 'demo-moda-andina', nombre: 'Moda Andina Demo'}]);
     const list = http.expectOne(request => request.url === '/api/catalogo/productos');
     expect(list.request.headers.has('Authorization')).toBe(false);
     list.flush({ items: [], total: 0, limit: 20, offset: 0 });

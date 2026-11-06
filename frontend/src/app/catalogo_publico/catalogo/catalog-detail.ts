@@ -1,10 +1,11 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Observable, Subject, catchError, distinctUntilChanged, finalize, map, of, startWith, switchMap } from 'rxjs';
 import { CatalogDataService } from './catalog-data.service';
+import { CatalogShopService } from './catalog-shop.service';
 import { CatalogApiService, type CatalogAvailability } from './catalog-api.service';
 import { CatalogImage } from './catalog-image';
 import { CatalogLocalError, type CatalogProduct, type CatalogResult } from './catalog.models';
@@ -16,7 +17,9 @@ import { CatalogLocalError, type CatalogProduct, type CatalogResult } from './ca
   styleUrl: './catalog.css',
 })
 export class CatalogDetailPage {
-  private readonly catalog = inject(CatalogDataService);
+  readonly catalog = inject(CatalogDataService);
+  readonly shop = inject(CatalogShopService);
+  readonly inAdmin = inject(ActivatedRoute).parent?.snapshot.routeConfig?.path === 'catalogo-consulta';
   private readonly availabilityApi = inject(CatalogApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
@@ -30,6 +33,21 @@ export class CatalogDetailPage {
   readonly availability = signal<CatalogAvailability | null>(null);
   readonly availabilityLoading = signal(false);
   readonly availabilityError = signal<string | null>(null);
+  readonly variants = signal<Array<{id: number; talla: string; color: string}>>([]);
+  readonly offlineBranches = signal<Array<{id: number; nombre: string}>>([]);
+  readonly variantsLoading = signal(false);
+  readonly variantsError = signal<string | null>(null);
+  readonly selectedBranchId = signal<number | null>(null);
+  readonly selectedVariantId = signal<number | null>(null);
+  readonly filteredAvailability = computed(() => this.availability()?.items.filter(item =>
+    (this.selectedBranchId() === null || item.sucursal_id === this.selectedBranchId()) &&
+    (this.selectedVariantId() === null || item.variante_id === this.selectedVariantId())
+  ) ?? []);
+  readonly availableBranches = computed(() => {
+    const seen = new Map<number, string>();
+    for (const item of this.availability()?.items ?? []) seen.set(item.sucursal_id, item.sucursal);
+    return [...seen].map(([id, nombre]) => ({ id, nombre }));
+  });
   private availabilityRevision = 0;
 
   constructor() {
@@ -46,6 +64,13 @@ export class CatalogDetailPage {
         this.product.set(response.data);
         this.source.set(response.source);
         this.downloadedAt.set(response.downloadedAt);
+        if (this.shop.tienda()) this.loadVariants(response.data.slug);
+        if (response.source === 'local' && this.shop.tienda()) {
+          const slug = response.data.slug;
+          void this.catalog.offlineBranches().then(branches => {
+            if (this.product()?.slug === slug && this.source() === 'local') this.offlineBranches.set(branches);
+          }).catch(() => this.offlineBranches.set([]));
+        }
       }
       this.loading.set(false);
     });
@@ -56,6 +81,34 @@ export class CatalogDetailPage {
         observedRevision = revision;
         untracked(() => this.retries.next());
       }
+    });
+  }
+
+  chooseBranch(value: string): void {
+    this.selectedBranchId.set(value ? Number(value) : null);
+  }
+
+  chooseVariant(value: string): void {
+    this.selectedVariantId.set(value ? Number(value) : null);
+  }
+
+  private loadVariants(slug: string): void {
+    this.variantsLoading.set(true);
+    this.variantsError.set(null);
+    this.catalog.variantes(slug).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: response => {
+        if (this.product()?.slug === slug) {
+          this.variants.set(response.data);
+          this.variantsLoading.set(false);
+        }
+      },
+      error: (error: unknown) => {
+        if (this.product()?.slug === slug) {
+          this.variantsLoading.set(false);
+          this.variantsError.set(error instanceof CatalogLocalError ? error.message
+            : 'No se pudieron consultar las variantes. Intenta nuevamente.');
+        }
+      },
     });
   }
 
@@ -90,6 +143,12 @@ export class CatalogDetailPage {
   private load(slug: string | null): Observable<CatalogResult<CatalogProduct> | null> {
     this.availabilityRevision++;
     this.availability.set(null);
+    this.variants.set([]);
+    this.offlineBranches.set([]);
+    this.variantsLoading.set(false);
+    this.variantsError.set(null);
+    this.selectedBranchId.set(null);
+    this.selectedVariantId.set(null);
     this.availabilityLoading.set(false);
     this.availabilityError.set(null);
     this.loading.set(true);

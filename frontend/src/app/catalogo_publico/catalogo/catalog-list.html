@@ -1,9 +1,9 @@
-<section aria-labelledby="catalog-title">
-  <header class="catalog-heading">
+<section [attr.aria-labelledby]="inAdmin ? 'admin-catalog-title' : 'catalog-title'">
+  @if (!inAdmin) { <header class="catalog-heading">
     <p class="catalog-eyebrow">VestiNova · CU08 · Catálogo</p>
     <h1 id="catalog-title">Catálogo de prendas</h1>
     <p class="catalog-description">Explora las prendas y consulta sus detalles.</p>
-  </header>
+  </header> }
 
   <form class="catalog-search vn-card" [formGroup]="filters" (ngSubmit)="search()" novalidate aria-label="Buscar prendas">
     <div class="vn-field">
@@ -15,9 +15,43 @@
         <p class="vn-field__error" id="catalog-search-error">La búsqueda admite hasta 120 caracteres.</p>
       }
     </div>
+    <div class="vn-field">
+      <label for="catalog-category">Categoría</label>
+      <select id="catalog-category" formControlName="categoria_id">
+        <option [ngValue]="null">Todas las categorías</option>
+        @for (category of categories(); track category.id) {
+          <option [ngValue]="category.id">{{ category.nombre }}</option>
+        }
+      </select>
+    </div>
+    <div class="vn-field">
+      <label for="catalog-size">Talla</label>
+      <input id="catalog-size" formControlName="talla" maxlength="30" placeholder="Ej.: M" />
+    </div>
+    <div class="vn-field">
+      <label for="catalog-color">Color</label>
+      <input id="catalog-color" formControlName="color" maxlength="60" placeholder="Ej.: Azul" />
+    </div>
+    <div class="vn-field">
+      <label for="catalog-season">Temporada</label>
+      <input id="catalog-season" formControlName="temporada" maxlength="60" placeholder="Ej.: Invierno" />
+    </div>
+    <div class="vn-field">
+      <label for="catalog-price-min">Precio base desde (Bs)</label>
+      <input id="catalog-price-min" type="number" min="0" step="0.01" formControlName="precio_min" />
+    </div>
+    <div class="vn-field">
+      <label for="catalog-price-max">Precio base hasta (Bs)</label>
+      <input id="catalog-price-max" type="number" min="0" step="0.01" formControlName="precio_max" />
+    </div>
+    @if (filterError(); as message) { <p class="catalog-filter-error" role="alert">{{ message }}</p> }
     <button type="submit" class="vn-button vn-button--primary">Buscar</button>
     <button type="button" class="vn-button" (click)="clear()">Limpiar</button>
   </form>
+
+  @if (!loading() && source() === 'network') {
+    <p class="catalog-source-online" role="status">Información consultada en línea. La disponibilidad puede cambiar hasta la confirmación de una compra o reserva.</p>
+  }
 
   @if (!loading() && source() === 'local') {
     <aside class="catalog-local-notice" role="status">
@@ -67,10 +101,15 @@
       <p role="status">{{ result().total }} {{ result().total === 1 ? 'prenda encontrada' : 'prendas encontradas' }}</p>
       <div class="catalog-grid">
         @for (product of result().items; track product.id) {
-          <a class="catalog-card" [routerLink]="['/catalogo', product.slug]" [attr.aria-label]="'Ver detalle de ' + product.nombre">
+          <a class="catalog-card" [routerLink]="[inAdmin ? '/admin/catalogo-consulta' : '/catalogo', product.slug]" [queryParams]="inAdmin ? null : { tienda: shop.tienda() }" [attr.aria-label]="'Ver detalle de ' + product.nombre">
             <div class="catalog-card__image"><vn-catalog-image [url]="product.imagen_url" [name]="product.nombre" /></div>
             <div class="catalog-card__body">
               <h3 class="catalog-card__name">{{ product.nombre }}</h3>
+              @if (product.temporada) { <span class="catalog-product-updated">Temporada: {{ product.temporada }}</span> }
+              @if (product.material) { <span class="catalog-product-updated">Material: {{ product.material }}</span> }
+              <span class="catalog-product-updated">Actualizada:
+                <time [attr.datetime]="product.actualizado_en">{{ product.actualizado_en | date:'dd/MM/yyyy HH:mm':'-0400' }}</time>
+              </span>
               <p class="catalog-price">@if (product.precio_promocional) { <strong>Bs {{ product.precio_promocional }}</strong> <del>Bs {{ product.precio }}</del><small>{{ product.promocion_nombre }}</small> } @else { Bs {{ product.precio }} }</p>
               <span>Ver detalle <span aria-hidden="true">↗</span></span>
             </div>

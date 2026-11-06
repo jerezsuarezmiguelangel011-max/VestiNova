@@ -149,12 +149,12 @@ describe('Formulario de producto', () => {
 
   it('crea una sola vez mientras espera, conserva decimales y confirma solo tras respuesta', async () => {
     const { component, fixture, root } = await setup();
-    component.form.setValue({ nombre: '  Camisa de lino  ', categoria_id: null, descripcion: ' Lino natural. ', precio: '149,9', slug: '', imagen_url: '', activo: true });
+    component.form.setValue({ nombre: '  Camisa de lino  ', categoria_id: null, descripcion: ' Lino natural. ', material: '', medidas: '', temporada: '', precio: '149,9', slug: '', imagen_url: '', activo: true });
     component.submit();
     component.submit();
     fixture.detectChanges();
     const request = http.expectOne('/api/admin/productos');
-    expect(request.request.body).toEqual({ nombre: 'Camisa de lino', descripcion: 'Lino natural.', precio: '149.90', imagen_url: null, activo: true });
+    expect(request.request.body).toEqual({ nombre: 'Camisa de lino', descripcion: 'Lino natural.', material: '', medidas: '', temporada: '', precio: '149.90', imagen_url: null, activo: true });
     expect(navigate).not.toHaveBeenCalled();
     expect((root.querySelector('button[type="submit"]') as HTMLButtonElement).disabled).toBe(true);
     const cancel = [...root.querySelectorAll('a')].find(link => link.textContent?.trim() === 'Cancelar');

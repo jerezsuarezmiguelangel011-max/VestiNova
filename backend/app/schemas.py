@@ -70,6 +70,9 @@ class ProductoCreate(CamposProducto):
     categoria_id: int | None = Field(default=None, gt=0, strict=True)
     slug: str | None = Field(default=None, min_length=3, max_length=140)
     descripcion: str = Field(default="", max_length=3000)
+    material: str = Field(default="", max_length=120)
+    medidas: str = Field(default="", max_length=500)
+    temporada: str = Field(default="", max_length=60)
     precio: Precio
     imagen_url: str | None = Field(default=None, max_length=2048)
     activo: bool = True
@@ -80,6 +83,9 @@ class ProductoPatch(CamposProducto):
     categoria_id: int | None = Field(default=None, gt=0, strict=True)
     slug: str | None = Field(default=None, min_length=3, max_length=140)
     descripcion: str | None = Field(default=None, max_length=3000)
+    material: str | None = Field(default=None, max_length=120)
+    medidas: str | None = Field(default=None, max_length=500)
+    temporada: str | None = Field(default=None, max_length=60)
     precio: Precio | None = None
     imagen_url: str | None = Field(default=None, max_length=2048)
     activo: bool | None = None
@@ -102,6 +108,9 @@ class ProductoResponse(BaseModel):
     slug: str
     nombre: str
     descripcion: str
+    material: str = ""
+    medidas: str = ""
+    temporada: str = ""
     precio: Decimal
     precio_promocional: Decimal | None = None
     promocion_nombre: str | None = None

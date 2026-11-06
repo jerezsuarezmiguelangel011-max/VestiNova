@@ -5,6 +5,9 @@ export interface Product {
   nombre: string;
   slug: string;
   descripcion: string;
+  material?: string;
+  medidas?: string;
+  temporada?: string;
   precio: string;
   precio_promocional?: string | null;
   promocion_nombre?: string | null;
@@ -19,6 +22,9 @@ export interface ProductInput {
   nombre: string;
   categoria_id?: number;
   descripcion: string;
+  material?: string;
+  medidas?: string;
+  temporada?: string;
   precio: string;
   slug?: string;
   imagen_url?: string | null;

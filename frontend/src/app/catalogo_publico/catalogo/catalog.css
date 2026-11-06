@@ -81,3 +81,42 @@
   .catalog-pagination .vn-button { flex: 1; }
   .catalog-footer { padding-inline: 18px; }
 }
+
+.catalog-shop-picker { display:grid; grid-template-columns:minmax(230px,0.65fr) 1fr; align-items:end; gap:8px 20px; padding:20px 24px; margin-bottom:18px; border:1px solid var(--vn-line); border-radius:10px; background:var(--vn-white); }
+.catalog-shop-picker label { display:block; grid-column:1/-1; color:var(--vn-coal); font-size:13px; font-weight:700; }
+.catalog-shop-picker select,.catalog-search :is(select,input) { box-sizing:border-box; width:100%; min-width:0; min-height:46px; padding:10px 14px; background:var(--vn-white); border:1px solid #afc0b4; border-radius:7px; color:var(--vn-coal); }
+.catalog-shop-picker > p { margin:0; color:var(--vn-muted); font-size:12px; line-height:1.6; }
+.catalog-search { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.catalog-search > button { align-self:end; }
+.catalog-search .catalog-filter-error { grid-column:1/-1; color:var(--vn-danger); font-size:12px; }
+@media(max-width:760px){.catalog-shop-picker { grid-template-columns:1fr; }.catalog-search { grid-template-columns:repeat(2,minmax(0,1fr)); }.catalog-search > .vn-field { grid-column:auto; }}
+@media(max-width:480px){.catalog-search { grid-template-columns:1fr; }.catalog-search > .vn-field { grid-column:auto; }}
+
+.catalog-source-online { margin:0 0 20px; color:#376b50; font-size:12px; line-height:1.7; }
+.catalog-product-updated { display:block; color:var(--vn-muted); font-size:11px; font-weight:400; line-height:1.6; }
+.catalog-variants { margin-top:22px; padding:16px 18px; background:var(--vn-soft); border:1px solid #c9d9cd; border-radius:8px; }
+.catalog-variants ul { margin:8px 0; padding-left:19px; color:var(--vn-text); font-size:13px; }
+.catalog-variants p { font-size:12px; color:var(--vn-muted); }
+.catalog-availability-filters { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:12px 0; }
+.catalog-availability-filters label { display:grid; gap:6px; color:var(--vn-text); font-size:12px; font-weight:600; }
+.catalog-availability-filters select { box-sizing:border-box; width:100%; min-width:0; min-height:44px; padding:8px 12px; border:1px solid #afc0b4; border-radius:7px; background:#fff; }
+@media(max-width:480px){.catalog-availability-filters{grid-template-columns:1fr}}
+
+/* CU08 en el panel administrativo, sin duplicar la cabecera pública. */
+.admin-catalog-intro { margin-bottom:28px; }
+.admin-catalog-intro h1 { margin:0; font:400 clamp(30px,4vw,46px)/1.15 var(--vn-serif); color:var(--vn-coal); letter-spacing:-.035em; }
+.admin-catalog-intro p:not(.catalog-eyebrow) { max-width:75ch; margin:15px 0 10px; color:var(--vn-muted); line-height:1.7; }
+.admin-catalog-intro > a { display:inline-flex; min-height:44px; align-items:center; font-size:13px; font-weight:600; color:var(--vn-emerald); text-underline-offset:4px; }
+.admin-catalog-intro :focus-visible { outline:3px solid var(--vn-emerald); outline-offset:3px; }
+
+/* Atributos comerciales opcionales y estados de disponibilidad CU08. */
+.catalog-product-attributes { display:grid; gap:12px; margin:18px 0; padding:18px; border:1px solid var(--vn-line); border-radius:8px; background:var(--vn-soft); }
+.catalog-product-attributes div { display:grid; gap:4px; }
+.catalog-product-attributes dt { font-size:12px; font-weight:700; color:var(--vn-coal); }
+.catalog-product-attributes dd { margin:0; font-size:13px; line-height:1.6; color:var(--vn-text); white-space:pre-wrap; overflow-wrap:anywhere; }
+.catalog-variant-choice { display:grid; gap:7px; margin-top:18px; color:var(--vn-text); font-size:13px; font-weight:600; }
+.catalog-variant-choice select { min-height:44px; padding:9px 12px; width:100%; border:1px solid #afc0b4; border-radius:7px; background:#fff; color:var(--vn-coal); }
+.catalog-availability-offline { padding:18px; border:1px solid #decaa5; background:#fffaf0; border-radius:8px; }
+.catalog-availability-offline p { color:#60523e; font-size:13px; line-height:1.7; }
+.catalog-availability li { margin-block:8px; }
+.catalog-availability li small { display:block; font-size:11px; color:var(--vn-muted); }

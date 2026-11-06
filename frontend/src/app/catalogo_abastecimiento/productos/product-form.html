@@ -33,6 +33,15 @@
             <textarea id="product-description" formControlName="descripcion" maxlength="3000" rows="5" [attr.aria-invalid]="fieldError('descripcion') !== null" [attr.aria-describedby]="fieldError('descripcion') ? 'product-description-error' : 'product-description-hint'" placeholder="Describe sus características, material y detalles."></textarea>
           </label>
           <p class="products-hint" id="product-description-hint">Hasta 3000 caracteres. Utiliza información real del producto.</p>
+          <label class="vn-field" for="product-material">Material <span class="products-optional">Opcional</span>
+            <input id="product-material" formControlName="material" maxlength="120" placeholder="Ej.: algodón 100 %" />
+          </label>
+          <label class="vn-field" for="product-measures">Medidas y guía de tallas <span class="products-optional">Opcional</span>
+            <textarea id="product-measures" formControlName="medidas" maxlength="500" rows="3" placeholder="Ej.: talla M, largo 66 cm; pecho 98 cm"></textarea>
+          </label>
+          <label class="vn-field" for="product-season">Temporada <span class="products-optional">Opcional</span>
+            <input id="product-season" formControlName="temporada" maxlength="60" placeholder="Ej.: Invierno" />
+          </label>
           @if (fieldError('descripcion'); as message) { <p class="products-field-error" id="product-description-error">{{ message }}</p> }
         </div>
       </div>

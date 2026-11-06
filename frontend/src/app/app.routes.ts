@@ -42,6 +42,14 @@ export const routes: Routes = [
       },
       { path: 'acceso', canActivate: [companyGuard], loadComponent: () => import('./autenticacion_usuarios/autenticacion/staff-access-page').then(m => m.StaffAccessPage) },
       { path: 'caja', canActivate: [cashierGuard], loadComponent: () => import('./operacion_sin_conexion/caja/cash-sale.page').then(m => m.CashSalePage) },
+      {
+        path: 'catalogo-consulta', canActivate: [companyGuard],
+        loadComponent: () => import('./catalogo_publico/catalogo/admin-catalog-page').then(m => m.AdminCatalogPage),
+        children: [
+          { path: '', pathMatch: 'full', loadComponent: () => import('./catalogo_publico/catalogo/catalog-list').then(m => m.CatalogListPage) },
+          { path: ':slug', loadComponent: () => import('./catalogo_publico/catalogo/catalog-detail').then(m => m.CatalogDetailPage) },
+        ],
+      },
       { path: 'inventario', canActivate: [companyGuard], loadComponent: () => import('./inventario/inventory-page').then(m => m.InventoryPage) },
       { path: 'sucursales', canActivate: [staffPermissionGuard], data: { permission: 'sucursales.gestionar' }, loadComponent: () => import('./organizacion_empresarial/sucursales/branch-page').then(m => m.BranchPage) },
       { path: 'usuarios', canActivate: [staffPermissionGuard], canDeactivate: [staffLeaveGuard], data: { permission: 'usuarios.consultar' }, loadComponent: () => import('./autenticacion_usuarios/personal/staff-users-page').then(m => m.StaffUsersPage) },

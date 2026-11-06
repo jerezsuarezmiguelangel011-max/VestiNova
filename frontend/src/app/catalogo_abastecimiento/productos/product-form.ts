@@ -71,6 +71,9 @@ export class ProductFormPage {
     nombre: new FormControl('', { nonNullable: true, validators: [Validators.required, productName, Validators.maxLength(120)] }),
     categoria_id: new FormControl<number | null>(null),
     descripcion: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(3000)] }),
+    material: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(120)] }),
+    medidas: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(500)] }),
+    temporada: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(60)] }),
     precio: new FormControl('', { nonNullable: true, validators: [Validators.required, productPrice] }),
     slug: new FormControl('', { nonNullable: true, validators: [productSlug] }),
     imagen_url: new FormControl('', { nonNullable: true, validators: [imageUrl, Validators.maxLength(2048)] }),
@@ -90,7 +93,8 @@ export class ProductFormPage {
     })), takeUntilDestroyed(this.destroyRef)).subscribe(product => {
       if (!product || this.contextChanged()) return;
       this.original.set(product);
-      this.form.setValue({ nombre: product.nombre, categoria_id: product.categoria_id ?? null, descripcion: product.descripcion, precio: product.precio,
+      this.form.setValue({ nombre: product.nombre, categoria_id: product.categoria_id ?? null, descripcion: product.descripcion,
+        material: product.material ?? '', medidas: product.medidas ?? '', temporada: product.temporada ?? '', precio: product.precio,
         slug: product.slug, imagen_url: product.imagen_url ?? '', activo: product.activo });
       this.form.markAsPristine();
     });
@@ -163,6 +167,7 @@ export class ProductFormPage {
     const value = this.form.getRawValue();
     const input: ProductInput = {
       nombre: value.nombre.trim(), descripcion: value.descripcion.trim(),
+      material: value.material.trim(), medidas: value.medidas.trim(), temporada: value.temporada.trim(),
       precio: decimalPrice(value.precio), imagen_url: value.imagen_url.trim() || null,
       activo: value.activo,
       ...(value.categoria_id !== null ? { categoria_id: value.categoria_id } : {}),
@@ -173,7 +178,9 @@ export class ProductFormPage {
     const changes: Partial<ProductInput> = {};
     if (original !== null) {
       for (const key of Object.keys(input) as (keyof ProductInput)[]) {
-        if (input[key] !== original[key]) Object.assign(changes, { [key]: input[key] });
+        const previous = (key === 'material' || key === 'medidas' || key === 'temporada')
+          ? (original[key] ?? '') : original[key];
+        if (input[key] !== previous) Object.assign(changes, { [key]: input[key] });
       }
       if (Object.keys(changes).length === 0) { this.error.set('No hay cambios para guardar.'); return; }
     }

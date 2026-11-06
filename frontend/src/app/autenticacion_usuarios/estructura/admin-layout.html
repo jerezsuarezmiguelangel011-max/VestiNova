@@ -11,7 +11,8 @@
       @if (companies.active()?.rol === 'CAJERO' || companies.active()?.rol === 'ENCARGADO_SUCURSAL') {
         <a routerLink="/admin/caja" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Venta en caja · CU15</a>
       }
-      <a routerLink="/admin/inventario" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Inventario por sucursal</a>
+      @if (companies.active()) { <a routerLink="/admin/catalogo-consulta" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Consultar catálogo de prendas</a> }
+      <a routerLink="/admin/inventario" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Gestionar inventario y ajustes</a>
       @if (companies.canManage()) { <a routerLink="/admin/categorias" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Categorías · CU04</a> }
       @if (companies.canManageBranches()) { <a routerLink="/admin/sucursales" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Sucursales · CU03</a> }
       @if (companies.canViewUsers()) { <a routerLink="/admin/usuarios" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Personal · CU01</a> }

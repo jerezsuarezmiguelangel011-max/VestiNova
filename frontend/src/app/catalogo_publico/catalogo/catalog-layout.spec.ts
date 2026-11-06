@@ -1,4 +1,6 @@
 import { signal } from '@angular/core';
+import { of } from 'rxjs';
+import { CatalogApiService } from './catalog-api.service';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { CatalogDataService } from './catalog-data.service';
@@ -31,6 +33,8 @@ describe('Descarga del catálogo desde el layout público', () => {
       storageError: signal<string | null>(null),
       refreshSavedStatus: vi.fn().mockResolvedValue(undefined),
       download: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
+      shop: { tienda: signal<string | null>(null) },
+      setShop: vi.fn(),
     };
     const prepare = vi.fn(() => options.preparation ?? Promise.resolve<CatalogPwaState>('unavailable'));
     await TestBed.configureTestingModule({
@@ -38,6 +42,7 @@ describe('Descarga del catálogo desde el layout público', () => {
       providers: [
         provideRouter([]), { provide: CatalogDataService, useValue: data },
         { provide: CatalogPwaService, useValue: { prepare } },
+        { provide: CatalogApiService, useValue: { tiendas: () => of([]) } },
       ],
     }).compileComponents();
     const fixture = TestBed.createComponent(CatalogLayout);

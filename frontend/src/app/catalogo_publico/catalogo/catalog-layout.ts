@@ -1,6 +1,8 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
-import { RouterLink, RouterOutlet } from '@angular/router';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router, RouterLink, RouterOutlet } from '@angular/router';
+import { CatalogApiService } from './catalog-api.service';
 import { CatalogDataService } from './catalog-data.service';
 import { CatalogPwaService, type CatalogPwaState } from './catalog-pwa.service';
 
@@ -16,12 +18,27 @@ import { CatalogPwaService, type CatalogPwaState } from './catalog-pwa.service';
           <span>VestiNova</span>
         </a>
         <nav aria-label="Navegación del catálogo">
-          <a routerLink="/catalogo">Catálogo de prendas</a>
-          <a routerLink="/catalogo/acciones/compra">Mi selección</a>
-          <a routerLink="/catalogo/acciones/sincronizacion">Sincronización</a>
+          <a routerLink="/catalogo" [queryParams]="{ tienda: data.shop.tienda() }">Catálogo de prendas</a>
+          <a routerLink="/catalogo/acciones/compra" [queryParams]="{ tienda: data.shop.tienda() }">Mi selección</a>
+          <a routerLink="/catalogo/acciones/sincronizacion" [queryParams]="{ tienda: data.shop.tienda() }">Sincronización</a>
         </nav>
       </header>
       <main id="catalog-content" class="catalog-main" tabindex="-1">
+        <section class="catalog-shop-picker vn-card" aria-label="Empresa del catálogo">
+          <label for="catalog-shop">Tienda que deseas consultar</label>
+          <select id="catalog-shop" [value]="data.shop.tienda() || ''" (change)="chooseShop($any($event.target).value)">
+            <option value="">Explorar todas las tiendas</option>
+            @for (shop of shops(); track shop.slug) {
+              <option [value]="shop.slug">{{ shop.nombre }}</option>
+            }
+          </select>
+          @if (shopError(); as error) { <p role="alert">{{ error }}</p> }
+          @if (data.shop.tienda()) {
+            <p>Estás consultando solamente la tienda seleccionada. Su copia offline se mantiene separada.</p>
+          } @else {
+            <p>Selecciona una empresa para consultar su catálogo y guardar una copia propia.</p>
+          }
+        </section>
         <section class="catalog-download" aria-labelledby="catalog-download-title" [attr.aria-busy]="data.downloading()">
           <div>
             <h2 id="catalog-download-title">Tu catálogo sin conexión</h2>
@@ -62,9 +79,29 @@ import { CatalogPwaService, type CatalogPwaState } from './catalog-pwa.service';
 export class CatalogLayout {
   readonly data = inject(CatalogDataService);
   private readonly pwa = inject(CatalogPwaService);
+  private readonly api = inject(CatalogApiService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+  readonly shops = signal<Array<{ slug: string; nombre: string }>>([]);
+  readonly shopError = signal<string | null>(null);
+
+  constructor() {
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
+      this.data.setShop(params.get('tienda'));
+    });
+  }
+
+  chooseShop(tienda: string): void {
+    void this.router.navigate(['/catalogo'], { queryParams: { tienda: tienda || null } });
+  }
   readonly pwaState = signal<CatalogPwaState | 'preparing'>('unavailable');
 
   ngOnInit(): void {
+    this.api.tiendas().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: shops => { this.shops.set(shops); this.shopError.set(null); },
+      error: () => this.shopError.set('No pudimos actualizar las empresas disponibles.'),
+    });
     void this.data.refreshSavedStatus();
     this.pwaState.set('preparing');
     void this.pwa.prepare().then(

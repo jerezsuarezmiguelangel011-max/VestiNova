@@ -6,16 +6,36 @@ export type CatalogList = ProductList;
 
 export interface CatalogQuery {
   q?: string;
+  categoria_id?: number;
+  talla?: string;
+  color?: string;
+  temporada?: string;
+  precio_min?: number;
+  precio_max?: number;
   limit: number;
   offset: number;
 }
 
+export interface CatalogVariant {
+  id: number;
+  producto_slug: string;
+  talla: string;
+  color: string;
+}
+
+export interface CatalogBranch {
+  id: number;
+  nombre: string;
+}
+
 export interface CatalogSnapshot {
   schemaVersion: 1;
-  scope: 'public-catalog';
+  scope: string;
   downloadedAt: string;
   total: number;
   products: CatalogProduct[];
+  variants?: CatalogVariant[];
+  branches?: CatalogBranch[];
 }
 
 export type CatalogSnapshotMetadata = Omit<CatalogSnapshot, 'products'>;
@@ -28,14 +48,16 @@ export interface CatalogResult<T> {
 
 export class CatalogLocalError extends Error {
   constructor(
-    readonly reason: 'no-copy' | 'missing-product' | 'storage',
+    readonly reason: 'no-copy' | 'missing-product' | 'storage' | 'unavailable-filter',
     readonly downloadedAt: string | null = null,
   ) {
     super(reason === 'no-copy'
       ? 'No hay un catálogo descargado en este navegador. Conéctate y pulsa «Descargar catálogo».'
       : reason === 'missing-product'
         ? 'Esta prenda no está incluida en la copia local. Conéctate para consultar el catálogo actualizado.'
-        : 'No se pudo acceder al catálogo local. Comprueba que el navegador permita el almacenamiento.');
+        : reason === 'unavailable-filter'
+          ? 'La copia local no incluye la información necesaria para filtrar por talla o color. Conéctate para hacer esta búsqueda.'
+          : 'No se pudo acceder al catálogo local. Comprueba que el navegador permita el almacenamiento.');
     this.name = 'CatalogLocalError';
   }
 }
@@ -83,7 +105,11 @@ export function copyPublicProduct(value: unknown): CatalogProduct {
     }
   }
   return {
-    id: id as number, categoria_id: categoria_id as number | null, categoria_nombre, nombre, slug, descripcion: text('descripcion', 3000), precio,
+    id: id as number, categoria_id: categoria_id as number | null, categoria_nombre, nombre, slug, descripcion: text('descripcion', 3000),
+    ...(product['material'] === undefined ? {} : { material: text('material', 120) }),
+    ...(product['medidas'] === undefined ? {} : { medidas: text('medidas', 500) }),
+    ...(product['temporada'] === undefined ? {} : { temporada: text('temporada', 60) }),
+    precio,
     precio_promocional: precioPromocional as string | null, promocion_nombre: promocionNombre as string | null,
     moneda: 'BOB', imagen_url: image as string | null, activo: true, creado_en, actualizado_en,
   };

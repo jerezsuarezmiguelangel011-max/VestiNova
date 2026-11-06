@@ -1,5 +1,9 @@
 <section class="catalog-detail" aria-label="Detalle del producto" [attr.aria-busy]="loading()">
-  <a class="catalog-back" routerLink="/catalogo">← Volver al catálogo</a>
+  <a class="catalog-back" [routerLink]="inAdmin ? '/admin/catalogo-consulta' : '/catalogo'" [queryParams]="inAdmin ? null : { tienda: shop.tienda() }">← Volver al catálogo</a>
+
+  @if (!loading() && source() === 'network') {
+    <p class="catalog-source-online" role="status">Información consultada en línea. La disponibilidad puede cambiar hasta la confirmación de una compra o reserva.</p>
+  }
 
   @if (!loading() && source() === 'local') {
     <aside class="catalog-local-notice" role="status">
@@ -38,7 +42,68 @@
         <p class="catalog-eyebrow">VestiNova · CU08 · Catálogo</p>
         <h1 id="catalog-detail-title">{{ item.nombre }}</h1>
         <p class="catalog-detail__price">@if (item.precio_promocional) { <strong>Bs {{ item.precio_promocional }}</strong> <del>Bs {{ item.precio }}</del><small>{{ item.promocion_nombre }}</small> } @else { Bs {{ item.precio }} } <span>{{ item.moneda }}</span></p>
+        <p class="catalog-product-updated">Ficha actualizada:
+          <time [attr.datetime]="item.actualizado_en">{{ item.actualizado_en | date:'dd/MM/yyyy HH:mm':'-0400' }}</time> (hora de Bolivia).
+        </p>
         <p class="catalog-detail__description">{{ item.descripcion }}</p>
+        @if (item.material || item.medidas || item.temporada) {
+          <dl class="catalog-product-attributes">
+            @if (item.material) { <div><dt>Material</dt><dd>{{ item.material }}</dd></div> }
+            @if (item.medidas) { <div><dt>Medidas</dt><dd>{{ item.medidas }}</dd></div> }
+            @if (item.temporada) { <div><dt>Temporada</dt><dd>{{ item.temporada }}</dd></div> }
+          </dl>
+        }
+        @if (shop.tienda()) {
+          <section class="catalog-variants" aria-labelledby="catalog-variants-title">
+            <h2 id="catalog-variants-title">Variantes publicadas</h2>
+            @if (variantsLoading()) { <p role="status">Consultando tallas y colores…</p> }
+            @if (variantsError(); as message) { <p role="alert">{{ message }}</p> }
+            @if (!variantsLoading() && !variantsError()) {
+              @if (variants().length === 0) {
+                <p>No hay variantes activas publicadas para esta prenda.</p>
+              } @else {
+                <ul>
+                  @for (variant of variants(); track variant.id) {
+                    <li>Talla {{ variant.talla }} · {{ variant.color }}</li>
+                  }
+                </ul>
+              }
+            }
+            <p>Consulta los atributos registrados para cada prenda. Las variantes inactivas no se publican.</p>
+            @if (variants().length > 0) {
+              <label class="catalog-variant-choice" for="catalog-selected-variant">Variante para consultar existencias
+                <select id="catalog-selected-variant" [value]="selectedVariantId() ?? ''"
+                  (change)="chooseVariant($any($event.target).value)">
+                  <option value="">Todas las variantes</option>
+                  @for (variant of variants(); track variant.id) {
+                    <option [value]="variant.id">Talla {{ variant.talla }} · {{ variant.color }}</option>
+                  }
+                </select>
+              </label>
+            }
+          </section>
+        }
+        @if (source() === 'local') {
+          <section class="catalog-availability catalog-availability-offline" aria-label="Disponibilidad sin conexión">
+            <h2>Disponibilidad no verificada</h2>
+            <p>Estás consultando una copia local. No podemos confirmar existencias, reservas ni precios vigentes de ninguna sucursal. Conéctate para verificar la disponibilidad actual.</p>
+            @if (offlineBranches().length > 0) {
+              <label class="catalog-variant-choice" for="catalog-offline-branch">Sucursal guardada en la copia
+                <select id="catalog-offline-branch" [value]="selectedBranchId() ?? ''"
+                  (change)="chooseBranch($any($event.target).value)">
+                  <option value="">Todas las sucursales publicadas</option>
+                  @for (branch of offlineBranches(); track branch.id) {
+                    <option [value]="branch.id">{{ branch.nombre }}</option>
+                  }
+                </select>
+              </label>
+              <p>La sucursal seleccionada es informativa; su disponibilidad actual no puede verificarse sin conexión.</p>
+            }
+            @if (downloadedAt(); as date) {
+              <p>Última copia descargada: <time [attr.datetime]="date">{{ date | date:'dd/MM/yyyy HH:mm':'-0400' }}</time> (hora de Bolivia).</p>
+            }
+          </section>
+        }
         @if (source() === 'network') {
           <div class="catalog-availability">
             <button type="button" class="vn-button" (click)="consultAvailability()" [disabled]="availabilityLoading()">
@@ -48,14 +113,30 @@
               <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p>
             }
             @if (availability(); as result) {
-              <p role="status">Existencias físicas referenciales al {{ result.consultado_en | date:'dd/MM/yyyy HH:mm':'-0400' }} (hora de Bolivia). No son una reserva ni garantizan unidades disponibles para comprar.</p>
-              @if (result.items.length === 0) {
+              <p role="status">Disponibilidad consultada en línea al {{ result.consultado_en | date:'dd/MM/yyyy HH:mm':'-0400' }} (hora de Bolivia). Es referencial y puede cambiar; consultar no reserva ni descuenta unidades.</p>
+              <div class="catalog-availability-filters">
+                <label for="catalog-branch-selector">Sucursal
+                  <select id="catalog-branch-selector" [value]="selectedBranchId() ?? ''" (change)="chooseBranch($any($event.target).value)">
+                    <option value="">Todas las sucursales</option>
+                    @for (branch of availableBranches(); track branch.id) {
+                      <option [value]="branch.id">{{ branch.nombre }}</option>
+                    }
+                  </select>
+                </label>
+
+              </div>
+              @if (filteredAvailability().length === 0) {
                 <p>No hay variantes y sucursales activas con datos consultables.</p>
               } @else {
                 <ul>
-                @for (stock of result.items; track stock.sucursal_id + '-' + stock.variante_id) {
+                @for (stock of filteredAvailability(); track stock.sucursal_id + '-' + stock.variante_id) {
                   <li><strong>{{ stock.sucursal }}</strong> · {{ stock.talla }} / {{ stock.color }}:
-                    {{ stock.hay_existencias_fisicas ? 'Con existencias físicas' : stock.saldo_registrado ? 'Sin existencias físicas' : 'Sin saldo registrado' }}
+                    @if (!stock.saldo_registrado) { <span>Disponibilidad no verificada (sin saldo registrado)</span> }
+                    @else if (stock.hay_disponibilidad === true) { <span>Con unidades disponibles según saldo registrado</span> }
+                    @else if (stock.hay_existencias_fisicas) { <span>Sin unidades disponibles (existencias comprometidas)</span> }
+                    @else { <span>Agotada según saldo registrado</span> }
+                    @if (stock.actualizado_en) { <small> · Saldo actualizado:
+                      <time [attr.datetime]="stock.actualizado_en">{{ stock.actualizado_en | date:'dd/MM/yyyy HH:mm':'-0400' }}</time> (hora de Bolivia)</small> }
                   </li>
                 }
                 </ul>
@@ -64,10 +145,10 @@
           </div>
         }
         @if (source() === 'network') {
-          <a class="vn-button" routerLink="/catalogo/acciones/reserva" [queryParams]="{ slug: item.slug }">Preparar reserva</a>
+          <a class="vn-button" routerLink="/catalogo/acciones/reserva" [queryParams]="{ slug: item.slug, tienda: shop.tienda() }">Preparar reserva</a>
         }
-        <a class="vn-button vn-button--primary" routerLink="/catalogo/acciones/compra" [queryParams]="{ slug: item.slug }">Seleccionar para comprar</a>
-        <a class="vn-button" [routerLink]="['/catalogo/vestidor', item.slug]">Probar en vestidor virtual · CU18</a>
+        <a class="vn-button vn-button--primary" routerLink="/catalogo/acciones/compra" [queryParams]="{ slug: item.slug, tienda: shop.tienda() }">Seleccionar para comprar</a>
+        <a class="vn-button" [routerLink]="['/catalogo/vestidor', item.slug]" [queryParams]="{ tienda: shop.tienda() }">Probar en vestidor virtual · CU18</a>
       </div>
     </article>
   }

@@ -33,7 +33,7 @@ from app.catalogo_abastecimiento.variantes import router as variantes_router
 
 # Inventario, catalogo publico, compras y operacion sin conexion.
 from app.inventario.api import router as inventario_router
-from app.catalogo_publico.catalogo import router as catalog_router
+from app.catalogo_publico.catalogo import router as catalog_router, directory_router as public_directory_router
 from app.compras_reservas.compras.router import router as compras_router
 from app.compras_reservas.compras.history import router as historial_compras_router
 from app.compras_reservas.postventa.router import customer_router as postventa_cliente_router
@@ -98,6 +98,7 @@ def create_app(settings: Settings | None = None, *, engine=None) -> FastAPI:
 
     # Inventario, catalogo publico, compras y operacion sin conexion.
     app.include_router(inventario_router)
+    app.include_router(public_directory_router)
     app.include_router(catalog_router)
     app.include_router(compras_router)
     app.include_router(historial_compras_router)
