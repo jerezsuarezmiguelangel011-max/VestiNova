@@ -17,6 +17,8 @@ from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, JSON, Str
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, Session, mapped_column
 import stripe
+from dotenv import dotenv_values
+from app.config import BACKEND_ROOT
 
 from app.autenticacion_usuarios.customer_auth import current_customer_session
 from app.catalogo_abastecimiento.promotions import active_promotions_for_products, promotional_price
@@ -86,8 +88,9 @@ class CommercialConflict(Exception):
 
 
 def _configuration() -> tuple[str, str] | None:
-    secret = os.environ.get("STRIPE_SECRET_KEY", "").strip()
-    signing = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
+    values = dotenv_values(BACKEND_ROOT / ".env", interpolate=False)
+    secret = (os.environ.get("STRIPE_SECRET_KEY") or values.get("STRIPE_SECRET_KEY") or "").strip()
+    signing = (os.environ.get("STRIPE_WEBHOOK_SECRET") or values.get("STRIPE_WEBHOOK_SECRET") or "").strip()
     # El proyecto utiliza exclusivamente transacciones de prueba.
     if not (secret.startswith("sk_test_") and len(secret) > 12
             and signing.startswith("whsec_") and len(signing) > 8):
