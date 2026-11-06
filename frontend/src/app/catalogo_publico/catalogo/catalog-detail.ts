@@ -9,6 +9,7 @@ import { CatalogShopService } from './catalog-shop.service';
 import { CatalogApiService, type CatalogAvailability } from './catalog-api.service';
 import { CatalogImage } from './catalog-image';
 import { CatalogLocalError, type CatalogProduct, type CatalogResult } from './catalog.models';
+import { StorefrontContextService } from './storefront-context.service';
 
 @Component({
   selector: 'vn-catalog-detail',
@@ -20,6 +21,8 @@ export class CatalogDetailPage {
   readonly catalog = inject(CatalogDataService);
   readonly shop = inject(CatalogShopService);
   readonly inAdmin = inject(ActivatedRoute).parent?.snapshot.routeConfig?.path === 'catalogo-consulta';
+  readonly inStorefront = inject(ActivatedRoute).parent?.snapshot.routeConfig?.path === 'tienda/:tienda';
+  readonly storefront = inject(StorefrontContextService);
   private readonly availabilityApi = inject(CatalogApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
@@ -51,6 +54,9 @@ export class CatalogDetailPage {
   private availabilityRevision = 0;
 
   constructor() {
+    effect(() => {
+      if (this.inStorefront) this.selectedBranchId.set(this.storefront.branch());
+    });
     this.route.paramMap.pipe(
       map(params => params.get('slug')),
       distinctUntilChanged(),
@@ -85,7 +91,11 @@ export class CatalogDetailPage {
   }
 
   chooseBranch(value: string): void {
-    this.selectedBranchId.set(value ? Number(value) : null);
+    const requested = value ? Number(value) : null;
+    const allowed = [...this.availableBranches(), ...this.offlineBranches()].map(branch => branch.id);
+    const selected = requested !== null && allowed.includes(requested) ? requested : null;
+    this.selectedBranchId.set(selected);
+    if (this.inStorefront) this.storefront.selectBranch(selected, allowed);
   }
 
   chooseVariant(value: string): void {
@@ -147,7 +157,7 @@ export class CatalogDetailPage {
     this.offlineBranches.set([]);
     this.variantsLoading.set(false);
     this.variantsError.set(null);
-    this.selectedBranchId.set(null);
+    this.selectedBranchId.set(this.inStorefront ? this.storefront.branch() : null);
     this.selectedVariantId.set(null);
     this.availabilityLoading.set(false);
     this.availabilityError.set(null);
