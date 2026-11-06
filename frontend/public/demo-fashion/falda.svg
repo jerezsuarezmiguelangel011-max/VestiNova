@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 780" role="img" aria-label="Ilustración original de falda de demostración">
+<defs><linearGradient id="bg" x2="0.9" y2="1"><stop stop-color="#eee8f1"/><stop offset="1" stop-color="#d6c6dc"/></linearGradient><linearGradient id="cloth" x2="1" y2="1"><stop stop-color="#807094"/><stop offset="1" stop-color="#4e405e"/></linearGradient><filter id="shadow"><feDropShadow dx="4" dy="15" stdDeviation="15" flood-color="#294331" flood-opacity=".22"/></filter></defs>
+<rect width="640" height="780" rx="15" fill="url(#bg)"/><circle cx="520" cy="140" r="230" fill="#ffffff" opacity=".13"/><circle cx="105" cy="645" r="245" fill="#ffffff" opacity=".13"/>
+<path d="M259 182 L381 182 L409 295 L457 607 Q320 645 183 607 L231 295 Z" fill="url(#cloth)" stroke="#4e405e" stroke-width="4" stroke-linejoin="round" filter="url(#shadow)"/>
+<path d="M247 240 L393 240 M320 254 L320 613 M261 262 L226 593 M379 262 L414 593" fill="none" stroke="#eee8f1" stroke-width="6" opacity=".7" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M94 705 H546" stroke="#4e405e" stroke-width="1.5" opacity=".25"/>
+<text x="96" y="733" font-family="Georgia,serif" fill="#4e405e" font-size="21" letter-spacing="3">VESTINOVA · DEMO</text>
+</svg>
