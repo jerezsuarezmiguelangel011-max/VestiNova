@@ -862,3 +862,156 @@ def test_cu08_public_branches_are_scoped_and_only_active(client, scope, session_
     assert {row["id"] for row in changed.json()} == {scope.a1.id}
     assert client.get("/api/catalogo/sucursales?tienda=desconocida").status_code == 404
     assert client.get("/api/catalogo/sucursales").status_code == 422
+
+
+def test_cu09_stripe_checkout_paid_webhook_and_kardex_idempotent(
+    client, scope, session_factory, monkeypatch,
+):
+    """El cobro de prueba no confirma una venta sin firma y stock revalidado."""
+    import hashlib
+    import hmac
+    import json
+    import time
+    import stripe
+
+    from app.models import Cliente
+    from app.compras_reservas.compras.stripe_checkout import CheckoutAttempt
+
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_integracion_segura_para_pruebas")
+    monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", "whsec_integracion_segura_para_pruebas")
+    monkeypatch.setattr(stripe.checkout.Session, "create", lambda **kwargs: SimpleNamespace(
+        id="cs_test_compra_09", url="https://checkout.stripe.com/c/test", status="open"))
+    monkeypatch.setattr(stripe.checkout.Session, "retrieve", lambda *args, **kwargs:
+                        SimpleNamespace(id="cs_test_compra_09", url="https://checkout.stripe.com/c/test", status="open"))
+
+    item = product(client, scope.ah, "Prenda CU09", precio="120.00")
+    selected = variant(client, scope.ah, item["id"], talla="M", color="AZUL")
+    post_movement(client, scope.ah, movement(scope.a1, selected["id"], 4))
+    with session_factory() as db:
+        customer = Cliente(empresa_id=scope.a.id, nombre="Cliente para checkout",
+                           correo="checkout@vestinova.test",
+                           password_hash=scope.owner_a.password_hash, activo=True)
+        db.add(customer)
+        db.commit()
+    token_result = client.post(f"/api/tiendas/{scope.a.slug}/cuenta/login",
+                               json={"correo": "checkout@vestinova.test", "password": TEST_PASSWORD})
+    assert token_result.status_code == 200
+    auth_customer = {"Authorization": f"Bearer {token_result.json()['access_token']}"}
+    purchase_id = str(uuid4())
+    url = f"/api/tiendas/{scope.a.slug}/compras"
+    payload = {
+        "id": purchase_id, "sucursal_id": scope.a1.id,
+        "entrega": "RETIRO", "items": [
+            {"producto_id": item["id"], "variante_id": selected["id"], "cantidad": 2}
+        ],
+    }
+    assert client.get(url + "/capacidades").json()["habilitado"] is True
+    unauthorized = client.post(url + "/checkout", json=payload)
+    assert unauthorized.status_code == 401
+    created = client.post(url + "/checkout", json=payload, headers=auth_customer)
+    assert created.status_code == 201, created.text
+    assert created.json()["estado"] == "PAGO_PENDIENTE"
+    assert created.json()["total"] == "240.00"
+    replay = client.post(url + "/checkout", json=payload, headers=auth_customer)
+    assert replay.status_code == 201
+    assert replay.json()["checkout_url"] == created.json()["checkout_url"]
+    altered = client.post(url + "/checkout", json={**payload, "sucursal_id": scope.a2.id}, headers=auth_customer)
+    assert altered.status_code == 409
+
+    initial = client.get(url + f"/{purchase_id}/estado", headers=auth_customer)
+    assert initial.json()["estado"] == "PAGO_PENDIENTE"
+    assert "comprobante" not in initial.json()
+    with session_factory() as db:
+        balance = db.get(Existencia, (scope.a.id, scope.a1.id, selected["id"]))
+        assert balance.cantidad == 4
+
+    event = {"id": "evt_test_001", "type": "checkout.session.completed", "data": {"object": {
+        "id": "cs_test_compra_09", "client_reference_id": purchase_id,
+        "payment_status": "paid", "currency": "bob", "amount_total": 24000,
+        "metadata": {"compra_id": purchase_id}, "payment_intent": "pi_test_001",
+    }}}
+    raw = json.dumps(event, separators=(",", ":")).encode()
+    timestamp = int(time.time())
+    signature = hmac.new(b"whsec_integracion_segura_para_pruebas",
+                         str(timestamp).encode() + b"." + raw, hashlib.sha256).hexdigest()
+    signed = {"stripe-signature": f"t={timestamp},v1={signature}",
+              "content-type": "application/json"}
+    assert client.post("/api/webhooks/stripe", content=raw).status_code == 400
+    first = client.post("/api/webhooks/stripe", content=raw, headers=signed)
+    assert first.status_code == 200, first.text
+    second = client.post("/api/webhooks/stripe", content=raw, headers=signed)
+    assert second.status_code == 200, second.text
+    finished = client.get(url + f"/{purchase_id}/estado", headers=auth_customer)
+    assert finished.status_code == 200
+    assert finished.json()["estado"] == "CONFIRMADA"
+    assert finished.json()["comprobante"]["entrega"] == "PENDIENTE"
+    with session_factory() as db:
+        balance = db.get(Existencia, (scope.a.id, scope.a1.id, selected["id"]))
+        assert balance.cantidad == 2
+        events = db.scalars(select(MovimientoInventario).where(
+            MovimientoInventario.motivo == f"Compra digital {purchase_id}")).all()
+        assert len(events) == 1
+        assert events[0].usuario_id is None
+        assert events[0].cliente_id is not None
+        assert events[0].delta == -2
+        assert db.get(CheckoutAttempt, purchase_id).estado == "CONFIRMADA"
+
+    # Un cliente distinto no puede consultar un comprobante de otra cuenta.
+    foreign = client.get(f"/api/tiendas/{scope.b.slug}/compras/{purchase_id}/estado", headers=auth_customer)
+    assert foreign.status_code in (401, 404)
+
+
+def test_cu09_webhook_payment_with_insufficient_stock_keeps_financial_incident(
+    client, scope, session_factory, monkeypatch,
+):
+    import hashlib
+    import hmac
+    import json
+    import time
+    import stripe
+
+    from app.models import Cliente
+    from app.compras_reservas.compras.stripe_checkout import CheckoutAttempt
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_integracion_segura_para_pruebas")
+    monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", "whsec_integracion_segura_para_pruebas")
+    monkeypatch.setattr(stripe.checkout.Session, "create", lambda **kwargs: SimpleNamespace(
+        id="cs_test_sin_stock", url="https://checkout.stripe.com/c/test", status="open"))
+
+    item = product(client, scope.ah, "Prenda sin saldo", precio="100.00")
+    v = variant(client, scope.ah, item["id"])
+    post_movement(client, scope.ah, movement(scope.a1, v["id"], 1))
+    with session_factory() as db:
+        db.add(Cliente(empresa_id=scope.a.id, nombre="Cliente de incidencia",
+                       correo="incidencia@vestinova.test",
+                       password_hash=scope.owner_a.password_hash, activo=True))
+        db.commit()
+    credentials = client.post(f"/api/tiendas/{scope.a.slug}/cuenta/login", json={
+        "correo": "incidencia@vestinova.test", "password": TEST_PASSWORD}).json()
+    headers = {"Authorization": f"Bearer {credentials['access_token']}"}
+    pid = str(uuid4())
+    url = f"/api/tiendas/{scope.a.slug}/compras"
+    payload = {"id": pid, "sucursal_id": scope.a1.id,
+               "entrega": "RETIRO", "items": [{"producto_id": item["id"], "variante_id": v["id"], "cantidad": 1}]}
+    assert client.post(url + "/checkout", headers=headers, json=payload).status_code == 201
+    # Otra operación retira la última unidad antes de la acreditación.
+    post_movement(client, scope.ah, movement(scope.a1, v["id"], 1, "SALIDA"))
+    event = {"id": "evt_test_002", "type": "checkout.session.completed", "data": {"object": {
+        "id": "cs_test_sin_stock", "client_reference_id": pid, "payment_status": "paid",
+        "currency": "bob", "amount_total": 10000,
+        "metadata": {"compra_id": pid}, "payment_intent": "pi_test_002",
+    }}}
+    raw = json.dumps(event).encode()
+    stamp = int(time.time())
+    signature = hmac.new(b"whsec_integracion_segura_para_pruebas",
+                         str(stamp).encode() + b"." + raw, hashlib.sha256).hexdigest()
+    result = client.post("/api/webhooks/stripe", content=raw, headers={
+        "stripe-signature": f"t={stamp},v1={signature}"})
+    assert result.status_code == 200, result.text
+    state = client.get(url + f"/{pid}/estado", headers=headers)
+    assert state.json()["estado"] == "INCIDENCIA"
+    assert "reembolso" in state.json()["detalle"]
+    with session_factory() as db:
+        assert db.get(CheckoutAttempt, pid).stripe_payment_id == "pi_test_002"
+        assert db.get(Existencia, (scope.a.id, scope.a1.id, v["id"])).cantidad == 0
+        assert db.scalar(select(func.count()).select_from(MovimientoInventario).where(
+            MovimientoInventario.motivo == f"Compra digital {pid}")) == 0
