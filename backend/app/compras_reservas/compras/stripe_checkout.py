@@ -327,6 +327,9 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
                     "checkout.session.async_payment_failed", "checkout.session.expired"):
         return {"recibido": True}
     obj = event["data"]["object"]
+    # Stripe 16 devuelve StripeObject, que no implementa dict.get.
+    if hasattr(obj, "to_dict"):
+        obj = obj.to_dict()
     ref = obj.get("client_reference_id")
     try:
         attempt_id = str(UUID(str(ref)))
