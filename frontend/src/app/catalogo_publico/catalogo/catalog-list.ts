@@ -103,6 +103,15 @@ export class CatalogListPage {
 
   ngOnInit(): void {
     this.loadCategories();
+    if (this.inStorefront) {
+      const raw = this.currentRoute.snapshot.queryParamMap.get('categoria');
+      const category = raw && /^[1-9]\\d*$/.test(raw) ? Number(raw) : null;
+      if (category !== null && Number.isSafeInteger(category)) {
+        this.filters.controls.categoria_id.setValue(category);
+        this.search();
+        return;
+      }
+    }
     this.reload();
   }
 
