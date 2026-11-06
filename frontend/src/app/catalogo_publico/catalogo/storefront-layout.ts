@@ -21,7 +21,8 @@ interface StorefrontBranch { id: number; nombre: string; }
         <span class="storefront-nav-divider" aria-hidden="true"></span>
         <a class="storefront-shop-name" [routerLink]="['/tienda', slug()]">{{ name() || 'Tu tienda' }}</a>
         <nav aria-label="Navegación de la tienda">
-          <a [routerLink]="['/tienda',slug()]">Prendas</a>
+          <a [routerLink]="['/tienda',slug()]">Inicio</a>
+          <a [routerLink]="['/tienda',slug(),'catalogo']">Catálogo</a>
           <a routerLink="/catalogo/acciones/compra" [queryParams]="{ tienda: slug() }">Mi carrito</a>
           <a [routerLink]="['/tienda',slug(),'acceso']">Mi cuenta</a>
         </nav>
@@ -42,7 +43,7 @@ interface StorefrontBranch { id: number; nombre: string; }
               <p class="storefront-eyebrow">UNA TIENDA DE VESTINOVA</p>
               <h1 id="storefront-heading">{{ name() }}</h1>
               <p>Descubre sus prendas, encuentra tus favoritas y explora las promociones vigentes.</p>
-              <a class="storefront-hero-link" href="#storefront-products">Explorar colección <span aria-hidden="true">↗</span></a>
+              <a class="storefront-hero-link" href="#storefront-collections" (click)="jumpToCollections($event)">Explorar colección <span aria-hidden="true">↗</span></a>
             </div>
             <div class="storefront-hero-art" aria-hidden="true">
               <div class="storefront-orbit"></div>
@@ -74,13 +75,6 @@ interface StorefrontBranch { id: number; nombre: string; }
           @if (branchesError()) { <p class="storefront-branch-error" role="status">No pudimos actualizar las sucursales; sigue explorando el catálogo.</p> }
         </section>
         <main class="storefront-content" id="storefront-content" tabindex="-1">
-          @if (showHero()) {
-            <div class="storefront-products-intro" id="storefront-products">
-              <p class="storefront-eyebrow">EXPLORA LA COLECCIÓN</p>
-              <h2>Prendas de {{ name() }}</h2>
-              <span>Precios en bolivianos · Promociones cuando estén vigentes</span>
-            </div>
-          }
           <router-outlet (activate)="onPageActivated()"/>
           @if (showHero()) {
             <details class="storefront-offline">
@@ -178,6 +172,15 @@ export class StorefrontLayout {
   selectBranch(value: string): void {
     const id = value ? Number(value) : null;
     this.context.selectBranch(id, this.branches().map(branch => branch.id));
+  }
+
+  jumpToCollections(event: MouseEvent): void {
+    const element = document.getElementById('storefront-collections');
+    if (!element) return;
+    event.preventDefault();
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    element.scrollIntoView({ behavior: reduced ? 'instant' : 'smooth', block: 'start' });
+    history.replaceState(history.state, '', '#storefront-collections');
   }
 
   download(): void { void this.data.download(); }
