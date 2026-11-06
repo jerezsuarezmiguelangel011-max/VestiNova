@@ -1,4 +1,5 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { CatalogShopService } from '../../catalogo_publico/catalogo/catalog-shop.service';
 import type { CatalogProduct, CatalogResult } from '../../catalogo_publico/catalogo/catalog.models';
 import type { PurchaseCommand } from './purchase-api.service';
 
@@ -16,12 +17,26 @@ export function validPurchaseQuantity(value: string): boolean {
 /** Selección temporal en memoria; no persiste compras, credenciales ni datos en el navegador. */
 @Injectable({ providedIn: 'root' })
 export class PurchaseSelectionService {
+  private readonly shop = inject(CatalogShopService);
+  private currentCompany = this.shop.tienda();
   private readonly selected = signal<readonly PurchaseSelection[]>([]);
   private operation: { signature: string; id: string } | null = null;
   readonly lines = this.selected.asReadonly();
   readonly valid = computed(() => this.selected().length > 0 && this.selected().every(line => validPurchaseQuantity(line.cantidad)));
 
+  constructor() {
+    effect(() => this.ensureCompany());
+  }
+
+  private ensureCompany(): void {
+    const company = this.shop.tienda();
+    if (company === this.currentCompany) return;
+    this.currentCompany = company;
+    this.clear();
+  }
+
   add(response: CatalogResult<CatalogProduct>): void {
+    this.ensureCompany();
     if (this.selected().some(line => line.product.id === response.data.id)) return;
     this.selected.update(lines => [...lines, {
       product: response.data, cantidad: '1', source: response.source, downloadedAt: response.downloadedAt,
@@ -30,18 +45,21 @@ export class PurchaseSelectionService {
   }
 
   updateQuantity(id: number, cantidad: string): void {
+    this.ensureCompany();
     if (!this.selected().some(line => line.product.id === id && line.cantidad !== cantidad)) return;
     this.selected.update(lines => lines.map(line => line.product.id === id ? { ...line, cantidad } : line));
     this.operation = null;
   }
 
   remove(id: number): void {
+    this.ensureCompany();
     if (!this.selected().some(line => line.product.id === id)) return;
     this.selected.update(lines => lines.filter(line => line.product.id !== id));
     this.operation = null;
   }
 
   command(): PurchaseCommand | null {
+    this.ensureCompany();
     if (!this.valid()) return null;
     const items = this.selected().map(line => ({ producto_id: line.product.id, cantidad: Number(line.cantidad) }))
       .sort((left, right) => left.producto_id - right.producto_id);
