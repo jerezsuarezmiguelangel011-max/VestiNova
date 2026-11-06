@@ -13,12 +13,11 @@ interface PublicShop { slug: string; nombre: string; }
       <a class="public-skip" href="#public-content">Saltar al contenido</a>
       <header class="public-topbar">
         <a class="public-logo" routerLink="/" aria-label="VestiNova, inicio">
-          <span class="public-monogram" aria-hidden="true">V</span> VestiNova<span class="public-logo-dot">.</span>
+          <span class="public-monogram" aria-hidden="true">VN</span> VestiNova
         </a>
         <nav aria-label="Navegación principal">
-          <a href="#como-funciona">Cómo funciona</a>
-          <a href="#tiendas">Explorar tiendas</a>
-          <a routerLink="/admin/login" class="public-staff">Acceso para empresas</a>
+          <a href="#como-funciona" (click)="jumpTo($event, 'como-funciona')">Cómo funciona</a>
+          <a href="#tiendas" (click)="jumpTo($event, 'tiendas')">Explorar tiendas</a>
         </nav>
       </header>
 
@@ -30,8 +29,8 @@ interface PublicShop { slug: string; nombre: string; }
             <p>Descubre las tiendas que forman parte de VestiNova.
               Explora prendas, compara colecciones y elige dónde comprar.</p>
             <div class="public-actions">
-              <a class="public-action-main" href="#tiendas">Descubrir tiendas <span aria-hidden="true">↗</span></a>
-              <a class="public-action-outline" href="#como-funciona">Conocer VestiNova</a>
+              <a class="public-action-main" href="#tiendas" (click)="jumpTo($event, 'tiendas')">Descubrir tiendas <span aria-hidden="true">↗</span></a>
+              <a class="public-action-outline" href="#como-funciona" (click)="jumpTo($event, 'como-funciona')">Conocer VestiNova</a>
             </div>
             <div class="public-hero-note">
               <span class="public-note-line" aria-hidden="true"></span>
@@ -101,13 +100,13 @@ interface PublicShop { slug: string; nombre: string; }
         </section>
 
         <section class="public-closing public-reveal" aria-labelledby="public-closing-title">
-          <span class="public-eyebrow">VESTINOVA PARA EMPRESAS</span>
-          <h2 id="public-closing-title">Tu negocio de moda, conectado con tus clientes.</h2>
-          <p>Un espacio para descubrir prendas. Una plataforma para gestionar cada empresa y sus sucursales.</p>
-          <a routerLink="/admin/login">Entrar al panel empresarial <span aria-hidden="true">↗</span></a>
+          <span class="public-eyebrow">TU PRÓXIMA PRENDA TE ESPERA</span>
+          <h2 id="public-closing-title">Cada tienda tiene una historia. Descubre la tuya.</h2>
+          <p>Explora empresas, descubre prendas y elige la sucursal que más te convenga. Tu recorrido empieza aquí.</p>
+          <a href="#tiendas" (click)="jumpTo($event, 'tiendas')">Quiero explorar tiendas <span aria-hidden="true">↗</span></a>
         </section>
       </main>
-      <footer class="public-footer"><strong>VestiNova.</strong><span>Explora tiendas de moda desde un solo lugar.</span><a href="#public-content">Volver arriba ↑</a></footer>
+      <footer class="public-footer"><strong>VestiNova.</strong><span>Explora tiendas de moda desde un solo lugar.</span><a href="#public-content" (click)="jumpTo($event, 'public-content')">Volver arriba ↑</a></footer>
     </div>
   `,
   styleUrl: './public-portal.css',
@@ -120,6 +119,17 @@ export class PublicPortalPage {
   readonly error = signal(false);
 
   ngOnInit(): void { this.loadShops(); }
+
+  /** Navegación accesible y visible aunque no esté configurado anchorScrolling. */
+  jumpTo(event: MouseEvent, id: 'como-funciona' | 'tiendas' | 'public-content'): void {
+    const target = document.getElementById(id);
+    if (!target) return;
+    event.preventDefault();
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    target.scrollIntoView({ block: 'start', behavior: reduced ? 'instant' : 'smooth' });
+    history.replaceState(history.state, '', '#' + id);
+  }
+
 
   loadShops(): void {
     if (this.loading() && this.shops().length > 0) return;
