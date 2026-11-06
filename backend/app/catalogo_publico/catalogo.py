@@ -6,7 +6,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import CategoriaProducto, Empresa, Existencia, Producto, Sucursal, VarianteProducto, utc_now
+from app.models import CategoriaProducto, Empresa, Existencia, PlanSaaS, Producto, Sucursal, SuscripcionEmpresa, VarianteProducto, utc_now
+from app.organizacion_empresarial.plans import subscription_state
 from app.catalogo_abastecimiento.promotions import active_promotions_for_products, promotional_price
 from app.schemas import ListaProductos, ProductoResponse
 
@@ -29,10 +30,18 @@ def selected_company(db: Session, tienda: str | None) -> int | None:
 @directory_router.get("/tiendas")
 def public_stores(db: Session = Depends(get_db)):
     """Identificadores y nombres de empresas visibles públicamente."""
-    companies = db.scalars(
-        select(Empresa).where(Empresa.activo.is_(True)).order_by(Empresa.nombre)
+    rows = db.execute(
+        select(Empresa, SuscripcionEmpresa)
+        .join(SuscripcionEmpresa, SuscripcionEmpresa.empresa_id == Empresa.id)
+        .join(PlanSaaS, PlanSaaS.id == SuscripcionEmpresa.plan_id)
+        .where(Empresa.activo.is_(True), PlanSaaS.activo.is_(True))
+        .order_by(Empresa.nombre)
     ).all()
-    return [{"slug": item.slug, "nombre": item.nombre} for item in companies]
+    return [
+        {"slug": company.slug, "nombre": company.nombre}
+        for company, subscription in rows
+        if subscription_state(subscription) == "ACTIVA"
+    ]
 
 
 @directory_router.get("/categorias")
