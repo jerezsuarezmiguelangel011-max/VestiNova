@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 780" role="img" aria-label="Ilustración original de polera de demostración">
+<defs><linearGradient id="bg" x2="0.9" y2="1"><stop stop-color="#e8f1eb"/><stop offset="1" stop-color="#b6d1bf"/></linearGradient><linearGradient id="cloth" x2="1" y2="1"><stop stop-color="#477c63"/><stop offset="1" stop-color="#164a36"/></linearGradient><filter id="shadow"><feDropShadow dx="4" dy="15" stdDeviation="15" flood-color="#294331" flood-opacity=".22"/></filter></defs>
+<rect width="640" height="780" rx="15" fill="url(#bg)"/><circle cx="520" cy="140" r="230" fill="#ffffff" opacity=".13"/><circle cx="105" cy="645" r="245" fill="#ffffff" opacity=".13"/>
+<path d="M240 165 L280 138 Q320 183 360 138 L400 165 L487 243 L436 297 L402 266 L402 599 Q320 616 238 599 L238 266 L204 297 L153 243 Z" fill="url(#cloth)" stroke="#164a36" stroke-width="4" stroke-linejoin="round" filter="url(#shadow)"/>
+<path d="M280 138 Q320 220 360 138 M240 175 L238 266 M400 175 L402 266" fill="none" stroke="#e8f1eb" stroke-width="6" opacity=".7" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M94 705 H546" stroke="#164a36" stroke-width="1.5" opacity=".25"/>
+<text x="96" y="733" font-family="Georgia,serif" fill="#164a36" font-size="21" letter-spacing="3">VESTINOVA · DEMO</text>
+</svg>
