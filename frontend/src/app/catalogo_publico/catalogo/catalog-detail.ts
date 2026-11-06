@@ -10,6 +10,7 @@ import { CatalogApiService, type CatalogAvailability } from './catalog-api.servi
 import { CatalogImage } from './catalog-image';
 import { CatalogLocalError, type CatalogProduct, type CatalogResult } from './catalog.models';
 import { StorefrontContextService } from './storefront-context.service';
+import { PurchaseSelectionService } from '../../compras_reservas/compras/purchase-selection.service';
 
 @Component({
   selector: 'vn-catalog-detail',
@@ -23,6 +24,9 @@ export class CatalogDetailPage {
   readonly inAdmin = inject(ActivatedRoute).parent?.snapshot.routeConfig?.path === 'catalogo-consulta';
   readonly inStorefront = inject(ActivatedRoute).parent?.snapshot.routeConfig?.path === 'tienda/:tienda';
   readonly storefront = inject(StorefrontContextService);
+  private readonly cart = inject(PurchaseSelectionService);
+  readonly cartNotice = signal(false);
+  readonly cartError = signal<string | null>(null);
   private readonly availabilityApi = inject(CatalogApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
@@ -71,6 +75,7 @@ export class CatalogDetailPage {
         this.source.set(response.source);
         this.downloadedAt.set(response.downloadedAt);
         if (this.shop.tienda()) this.loadVariants(response.data.slug);
+        if (this.inStorefront && response.source === 'network' && this.selectedBranchId() !== null) this.consultAvailability();
         if (response.source === 'local' && this.shop.tienda()) {
           const slug = response.data.slug;
           void this.catalog.offlineBranches().then(branches => {
@@ -99,7 +104,27 @@ export class CatalogDetailPage {
   }
 
   chooseVariant(value: string): void {
-    this.selectedVariantId.set(value ? Number(value) : null);
+    const id = value ? Number(value) : null;
+    this.selectedVariantId.set(id !== null && this.variants().some(v => v.id === id) ? id : null);
+    this.cartError.set(null);
+    this.cartNotice.set(false);
+  }
+
+  addToCart(): void {
+    this.cartError.set(null);
+    this.cartNotice.set(false);
+    const item = this.product();
+    const selected = this.selectedVariantId();
+    if (!this.shop.tienda() || !item || this.source() !== 'network') {
+      this.cartError.set('Conéctate para consultar precios y variantes actuales antes de agregar al carrito.');
+      return;
+    }
+    if (selected === null || !this.variants().some(v => v.id === selected)) {
+      this.cartError.set('Elige una talla y color para agregar esta prenda.');
+      return;
+    }
+    this.cart.add({ data: item, source: 'network', downloadedAt: null }, selected);
+    this.cartNotice.set(true);
   }
 
   private loadVariants(slug: string): void {
@@ -158,6 +183,8 @@ export class CatalogDetailPage {
     this.variantsLoading.set(false);
     this.variantsError.set(null);
     this.selectedBranchId.set(this.inStorefront ? this.storefront.branch() : null);
+    this.cartNotice.set(false);
+    this.cartError.set(null);
     this.selectedVariantId.set(null);
     this.availabilityLoading.set(false);
     this.availabilityError.set(null);
