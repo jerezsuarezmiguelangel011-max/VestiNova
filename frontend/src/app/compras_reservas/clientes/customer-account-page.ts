@@ -7,6 +7,7 @@ import { CustomerAuthService } from './customer-auth.service';
 @Component({
   selector: 'vn-customer-account', imports: [RouterLink], styleUrl: './customer.css',
   template: `<main class="customer-shell"><div class="customer-brand"><span aria-hidden="true">VN</span> VestiNova</div>
+    <a class="customer-store-back" [routerLink]="['/tienda', slug]">← Volver a la tienda</a>
     <section class="customer-card vn-card" aria-labelledby="account-title">
       @if (auth.customer(); as customer) {
         <p class="vn-eyebrow">{{ customer.empresa.nombre }}</p><h1 id="account-title" class="vn-title">Tu cuenta</h1>
