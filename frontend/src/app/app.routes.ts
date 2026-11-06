@@ -15,7 +15,8 @@ export const routes: Routes = [
     path: 'tienda/:tienda',
     loadComponent: () => import('./catalogo_publico/catalogo/storefront-layout').then(m => m.StorefrontLayout),
     children: [
-      { path: '', pathMatch: 'full', loadComponent: () => import('./catalogo_publico/catalogo/catalog-list').then(m => m.CatalogListPage) },
+      { path: '', pathMatch: 'full', loadComponent: () => import('./catalogo_publico/catalogo/storefront-home').then(m => m.StorefrontHomePage) },
+      { path: 'catalogo', loadComponent: () => import('./catalogo_publico/catalogo/catalog-list').then(m => m.CatalogListPage) },
       { path: 'prenda/:slug', loadComponent: () => import('./catalogo_publico/catalogo/catalog-detail').then(m => m.CatalogDetailPage) },
     ],
   },
