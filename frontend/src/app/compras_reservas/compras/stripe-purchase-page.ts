@@ -45,6 +45,8 @@ export class StripePurchasePage {
   readonly returnCancelled = signal(false);
 
   private initializedShop: string | null = null;
+  private readonly restoredShops = new Set<string>();
+  private pendingBranch: number | null = null;
   private readonly requestedVariants = new Set<number>();
   private operation: { fingerprint: string; id: string } | null = null;
 
@@ -64,7 +66,11 @@ export class StripePurchasePage {
     effect(() => {
       const slug = this.shop.tienda();
       if (!slug || slug === this.initializedShop) return;
+      if (this.initializedShop && this.initializedShop !== slug) this.selection.clear();
       this.initializedShop = slug;
+      this.requestedVariants.clear();
+      this.variants.set({});
+      this.chosenVariants.set({});
       this.loading.set(true);
       this.error.set(null);
       this.branches.set([]);
@@ -74,6 +80,10 @@ export class StripePurchasePage {
         next: branches => {
           if (this.shop.tienda() !== slug) return;
           this.branches.set(branches);
+          if (this.pendingBranch !== null && branches.some(b => b.id === this.pendingBranch)) {
+            this.branch.set(this.pendingBranch);
+          }
+          this.pendingBranch = null;
           this.loading.set(false);
         },
         error: () => { if (this.shop.tienda() === slug) {
@@ -81,6 +91,8 @@ export class StripePurchasePage {
           this.error.set('No se pudieron consultar las sucursales de esta empresa.');
         } },
       });
+      this.restoreCart(slug);
+      if (this.returnId() && this.customers.token(slug)) this.checkPayment();
       this.api.capabilities(slug).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: info => { if (this.shop.tienda() === slug) this.enabled.set(info.habilitado); },
         error: () => { if (this.shop.tienda() === slug) this.enabled.set(false); },
@@ -156,6 +168,49 @@ export class StripePurchasePage {
     this.operation = null;
   }
 
+  /** Guarda únicamente identificadores públicos: nunca tokens, pagos ni direcciones. */
+  private saveCart(slug: string): void {
+    const draft = {
+      branch: this.branch(), delivery: this.delivery(),
+      items: this.lines().map(line => ({
+        slug: line.product.slug, id: line.product.id, variant: this.chosenVariants()[line.product.id],
+        quantity: line.cantidad,
+      })),
+    };
+    try { sessionStorage.setItem('vestinova-cu09-cart:' + slug, JSON.stringify(draft)); }
+    catch { /* solo memoria */ }
+  }
+
+  private restoreCart(slug: string): void {
+    if (this.restoredShops.has(slug)) return;
+    this.restoredShops.add(slug);
+    try {
+      const raw = sessionStorage.getItem('vestinova-cu09-cart:' + slug);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      if (!draft || !Array.isArray(draft.items) || draft.items.length > 30) return;
+      if (draft.delivery === 'RETIRO' || draft.delivery === 'DOMICILIO') this.delivery.set(draft.delivery);
+      const requestedBranch = Number(draft.branch);
+      if (Number.isSafeInteger(requestedBranch) && requestedBranch > 0) {
+        this.pendingBranch = requestedBranch;
+      }
+      for (const item of draft.items) {
+        if (typeof item.slug !== 'string' || !/^[a-z0-9-]{3,140}$/.test(item.slug)
+          || !Number.isSafeInteger(item.id) || !Number.isSafeInteger(item.variant)
+          || !validPurchaseQuantity(String(item.quantity))) continue;
+        this.catalog.get(item.slug).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+          next: response => {
+            if (this.shop.tienda() !== slug || response.data.id !== item.id) return;
+            this.selection.add(response);
+            this.selection.updateQuantity(item.id, String(item.quantity));
+            this.chosenVariants.update(ids => ({ ...ids, [item.id]: item.variant }));
+          },
+          error: () => { /* Producto retirado: requiere nueva selección */ },
+        });
+      }
+    } catch { /* copia local inválida: no se envía al backend */ }
+  }
+
   proceed(): void {
     if (!this.canPay()) return;
     const slug = this.shop.tienda()!;
@@ -182,6 +237,7 @@ export class StripePurchasePage {
             return;
           }
           // Solo URLs HTTPS del dominio oficial de Checkout. No se confía en enlaces arbitrarios.
+          this.saveCart(slug);
           window.location.assign(result.checkout_url);
         },
         error: (error: unknown) => {
@@ -204,7 +260,10 @@ export class StripePurchasePage {
     this.api.status(slug, id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: value => {
         this.status.set(value);
-        if (value.estado === 'CONFIRMADA') this.selection.clear();
+        if (value.estado === 'CONFIRMADA') {
+          this.selection.clear();
+          try { sessionStorage.removeItem('vestinova-cu09-cart:' + slug); } catch { /* solo memoria */ }
+        }
         this.submitting.set(false);
       },
       error: () => {
