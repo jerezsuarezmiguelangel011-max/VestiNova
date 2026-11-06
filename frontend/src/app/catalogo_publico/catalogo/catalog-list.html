@@ -6,6 +6,11 @@
   </header> }
 
   @if (inStorefront) {
+    <header class="storefront-catalog-header">
+      <p class="catalog-eyebrow">EXPLORA A TU RITMO</p>
+      <h1 id="storefront-products">Todas las prendas</h1>
+      <p>Descubre tallas, colores y promociones. Puedes seleccionar una sucursal cuando quieras.</p>
+    </header>
     <div class="storefront-search-tools">
       <button type="button" class="vn-button storefront-filters-toggle" [attr.aria-expanded]="filtersExpanded()" aria-controls="storefront-search-form"
               (click)="filtersExpanded.set(!filtersExpanded())">
