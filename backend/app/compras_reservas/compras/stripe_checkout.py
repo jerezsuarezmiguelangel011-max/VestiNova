@@ -30,7 +30,7 @@ from app.models import (
     Cliente, Empresa, Existencia, MovimientoInventario, Producto, SesionCliente,
     Sucursal, VarianteProducto, utc_now,
 )
-from app.organizacion_empresarial.plans import current_subscription
+from app.organizacion_empresarial.plans import current_subscription, subscription_state
 
 
 router = APIRouter(prefix="/api/tiendas/{slug}/compras", tags=["CU09 · Stripe Checkout"])
@@ -177,7 +177,8 @@ def create_checkout(
     if config is None:
         raise HTTPException(503, "Stripe no está configurado para pagos de prueba.")
     client, _, company = current
-    if current_subscription(db, company.id) is None:
+    subscription = current_subscription(db, company.id)
+    if subscription is None or not subscription[1].activo or subscription_state(subscription[0]) != "ACTIVA":
         raise HTTPException(403, "La empresa no tiene un plan activo para compras.")
     fingerprint = _fingerprint(payload)
     attempt = db.get(CheckoutAttempt, str(payload.id))
