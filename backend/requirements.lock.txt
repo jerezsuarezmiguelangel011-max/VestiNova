@@ -30,6 +30,7 @@ pytest==9.1.1
 python-dotenv==1.2.4
 SQLAlchemy==2.1.6
 starlette==1.10.0
+stripe==16.1.0
 typing-inspection==0.4.4
 typing_extensions==4.16.0
 tzdata==2026.5
