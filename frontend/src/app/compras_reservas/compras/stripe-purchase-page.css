@@ -26,3 +26,10 @@ button:disabled { opacity:.55; cursor:not-allowed; }
 :is(a,button,select,input,textarea):focus-visible { outline:3px solid #116149; outline-offset:2px; }
 @media(max-width:900px){.stripe-layout { grid-template-columns:1fr; }.stripe-item { grid-template-columns:1fr 1fr; }}
 @media(max-width:520px){.stripe-item { grid-template-columns:1fr; }.stripe-panel { padding:20px; }}
+
+.stripe-account-actions{display:flex;gap:11px;align-items:center;flex-wrap:wrap;margin-top:13px}
+.stripe-account-actions>a{display:inline-flex;justify-content:center;align-items:center;min-height:41px;padding:9px 17px;background:#195d40;border:1px solid #195d40;color:#fff;border-radius:6px;text-decoration:none;font-size:12px;font-weight:700}
+.stripe-account-actions>a:last-child{background:#fff;color:#195d40}
+.stripe-account-actions>a:hover{text-decoration:underline;text-underline-offset:4px}
+.stripe-account-actions>a:focus-visible{outline:3px solid #306e49;outline-offset:3px}
+.stripe-alert>p{margin:8px 0;line-height:1.7}
