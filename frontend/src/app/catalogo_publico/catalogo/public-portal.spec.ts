@@ -42,6 +42,11 @@ describe('VestiNova · portal multitenant', () => {
     expect(html.textContent).not.toContain('Entrar al panel empresarial');
     expect(html.querySelector('.public-monogram')?.textContent).toBe('VN');
     expect(html.querySelector('#public-closing-title')?.textContent).toContain('Cada tienda');
+    expect(html.querySelector('nav a[href="#como-funciona"]')?.textContent).toContain('Cómo funciona');
+    expect(html.querySelector('nav a[href="#tiendas"]')?.textContent).toContain('Explorar tiendas');
+    expect(html.querySelector('.public-action-main[href="#tiendas"]')).not.toBeNull();
+    expect(html.querySelector('.public-closing a[href="#tiendas"]')).not.toBeNull();
+    expect(html.querySelector('.public-footer a[href="#public-top"]')).not.toBeNull();
   });
 
   it('conserva independencia de sucursales al cambiar de empresa', () => {
@@ -93,6 +98,8 @@ describe('VestiNova · portal multitenant', () => {
     expect(activeShop()).toBe('demo-moda-andina');
     expect(page.context.branch()).toBeNull();
     expect(branch.options).toHaveLength(3);
+    const promotionsLink = host.querySelector<HTMLAnchorElement>('nav a[href$="#storefront-offers"]');
+    expect(promotionsLink?.getAttribute('href')).toBe('/tienda/demo-moda-andina#storefront-offers');
     expect(branch.options[0].textContent).toContain('Todas las sucursales');
     branch.value = '2';
     branch.dispatchEvent(new Event('change'));
