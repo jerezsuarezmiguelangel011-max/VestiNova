@@ -124,9 +124,11 @@
               <h3 class="catalog-card__name">{{ product.nombre }}</h3>
               @if (product.temporada) { <span class="catalog-product-updated">Temporada: {{ product.temporada }}</span> }
               @if (product.material) { <span class="catalog-product-updated">Material: {{ product.material }}</span> }
-              <span class="catalog-product-updated">Actualizada:
-                <time [attr.datetime]="product.actualizado_en">{{ product.actualizado_en | date:'dd/MM/yyyy HH:mm':'-0400' }}</time>
-              </span>
+              @if (!inStorefront) {
+                <span class="catalog-product-updated">Actualizada:
+                  <time [attr.datetime]="product.actualizado_en">{{ product.actualizado_en | date:'dd/MM/yyyy HH:mm':'-0400' }}</time>
+                </span>
+              }
               <p class="catalog-price">@if (product.precio_promocional) { <strong>Bs {{ product.precio_promocional }}</strong> <del>Bs {{ product.precio }}</del><small>{{ product.promocion_nombre }}</small> } @else { Bs {{ product.precio }} }</p>
               <span>{{ inStorefront ? 'Ver prenda y disponibilidad' : 'Ver detalle' }} <span aria-hidden="true">↗</span></span>
             </div>
