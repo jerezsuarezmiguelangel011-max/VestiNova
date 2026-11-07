@@ -24,7 +24,7 @@ describe('Vitrina pública de empresa', () => {
     shop.setTienda('demo-moda-andina');
     const list = vi.fn(() => of({
       data: { items: shop.tienda() === 'demo-moda-andina' ? [andina] : [urbana],
-        total: 1, limit: 24, offset: 0 }, source: 'network' as const, downloadedAt: null,
+        total: 1, limit: 100, offset: 0 }, source: 'network' as const, downloadedAt: null,
     }));
     TestBed.configureTestingModule({
       imports: [StorefrontHomePage],
@@ -56,7 +56,8 @@ describe('Vitrina pública de empresa', () => {
     fixture.detectChanges();
     expect(root.textContent).toContain('Polera Urbana');
     expect(root.textContent).not.toContain('Polera Andina');
-    expect(root.textContent).toContain('Por ahora no hay promociones vigentes');
+    expect(root.textContent).toContain('No encontramos promociones vigentes');
+    expect(list).toHaveBeenCalledWith({ limit: 100, offset: 0 });
     expect(list).toHaveBeenCalled();
   });
 });
