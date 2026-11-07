@@ -54,6 +54,35 @@ y webhook del equipo autorizado. Las pruebas con mocks no sustituyen a Stripe re
    de pruebas. Los eventos deben coincidir con el pedido y la firma; un retorno
    al navegador por sí solo no confirma la compra.
 
+## ¿Por qué aparece Stripe deshabilitado?
+
+El endpoint público `GET /api/tiendas/demo-moda-andina/compras/capacidades`
+solo responde `habilitado: true` cuando el backend encuentra **ambas**
+variables de prueba en el entorno o en `backend/.env`:
+
+- `STRIPE_SECRET_KEY`, de prueba, comienza por `sk_test_`.
+- `STRIPE_WEBHOOK_SECRET`, procedente del receptor de eventos de prueba,
+  comienza por `whsec_`.
+
+Para saber qué falta **sin revelar claves**, ejecutar desde `backend`:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.check_stripe_demo
+```
+
+El diagnóstico no conecta a Stripe ni garantiza que las claves sean
+aceptadas por el proveedor; únicamente informa sobre su presencia y formato.
+En el navegador el carrito ahora distingue también requisitos incompletos:
+sesión de cliente, variantes, sucursal, cantidades, dirección y conexión con
+el backend. No se debe habilitar el cobro desactivando esta validación.
+
+El titular autorizado de las credenciales debe configurar y verificar la
+recepción de webhooks firmados de sandbox. El redirect de Checkout nunca
+equivale a pago confirmado. Para empresas radicadas en Bolivia, la
+documentación oficial de Stripe debe revisarse antes de cualquier despliegue
+comercial: estar disponible la moneda BOB no equivale a poder abrir una
+cuenta de Stripe Payments desde Bolivia.
+
 ## Seguridad
 
 - No se aceptan precio, empresa, cliente ni moneda desde el navegador como
