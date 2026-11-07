@@ -1,8 +1,8 @@
 <section class="reservation-page" aria-labelledby="reservation-title">
-  <a class="reservation-back" routerLink="/catalogo">← Volver al catálogo</a>
+  <a class="reservation-back" [routerLink]="shop.tienda() ? ['/tienda',shop.tienda(),'catalogo'] : ['/catalogo']">← Volver a la tienda</a>
   <header class="reservation-heading">
-    <p class="reservation-eyebrow">VestiNova · CU10</p>
-    <h1 id="reservation-title">Preparar reserva de prenda</h1>
+    <p class="reservation-eyebrow">TU TIENDA · RESERVAS</p>
+    <h1 id="reservation-title">Prepara una reserva</h1>
     <p>Selecciona una prenda, una sucursal y una variante. Este incremento guarda un <strong>borrador local</strong>; todavía no confirma ni separa unidades en inventario.</p>
   </header>
 
@@ -62,7 +62,7 @@
   } @else {
     <div class="reservation-card">
       <p>Abre una prenda publicada desde el catálogo para preparar su solicitud.</p>
-      <a routerLink="/catalogo" class="reservation-secondary">Explorar prendas</a>
+      <a [routerLink]="shop.tienda() ? ['/tienda',shop.tienda(),'catalogo'] : ['/catalogo']" class="reservation-secondary">Explorar prendas</a>
     </div>
   }
 </section>
