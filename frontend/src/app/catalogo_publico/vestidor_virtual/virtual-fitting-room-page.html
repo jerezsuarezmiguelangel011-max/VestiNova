@@ -1,10 +1,10 @@
 <main class="fitting-room" aria-labelledby="fitting-title" [attr.aria-busy]="loading()">
-  <a class="fitting-room__back" routerLink="/catalogo">← Volver al catálogo</a>
+  <a class="fitting-room__back" [routerLink]="shop.tienda() ? ['/tienda',shop.tienda(),'catalogo'] : ['/catalogo']">← Volver a la tienda</a>
   @if (loading()) { <p role="status">Cargando prenda…</p> }
   @else if (error(); as message) { <section class="fitting-room__message"><h1>No se puede abrir el vestidor</h1><p role="alert">{{ message }}</p></section> }
   @else if (product(); as item) {
     <header class="fitting-room__heading">
-      <p class="vn-eyebrow">VestiNova · CU18 · Vista referencial</p>
+      <p class="vn-eyebrow">EXPLORA TU ESTILO · VISTA REFERENCIAL</p>
       <h1 id="fitting-title">Vestidor virtual</h1>
       <p>Visualiza la prenda {{ item.nombre }} frente a la cámara de tu dispositivo.</p>
     </header>
@@ -35,7 +35,7 @@
         }
         @if (cameraError(); as message) { <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p> }
         <p class="fitting-room__disclaimer">Vista referencial 2D. No calcula talla, ajuste ni medidas. La cámara permanece en este dispositivo; VestiNova no captura ni envía video o imágenes.</p>
-        <a class="vn-button" routerLink="/catalogo">Seguir viendo prendas</a>
+        <a class="vn-button" [routerLink]="shop.tienda() ? ['/tienda',shop.tienda(),'catalogo'] : ['/catalogo']">Seguir viendo prendas</a>
       </div>
     </section>
   }
