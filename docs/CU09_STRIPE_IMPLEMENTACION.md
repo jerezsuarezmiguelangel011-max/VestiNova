@@ -207,3 +207,28 @@ Si falla, el procesamiento de esa ejecución se revierte.
 Las pruebas automatizadas incluyen la seed repetida y su protección de
 saldos, aislamiento de carrito y consulta pública por tenant, pero la
 aprobación visual y las pruebas manuales de sandbox siguen pendientes.
+
+## Stripe Sandbox — error de noviembre 2026 al crear Checkout
+
+Si `stripe logs tail` muestra `400 invalid_request_error` con
+`Param: payment_method_types` y el mensaje de que el parámetro ya no
+está admitido, el problema procede de la solicitud de nuestra API,
+**no** de `STRIPE_SECRET_KEY` o `STRIPE_WEBHOOK_SECRET`.
+
+El backend omite `payment_method_types` en `stripe.checkout.Session.create`
+para que Stripe use los métodos habilitados en el Dashboard del Sandbox.
+No se cambia la moneda `bob`, el cálculo de importes, ni el tratamiento
+de webhooks firmados. Se versionó la clave de idempotencia a
+`vestinova-cu09-v2-` para no reutilizar una posible respuesta de error
+almacenada con la clave de la solicitud antigua.
+
+Para verificar en el equipo, actualizar exclusivamente la rama temporal
+`trabajo/cu09-miguel`, reiniciar `scripts.serve_demo`, mantener
+`stripe listen` en el Sandbox y volver a pulsar «Proceder al pago».
+Una respuesta `POST /v1/checkout/sessions` correcta debe generar una
+URL de Stripe Checkout; **no** confirma la compra por sí sola.
+Si Stripe presenta otro rechazo, consultar `stripe logs tail` sin
+copiar claves ni detalles sensibles.
+
+La prueba automatizada `backend/tests/test_stripe_checkout_request.py`
+impide reintroducir el parámetro rechazado.
