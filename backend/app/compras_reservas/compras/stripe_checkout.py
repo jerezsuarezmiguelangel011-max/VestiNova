@@ -218,8 +218,8 @@ def create_checkout(
     base = "http://127.0.0.1:4201"
     try:
         checkout = stripe.checkout.Session.create(
-            api_key=config[0], idempotency_key=f"vestinova-cu09-{attempt.id}",
-            mode="payment", payment_method_types=["card"], customer_email=client.correo,
+            api_key=config[0], idempotency_key=f"vestinova-cu09-v2-{attempt.id}",
+            mode="payment", customer_email=client.correo,
             client_reference_id=attempt.id, metadata={"compra_id": attempt.id},
             line_items=[{"price_data": {"currency": "bob", "product_data": {
                 "name": f"{line['nombre']} · {line['talla']} / {line['color']}"},
