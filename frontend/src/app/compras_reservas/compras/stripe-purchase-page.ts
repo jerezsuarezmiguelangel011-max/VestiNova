@@ -39,6 +39,8 @@ export class StripePurchasePage {
   readonly delivery = signal<'RETIRO' | 'DOMICILIO'>('RETIRO');
   readonly address = signal('');
   readonly enabled = signal(false);
+  readonly checkingStripe = signal(true);
+  readonly stripeMessage = signal('Stripe de prueba todavía no está configurado.');
   readonly loading = signal(true);
   readonly submitting = signal(false);
   readonly error = signal<string | null>(null);
@@ -64,6 +66,27 @@ export class StripePurchasePage {
       && (this.delivery() === 'RETIRO' || this.address().trim().length >= 10);
   });
 
+  readonly paymentBlocker = computed((): string | null => {
+    const slug = this.shop.tienda();
+    if (!slug) return 'Selecciona una tienda para comenzar.';
+    if (this.checkingStripe()) return 'Comprobando la disponibilidad de Stripe de prueba…';
+    if (!this.enabled()) return this.stripeMessage();
+    if (!this.customers.token(slug)) return 'Inicia sesión o crea una cuenta de esta tienda para continuar.';
+    if (this.loading()) return 'Consultando las sucursales de esta tienda…';
+    if (this.lines().length === 0) return 'Agrega al menos una prenda al carrito.';
+    if (this.lines().some(line => line.source !== 'network')) return 'Necesitas una consulta actualizada en línea para comprar.';
+    if (this.lines().some(line => !validPurchaseQuantity(line.cantidad))) return 'Introduce una cantidad válida en cada prenda.';
+    if (this.lines().some(line => !this.chosenVariants()[line.product.id] ||
+      !this.variants()[line.product.id]?.some(v => v.id === this.chosenVariants()[line.product.id]))) {
+      return 'Selecciona talla y color de todas las prendas.';
+    }
+    if (this.branch() === null) return 'Selecciona la sucursal que preparará tu compra.';
+    if (this.delivery() === 'DOMICILIO' && this.address().trim().length < 10) {
+      return 'Completa la dirección de entrega (al menos 10 caracteres).';
+    }
+    return null;
+  });
+
   constructor() {
     effect(() => {
       const slug = this.shop.tienda();
@@ -78,6 +101,8 @@ export class StripePurchasePage {
       this.branches.set([]);
       this.branch.set(null);
       this.enabled.set(false);
+      this.checkingStripe.set(true);
+      this.stripeMessage.set('Stripe de prueba todavía no está configurado.');
       this.directory.sucursales().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: branches => {
           if (this.shop.tienda() !== slug) return;
@@ -98,8 +123,18 @@ export class StripePurchasePage {
       this.restoreCart(slug);
       if (this.returnId() && this.customers.token(slug)) this.checkPayment();
       this.api.capabilities(slug).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-        next: info => { if (this.shop.tienda() === slug) this.enabled.set(info.habilitado); },
-        error: () => { if (this.shop.tienda() === slug) this.enabled.set(false); },
+        next: info => {
+          if (this.shop.tienda() !== slug) return;
+          this.enabled.set(info.habilitado);
+          this.stripeMessage.set(info.detail || 'Stripe de prueba no está disponible.');
+          this.checkingStripe.set(false);
+        },
+        error: () => {
+          if (this.shop.tienda() !== slug) return;
+          this.enabled.set(false);
+          this.stripeMessage.set('No se pudo verificar Stripe. Comprueba que el backend esté funcionando.');
+          this.checkingStripe.set(false);
+        },
       });
     });
 
