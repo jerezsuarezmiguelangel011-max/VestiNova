@@ -6,6 +6,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { CatalogApiService, type CatalogAvailability, type CatalogAvailabilityItem } from '../../catalogo_publico/catalogo/catalog-api.service';
+import { CatalogShopService } from '../../catalogo_publico/catalogo/catalog-shop.service';
 import type { CatalogProduct } from '../../catalogo_publico/catalogo/catalog.models';
 
 const DRAFT_KEY = 'vestinova_reserva_borrador_v1';
@@ -46,6 +47,7 @@ function isDraft(value: unknown): value is ReservationDraft {
   styleUrl: './reservation-draft.css',
 })
 export class ReservationDraftPage {
+  readonly shop = inject(CatalogShopService);
   private readonly catalog = inject(CatalogApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
