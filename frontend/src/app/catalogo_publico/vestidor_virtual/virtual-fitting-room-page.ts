@@ -3,6 +3,7 @@ import { Component, DestroyRef, ElementRef, ViewChild, inject, signal } from '@a
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CatalogDataService } from '../catalogo/catalog-data.service';
+import { CatalogShopService } from '../catalogo/catalog-shop.service';
 import { type CatalogProduct, type CatalogResult } from '../catalogo/catalog.models';
 
 @Component({
@@ -12,6 +13,7 @@ import { type CatalogProduct, type CatalogResult } from '../catalogo/catalog.mod
   styleUrl: './virtual-fitting-room-page.css',
 })
 export class VirtualFittingRoomPage {
+  readonly shop = inject(CatalogShopService);
   private readonly catalog = inject(CatalogDataService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
