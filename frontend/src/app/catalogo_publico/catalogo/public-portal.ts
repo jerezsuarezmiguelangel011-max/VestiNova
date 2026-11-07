@@ -11,7 +11,7 @@ interface PublicShop { slug: string; nombre: string; }
   template: `
     <div class="public-portal">
       <a class="public-skip" href="#public-content">Saltar al contenido</a>
-      <header class="public-topbar">
+      <header class="public-topbar" id="public-top">
         <a class="public-logo" routerLink="/" aria-label="VestiNova, inicio">
           <span class="public-monogram" aria-hidden="true">VN</span> VestiNova
         </a>
@@ -106,7 +106,7 @@ interface PublicShop { slug: string; nombre: string; }
           <a href="#tiendas" (click)="jumpTo($event, 'tiendas')">Quiero explorar tiendas <span aria-hidden="true">↗</span></a>
         </section>
       </main>
-      <footer class="public-footer"><strong>VestiNova.</strong><span>Explora tiendas de moda desde un solo lugar.</span><a href="#public-content" (click)="jumpTo($event, 'public-content')">Volver arriba ↑</a></footer>
+      <footer class="public-footer"><strong>VestiNova.</strong><span>Explora tiendas de moda desde un solo lugar.</span><a href="#public-top" (click)="jumpTo($event, 'public-top')">Volver arriba ↑</a></footer>
     </div>
   `,
   styleUrl: './public-portal.css',
@@ -121,7 +121,7 @@ export class PublicPortalPage {
   ngOnInit(): void { this.loadShops(); }
 
   /** Navegación accesible y visible aunque no esté configurado anchorScrolling. */
-  jumpTo(event: MouseEvent, id: 'como-funciona' | 'tiendas' | 'public-content'): void {
+  jumpTo(event: MouseEvent, id: 'como-funciona' | 'tiendas' | 'public-content' | 'public-top'): void {
     const target = document.getElementById(id);
     if (!target) return;
     event.preventDefault();
