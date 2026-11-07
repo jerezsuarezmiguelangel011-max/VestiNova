@@ -97,7 +97,7 @@ interface PublicCategory { id: number; nombre: string; }
           <p role="status">Consultando ofertas…</p>
         } @else if (offers().length === 0) {
           <div class="storefront-offers-empty">
-            <p>Por ahora no hay promociones vigentes entre las prendas destacadas.</p>
+            <p>No encontramos promociones vigentes entre las prendas consultadas. Puedes revisar el catálogo completo.</p>
             <a [routerLink]="['/tienda', shop.tienda(), 'catalogo']">Explorar el catálogo →</a>
           </div>
         } @else {
@@ -159,7 +159,7 @@ export class StorefrontHomePage {
     this.error.set(null);
     this.products.set([]);
     this.categories.set([]);
-    this.data.list({ limit: 24, offset: 0 }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.data.list({ limit: 100, offset: 0 }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: result => {
         if (version !== this.requestId || this.shop.tienda() !== slug) return;
         this.products.set(result.data.items);
