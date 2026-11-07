@@ -1,5 +1,5 @@
 :host{display:block;color:#1e352c;background:#faf8f2;min-height:100vh;font-family:inherit}
-.public-portal{overflow:hidden}
+.public-portal{overflow-x:clip}
 .public-topbar,.public-footer{display:flex;align-items:center;justify-content:space-between;gap:28px;padding:20px max(28px,calc((100vw - 1230px)/2))}
 .public-topbar{position:relative;background:#f6f3e9;z-index:2;border-bottom:1px solid #e2e6dc}
 .public-logo{display:flex;align-items:center;gap:11px;font:600 27px/1.15 Georgia,serif;letter-spacing:-.06em;color:#1e352c;text-decoration:none}
@@ -85,3 +85,5 @@
 
 .public-topbar nav a:focus-visible,.public-actions a:focus-visible,.public-closing a:focus-visible{outline:3px solid #407d55;outline-offset:3px}
 .public-shop-card:focus-visible{outline:3px solid #397b54;outline-offset:3px}
+
+#public-top,#como-funciona,#tiendas{scroll-margin-top:18px}
