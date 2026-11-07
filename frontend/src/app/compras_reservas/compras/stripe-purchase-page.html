@@ -122,8 +122,8 @@
             </label>
           }
           <p>Importes y disponibilidad se recalculan en el servidor. No se reserva stock al consultar.</p>
-          @if (!enabled()) {
-            <p role="status" class="stripe-warning">Stripe de prueba no está configurado o disponible. No se iniciarán cobros.</p>
+          @if (paymentBlocker(); as reason) {
+            <p role="status" class="stripe-warning">{{ reason }}</p>
           }
           <button class="stripe-primary" type="button" (click)="proceed()"
                   [disabled]="!canPay()" [attr.aria-busy]="submitting()">
