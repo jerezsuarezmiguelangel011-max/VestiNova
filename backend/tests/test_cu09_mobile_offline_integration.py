@@ -14,6 +14,8 @@ from app.compras_reservas.compras import deferred_mobile as cu09_offline
 from app.compras_reservas.compras.persistence import PurchaseRecord
 from app.models import Existencia
 
+from tests.test_cu09_stripe_flujos_alternativos import caso_cu09
+
 
 @pytest.fixture
 def deferred_case(caso_cu09, monkeypatch):
