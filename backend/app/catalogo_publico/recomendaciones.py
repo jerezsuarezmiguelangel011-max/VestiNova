@@ -1,7 +1,7 @@
-"""CU19: recomendaciones explicables de prendas publicadas de la misma tienda.
+"""CU19: reglas explicables por prenda, preferencias expresas e historial consentido.
 
-Similitud de categoría, material, temporada, color, talla y rango de precio.
-No usa servicios externos, no perfila al cliente ni modifica inventario.
+No se atribuyen preferencias a clientes anónimos. El usuario puede consultar
+sugerencias generales sin habilitar el seguimiento de visitas.
 """
 from decimal import Decimal
 
@@ -20,7 +20,8 @@ router = APIRouter(prefix="/api/catalogo/recomendaciones",
 
 
 def _score(product: Producto, reference: Producto | None,
-           variants: list[VarianteProducto], talla: str | None, color: str | None):
+           variants: list[VarianteProducto], talla: str | None, color: str | None,
+           history: list[tuple[Producto, int]] | None = None):
     points, reasons = 0, []
     if reference is not None:
         if reference.categoria_id and product.categoria_id == reference.categoria_id:
@@ -35,36 +36,43 @@ def _score(product: Producto, reference: Producto | None,
         if abs(product.precio - reference.precio) <= reference.precio * Decimal("0.25"):
             points += 10
             reasons.append("Precio parecido")
+    if history:
+        similar_categories = 0
+        for visited, count in history:
+            weight = min(count, 5)
+            if product.categoria_id and product.categoria_id == visited.categoria_id:
+                points += 16 * weight
+                similar_categories += weight
+            if product.material and visited.material and product.material.casefold() == visited.material.casefold():
+                points += 5 * weight
+            if product.temporada and visited.temporada and product.temporada.casefold() == visited.temporada.casefold():
+                points += 3 * weight
+        if similar_categories:
+            reasons.append("Se parece a las categorías que has consultado")
+        elif points:
+            reasons.append("Relacionada con prendas que has visto")
     if talla and any(v.talla.casefold() == talla.casefold() for v in variants):
         points += 20
-        reasons.append("Talla preferida")
+        reasons.append("Talla elegida")
     if color and any(v.color.casefold() == color.casefold() for v in variants):
         points += 20
-        reasons.append("Color preferido")
-    if reference is None and not reasons:
+        reasons.append("Color elegido")
+    if not reasons:
         reasons.append("Prenda publicada de esta tienda")
     return points, reasons
 
 
-@router.get("")
-def recommended(
-    response: Response,
-    tienda: str = Query(min_length=1, max_length=100),
-    producto_slug: str | None = Query(default=None, max_length=140),
-    talla: str | None = Query(default=None, min_length=1, max_length=30),
-    color: str | None = Query(default=None, min_length=1, max_length=60),
-    sucursal_id: int | None = Query(default=None, gt=0),
-    limit: int = Query(default=8, ge=1, le=20),
-    db: Session = Depends(get_db),
-):
-    response.headers["Cache-Control"] = "no-store"
-    company_id = selected_company(db, tienda)
+def build_recommendations(
+    db: Session, company_id: int, tienda: str,
+    producto_slug: str | None, talla: str | None, color: str | None,
+    sucursal_id: int | None, limit: int,
+    history: list[tuple[Producto, int]] | None = None,
+) -> dict:
     if sucursal_id is not None and db.scalar(select(Sucursal.id).where(
         Sucursal.empresa_id == company_id, Sucursal.id == sucursal_id,
         Sucursal.activo.is_(True),
     )) is None:
         raise HTTPException(404, "Sucursal no disponible para esta tienda.")
-
     reference = None
     if producto_slug:
         reference = db.scalar(select(Producto).where(
@@ -74,9 +82,11 @@ def recommended(
         if reference is None:
             raise HTTPException(404, "Prenda de referencia no disponible.")
 
+    excluded = {product.id for product, _ in (history or [])}
     products = db.scalars(select(Producto).where(
         Producto.empresa_id == company_id, Producto.activo.is_(True),
-        *([Producto.id != reference.id] if reference else [])
+        *([Producto.id != reference.id] if reference else []),
+        *([Producto.id.not_in(excluded)] if excluded else []),
     ).order_by(Producto.id.desc()).limit(500)).all()
     ids = [p.id for p in products]
     variants = db.scalars(select(VarianteProducto).where(
@@ -99,21 +109,22 @@ def recommended(
         own = by_product.get(product.id, [])
         if not own:
             continue
+        if talla and not any(v.talla.casefold() == talla.casefold() for v in own):
+            continue
+        if color and not any(v.color.casefold() == color.casefold() for v in own):
+            continue
+        # Se admiten filtros independientes. El producto debe tener una variante
+        # que coincida con ambas selecciones si el usuario rellenó ambas.
         if talla and color and not any(
             v.talla.casefold() == talla.casefold() and
             v.color.casefold() == color.casefold() for v in own
         ):
             continue
-        if talla and not any(v.talla.casefold() == talla.casefold() for v in own):
-            continue
-        if color and not any(v.color.casefold() == color.casefold() for v in own):
-            continue
-        score, reasons = _score(product, reference, own, talla, color)
+        score, reasons = _score(product, reference, own, talla, color, history)
         available = None if sucursal_id is None else any(
             balances[v.id].cantidad > balances[v.id].cantidad_comprometida
             for v in own if v.id in balances
         )
-        # Orden estable, priorizando coincidencias; disponibilidad solo aporta señal referencial.
         ranked.append((score, int(available is True), product.id, product, reasons, available))
     ranked.sort(key=lambda row: (row[0], row[1], row[2]), reverse=True)
     items = []
@@ -138,6 +149,23 @@ def recommended(
         "tienda": tienda,
         "basado_en": producto_slug,
         "consultado_en": utc_now().isoformat(),
-        "criterio": "REGLAS_SIMILITUD_CATALOGO",
+        "criterio": "REGLAS_HISTORIAL_CONSENTIDO" if history else "REGLAS_SIMILITUD_CATALOGO",
         "items": items,
     }
+
+
+@router.get("")
+def recommended(
+    response: Response,
+    tienda: str = Query(min_length=1, max_length=100),
+    producto_slug: str | None = Query(default=None, max_length=140),
+    talla: str | None = Query(default=None, min_length=1, max_length=30),
+    color: str | None = Query(default=None, min_length=1, max_length=60),
+    sucursal_id: int | None = Query(default=None, gt=0),
+    limit: int = Query(default=8, ge=1, le=20),
+    db: Session = Depends(get_db),
+):
+    response.headers["Cache-Control"] = "no-store"
+    company_id = selected_company(db, tienda)
+    return build_recommendations(db, company_id, tienda,
+                                 producto_slug, talla, color, sucursal_id, limit)
