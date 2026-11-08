@@ -11,6 +11,7 @@ from app.models import (
     VarianteProducto,
 )
 from app.security import hash_password
+from app.operacion_sin_conexion.caja.online import CashSale
 
 CUSTOMER_PASSWORD = "Clave de prueba lista deseos 2026"
 
@@ -127,3 +128,31 @@ def test_cu20_informa_corte_actual_y_respeta_roles(client, first_group):
         "desde": "2026-11-30", "hasta": "2026-11-01",
     }, headers=s["admin_headers"]).status_code == 422
     assert client.get("/api/admin/reportes-comerciales").status_code == 401
+
+
+def test_cu20_cuenta_solo_ventas_centrales_confirmadas(
+    client, first_group, session_factory, administrator,
+):
+    data = first_group
+    with session_factory() as db:
+        db.add(CashSale(
+            id=str(uuid4()), empresa_id=data["company"],
+            sucursal_id=data["branch"], usuario_id=administrator.id,
+            cliente_id=None, huella="a" * 64, lineas=[],
+            total=Decimal("80.00"), efectivo=Decimal("100.00"),
+            cambio=Decimal("20.00"), codigo="VN-DEMO-CU20-" + uuid4().hex[:10],
+            origen="EN_LINEA", creada_local_en=None,
+            entrega_local=False, confirmada_en=datetime.now(timezone.utc),
+        ))
+        db.commit()
+    today = datetime.now(timezone.utc).date().isoformat()
+    response = client.get("/api/admin/reportes-comerciales", params={
+        "tipo": "ventas", "sucursal_id": data["branch"],
+        "desde": today, "hasta": today,
+    }, headers=data["admin_headers"])
+    assert response.status_code == 200, response.text
+    values = response.json()["totales"]
+    assert values["ventas_confirmadas"] == 1
+    assert values["ventas_efectivo"] == 1
+    assert values["ventas_digitales"] == 0
+    assert values["ingresos_confirmados"] == "80.00"
