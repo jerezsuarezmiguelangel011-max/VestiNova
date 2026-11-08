@@ -5,6 +5,7 @@ import { CompanyService } from '../organizacion_empresarial/empresa/company.serv
 import { CustomerAuthService } from '../compras_reservas/clientes/customer-auth.service';
 import { CustomerWishlistApi } from '../compras_reservas/deseos/customer-wishlist-api.service';
 import { RecommendationsApi } from '../catalogo_publico/recomendaciones/recommendations-api.service';
+import { CustomerRecommendationsService } from '../catalogo_publico/recomendaciones/customer-recommendations.service';
 import { ReportsApi } from './reports-api.service';
 
 describe('Primer grupo · CU19 CU20 CU23 API', () => {
@@ -46,6 +47,30 @@ describe('Primer grupo · CU19 CU20 CU23 API', () => {
     expect(req.request.params.get('sucursal_id')).toBe('2');
     req.flush({ tipo: 'ventas', desde: '2026-11-01', hasta: '2026-11-08',
       zona_horaria: 'UTC', nota: '', por_sucursal: [], totales: {} });
+  });
+
+  it('CU19 guarda consentimiento y visitas únicamente con token del cliente', () => {
+    const service = TestBed.inject(CustomerRecommendationsService);
+    service.setPreferences('tienda-ejemplo', true).subscribe(result =>
+      expect(result.habilitado).toBe(true));
+    const consent = http.expectOne('/api/tiendas/tienda-ejemplo/cuenta/recomendaciones/preferencias');
+    expect(consent.request.method).toBe('PUT');
+    expect(consent.request.headers.get('Authorization')).toBe('Bearer sesion-cliente-test');
+    expect(consent.request.body).toEqual({ habilitado: true });
+    consent.flush({ habilitado: true, historial_borrado: false });
+
+    service.registerView('tienda-ejemplo', 'polera-clasica').subscribe();
+    const visit = http.expectOne('/api/tiendas/tienda-ejemplo/cuenta/recomendaciones/visitas');
+    expect(visit.request.method).toBe('POST');
+    expect(visit.request.body).toEqual({ producto_slug: 'polera-clasica' });
+    visit.flush({ registrado: true });
+
+    service.recommendations('tienda-ejemplo', { talla: 'M', color: 'Azul' }).subscribe();
+    const feed = http.expectOne(req =>
+      req.url === '/api/tiendas/tienda-ejemplo/cuenta/recomendaciones/sugerencias');
+    expect(feed.request.params.get('color')).toBe('Azul');
+    feed.flush({ tienda: 'tienda-ejemplo', basado_en: null, consultado_en: '',
+      criterio: 'REGLAS_HISTORIAL_CONSENTIDO', items: [] });
   });
 
   it('CU23 usa sesión del cliente y guarda la variante, no solo el producto', () => {
