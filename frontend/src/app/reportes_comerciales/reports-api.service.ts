@@ -11,6 +11,7 @@ export interface ReportRow {
   ingresos_confirmados: string;
   ventas_digitales: number;
   ventas_efectivo: number;
+  ventas_demo: number;
   reservas_confirmadas: number;
   reservas_atendidas: number;
   reservas_canceladas: number;
@@ -27,6 +28,10 @@ export interface CommercialReport {
   zona_horaria: string;
   nota: string;
   por_sucursal: ReportRow[];
+  ventas_por_prenda: Array<{
+    sucursal_id: number; producto: string; talla: string; color: string;
+    unidades: number; importe: string; es_demo: boolean;
+  }>;
   totales: Omit<ReportRow, 'sucursal_id' | 'sucursal'>;
 }
 
