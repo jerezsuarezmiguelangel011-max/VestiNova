@@ -53,7 +53,12 @@ class PurchaseNotices {
     'Se guardó sin Internet. Aún no se cobró ni reservó la prenda.',
   );
 
-  static ({String title, String body})? outcome(String state) {
+  static ({String title, String body})? outcome(
+    String state, {String? reason}) {
+    final stockUnavailable = reason != null && (
+      reason.toLowerCase().contains('stock') ||
+      reason.toLowerCase().contains('existencias')
+    );
     switch (state) {
       case 'CONFIRMADA':
         return (
@@ -62,6 +67,12 @@ class PurchaseNotices {
         );
       case 'CONFLICTO':
       case 'RECHAZADA':
+        if (stockUnavailable) {
+          return (
+            title: 'Sin stock · compra no confirmada',
+            body: 'La prenda se agotó antes de sincronizar. Revisa el pedido y su estado en Stripe TEST.',
+          );
+        }
         return (
           title: 'No se confirmó tu compra',
           body: 'Stock insuficiente, precio cambiado u otra validación fallida. Revisa el motivo; no hay compra confirmada.',
@@ -82,8 +93,9 @@ class PurchaseNotices {
     await _show(_id(messageId, 'fcm'), title, body);
   }
 
-  static Future<void> finalState(String uuid, String state) async {
-    final message = outcome(state);
+  static Future<void> finalState(
+    String uuid, String state, {String? reason}) async {
+    final message = outcome(state, reason: reason);
     if (message == null) return;
     await _show(_id(uuid, 'final'), message.title, message.body);
   }

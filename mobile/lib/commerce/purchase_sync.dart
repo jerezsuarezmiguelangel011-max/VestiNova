@@ -30,7 +30,7 @@ class PurchaseSyncService {
           final message = result['detalle']?.toString() ??
               'Consulta el estado central antes de asumir un cobro.';
           await store.update(item.id, state, message);
-          await _noticeOnce(store, item.id, state);
+          await _noticeOnce(store, item.id, state, message);
         } on StorefrontException catch (error) {
           if (error.network || error.status == 503) {
             await store.update(item.id, 'PENDIENTE',
@@ -39,7 +39,7 @@ class PurchaseSyncService {
           }
           if (error.status == 409) {
             await store.update(item.id, 'CONFLICTO', error.message);
-            await _noticeOnce(store, item.id, 'CONFLICTO');
+            await _noticeOnce(store, item.id, 'CONFLICTO', error.message);
           } else if (error.status == 401 || error.status == 403) {
             await store.update(item.id, 'REQUIERE_ACCESO',
               'Necesitas iniciar sesión nuevamente; no se confirmó la compra.');
@@ -55,12 +55,12 @@ class PurchaseSyncService {
   }
 
   Future<void> _noticeOnce(
-    MobileOrderStore store, String id, String state,
+    MobileOrderStore store, String id, String state, String reason,
   ) async {
     if (PurchaseNotices.outcome(state) == null) return;
     if (!await store.claimFinalNotice(id, state)) return;
     try {
-      await PurchaseNotices.finalState(id, state);
+      await PurchaseNotices.finalState(id, state, reason: reason);
     } catch (_) {
       // El estado comercial queda guardado aunque Android niegue permisos.
     }

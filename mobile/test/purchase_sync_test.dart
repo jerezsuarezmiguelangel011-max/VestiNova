@@ -58,6 +58,9 @@ void main() {
       contains('No se confirmó'));
     expect(PurchaseNotices.outcome('RECHAZADA')!.title,
       contains('No se confirmó'));
+    expect(PurchaseNotices.outcome('CONFLICTO',
+      reason: 'No hay stock disponible suficiente.')!.title,
+      contains('Sin stock'));
     expect(PurchaseNotices.outcome('INCIDENCIA')!.title,
       contains('requiere revisión'));
   });
