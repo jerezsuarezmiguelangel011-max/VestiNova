@@ -159,3 +159,73 @@ def test_cu20_cuenta_solo_ventas_centrales_confirmadas(
     assert values["ventas_efectivo"] == 1
     assert values["ventas_digitales"] == 0
     assert values["ingresos_confirmados"] == "80.00"
+
+
+def test_cu19_visitas_solo_con_consentimiento_y_borrado(client, first_group, session_factory):
+    s = first_group
+    base = "/api/tiendas/empresa-prueba/cuenta/recomendaciones"
+    headers = s["customer_headers"]
+    initial = client.get(base + "/preferencias", headers=headers)
+    assert initial.status_code == 200 and initial.json()["habilitado"] is False
+    assert client.post(base + "/visitas", json={"producto_slug": s["reference"]},
+                       headers=headers).status_code == 403
+    enabled = client.put(base + "/preferencias", json={"habilitado": True},
+                         headers=headers)
+    assert enabled.status_code == 200 and enabled.json()["habilitado"] is True
+    for _ in range(4):
+        result = client.post(base + "/visitas",
+                             json={"producto_slug": s["reference"]},
+                             headers=headers)
+        assert result.status_code == 202, result.text
+    recommended = client.get(base + "/sugerencias", headers=headers)
+    assert recommended.status_code == 200, recommended.text
+    data = recommended.json()
+    assert data["criterio"] == "REGLAS_HISTORIAL_CONSENTIDO"
+    assert data["items"][0]["slug"] == "similar-algodon"
+    assert all(item["slug"] != s["reference"] for item in data["items"])
+    assert "categorías que has consultado" in " ".join(data["items"][0]["motivos"])
+
+    # Una cuenta no puede utilizar su token en otra tienda.
+    assert client.get("/api/tiendas/empresa-externa/cuenta/recomendaciones/sugerencias",
+                      headers=headers).status_code in (401, 404)
+    disabled = client.put(base + "/preferencias", json={"habilitado": False},
+                          headers=headers)
+    assert disabled.status_code == 200 and disabled.json()["historial_borrado"]
+    assert client.get(base + "/sugerencias", headers=headers).status_code == 403
+    from app.catalogo_publico.historial_recomendaciones import VistaCU19
+    with session_factory() as db:
+        assert not db.query(VistaCU19).filter_by(
+            empresa_id=s["company"]).count()
+
+
+def test_cu20_detalle_color_y_talla_en_comprobante(client, first_group, session_factory, administrator):
+    s = first_group
+    from app.operacion_sin_conexion.caja.online import CashSale
+    with session_factory() as db:
+        db.add(CashSale(
+            id=str(uuid4()), empresa_id=s["company"], sucursal_id=s["branch"],
+            usuario_id=administrator.id, cliente_id=None,
+            huella="f" * 64,
+            lineas=[{"variante_id": s["similar"], "producto_id": 1,
+                     "nombre": "Polera algodón B", "cantidad": 2,
+                     "precio_unitario": "105.00", "subtotal": "210.00"}],
+            total=Decimal("210.00"), efectivo=Decimal("210.00"),
+            cambio=Decimal("0.00"), codigo="VN-DEMO-CU20-TEST-"+str(uuid4())[:7],
+            origen="EN_LINEA", creada_local_en=None,
+            entrega_local=False, confirmada_en=datetime.now(timezone.utc),
+        ))
+        db.commit()
+    today = datetime.now(timezone.utc).date().isoformat()
+    result = client.get("/api/admin/reportes-comerciales", params={
+        "tipo": "ventas", "desde": today, "hasta": today,
+        "sucursal_id": s["branch"],
+    }, headers=s["admin_headers"])
+    assert result.status_code == 200, result.text
+    details = result.json()["ventas_por_prenda"]
+    assert len(details) == 1
+    assert details[0]["color"] == "Azul"
+    assert details[0]["talla"] == "M"
+    assert details[0]["unidades"] == 2
+    assert details[0]["importe"] == "210.00"
+    assert details[0]["es_demo"] is True
+    assert result.json()["totales"]["ventas_demo"] == 1
