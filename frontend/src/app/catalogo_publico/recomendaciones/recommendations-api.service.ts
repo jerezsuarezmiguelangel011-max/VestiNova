@@ -19,7 +19,7 @@ export interface RecommendationResult {
   tienda: string;
   basado_en: string | null;
   consultado_en: string;
-  criterio: 'REGLAS_SIMILITUD_CATALOGO';
+  criterio: 'REGLAS_SIMILITUD_CATALOGO' | 'REGLAS_HISTORIAL_CONSENTIDO';
   items: Recommendation[];
 }
 
