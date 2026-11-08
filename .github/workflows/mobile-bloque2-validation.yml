@@ -4,6 +4,8 @@ on:
     branches:
       - trabajo/movil-bloque2
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   flutter:
     runs-on: ubuntu-latest
@@ -17,9 +19,21 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      - run: dart fix --apply lib/commerce
+      - run: dart fix --apply lib/reservations
       - run: dart format lib/commerce lib/storefront lib/reservations
       - run: flutter analyze --no-pub --no-fatal-infos
       - run: flutter test --no-pub
+      - name: Publish automatic Dart lint fixes on the working branch
+        if: success()
+        run: |
+          git config user.name "VestiNova CI"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mobile/lib/commerce mobile/lib/storefront mobile/lib/reservations
+          if ! git diff --cached --quiet; then
+            git commit -m "style(movil): aplicar correcciones sugeridas por Dart"
+            git push origin HEAD:refs/heads/trabajo/movil-bloque2
+          fi
   backend:
     runs-on: ubuntu-latest
     defaults:
