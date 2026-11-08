@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../auth/auth_models.dart';
 import '../auth/session_controller.dart';
 import '../reservations/customer_reservations_page.dart';
+import '../reports/reports_page.dart';
+import '../tryon/catalog_page.dart';
 
 class AccountPage extends StatelessWidget {
   const AccountPage({super.key, required this.controller});
@@ -43,14 +45,27 @@ class AccountPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        if (customer)
+        if (account is CustomerAccount) ...[
           Text(
             controller.offlineMode
                 ? 'Modo offline: esta identidad fue validada anteriormente. '
                     'Las operaciones se guardan localmente, pero no están confirmadas por el servidor.'
                 : 'Tu cuenta pertenece a esta tienda y el acceso está verificado.',
-          )
-        else ...[
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => CatalogPage(
+                  store: account.store,
+                  config: controller.api.config,
+                ),
+              ),
+            ),
+            icon: const Icon(Icons.checkroom),
+            label: const Text('Explorar prendas y vestidor'),
+          ),
+        ] else ...[
           Text(
             'Empresa de trabajo',
             style: Theme.of(context).textTheme.titleLarge,
@@ -87,6 +102,20 @@ class AccountPage extends StatelessWidget {
                     },
             ),
           if (controller.context case final access?) ...[
+            if (access.company.canUseAIReports) ...[
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: controller.busy
+                    ? null
+                    : () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => ReportsPage(controller: controller),
+                        ),
+                      ),
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('Reportes con IA · CU21'),
+              ),
+            ],
             const SizedBox(height: 16),
             Text(
               access.company.roleLabel,

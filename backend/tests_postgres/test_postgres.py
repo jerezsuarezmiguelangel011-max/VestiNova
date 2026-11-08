@@ -12,6 +12,7 @@ from uuid import uuid4
 from alembic import command
 from alembic.config import Config
 from alembic.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
 import httpx
 import pytest
@@ -29,7 +30,7 @@ from app.compras_reservas.compras.domain import Purchase, PurchaseCommand, Purch
 from app.compras_reservas.compras.persistence import PurchaseLineRecord, PurchaseRecord, add_purchase, find_purchase
 from app.security import hash_password
 from app.autenticacion_usuarios.permissions import PERMISSION_CODES, ensure_company_roles
-from app.models import PermisoRol, RolEmpresa
+from app.models import PermisoRol, PlanSaaS, RolEmpresa, SuscripcionEmpresa
 
 
 LEGACY = {}
@@ -79,6 +80,64 @@ def client(engine):
         yield test_client
 
 
+def activate_postgres_test_subscription(db, empresa_id: int) -> None:
+    """Prepara una suscripción válida solo en PostgreSQL temporal de pruebas."""
+    plan = db.scalar(select(PlanSaaS).where(PlanSaaS.codigo == "TEST_POSTGRES"))
+    if plan is None:
+        plan = PlanSaaS(codigo="TEST_POSTGRES", nombre="Plan PostgreSQL aislado",
+                        max_sucursales=1000, max_productos=1000, max_usuarios=1000,
+                        activo=True)
+        db.add(plan)
+        db.flush()
+    db.add(SuscripcionEmpresa(empresa_id=empresa_id, plan_id=plan.id,
+                             estado="ACTIVA", inicia_en=utc_now() - timedelta(days=1)))
+
+
+def run_ai_reports_and_predictions_postgres(client, factory):
+    """HTTP/SQL reales; solamente se sustituye la interpretación del proveedor."""
+    from app.analitica_ia.provider import get_interpreter
+    from app.analitica_ia.schemas import Interpretation
+    headers = administrator_credentials(client, factory)
+    company = client.get('/api/empresas', headers=headers).json()[0]['id']
+    headers['X-Empresa-Id'] = str(company)
+    with factory() as db:
+        plan = db.scalar(select(PlanSaaS).where(PlanSaaS.codigo == 'PROFESIONAL'))
+        if plan is None:
+            plan = PlanSaaS(codigo='PROFESIONAL', nombre='Profesional aislado', max_sucursales=1000, max_productos=1000, max_usuarios=1000, activo=True)
+            db.add(plan); db.flush()
+        db.get(SuscripcionEmpresa, company).plan_id = plan.id
+        branch = Sucursal(empresa_id=company, nombre='Sucursal reporte', codigo='IA')
+        product = Producto(empresa_id=company, nombre='Prenda PostgreSQL IA', slug='ia-'+uuid4().hex, precio=Decimal('87.30'))
+        db.add_all([branch, product]); db.flush()
+        variant = VarianteProducto(empresa_id=company, producto_id=product.id, talla='M', color='VERDE')
+        db.add(variant); db.flush()
+        db.add(Existencia(empresa_id=company, sucursal_id=branch.id, variante_id=variant.id, cantidad=17))
+        db.commit()
+    class ControlledInterpreter:
+        kind = 'inventario'
+        def interpret(self, prompt, today):
+            return Interpretation(tipo=self.kind)
+    interpreter = ControlledInterpreter()
+    client.app.dependency_overrides[get_interpreter] = lambda: interpreter
+    try:
+        for kind in ('inventario','ventas_diarias','prendas_vendidas','abastecimiento'):
+            interpreter.kind = kind
+            response = client.post('/api/admin/reportes-ia/generar', headers=headers, json={'consulta':'Consulta de prueba PostgreSQL'})
+            assert response.status_code == 200, response.text
+            assert response.json()['reporte']['empresa']['id'] == company
+            if kind == 'inventario':
+                assert response.json()['reporte']['totales']['disponible'] == 17
+        assert client.post('/api/admin/reportes-ia/generar', headers=headers, json={'consulta':'Inventario', 'filtros':{'sucursal_id':2147483647}}).status_code == 404
+        for format in ('pdf','html','xlsx'):
+            response = client.post('/api/admin/reportes-ia/exportar', headers=headers, json={'tipo':'inventario','filtros':{},'formato':format})
+            assert response.status_code == 200 and len(response.content) > 100
+        response = client.post('/api/admin/dashboard-predictivo', headers=headers, json={})
+        assert response.status_code == 200 and response.json()['estado'] == 'datos_insuficientes'
+        assert response.json()['modelo']['origen'] == 'sintetico'
+    finally:
+        client.app.dependency_overrides.pop(get_interpreter, None)
+
+
 def administrator_credentials(client, factory):
     email = f"admin-{uuid4().hex}@vestinova.test"
     with factory() as session:
@@ -87,6 +146,7 @@ def administrator_credentials(client, factory):
         session.add(administrator)
         session.add(company)
         session.flush()
+        activate_postgres_test_subscription(session, company.id)
         session.add(MembresiaEmpresa(administrador_id=administrator.id, empresa_id=company.id, rol="ADMINISTRADOR", activo=True))
         session.commit()
     response = client.post("/api/auth/login", json={"correo": email, "password": PG_PASSWORD})
@@ -101,7 +161,7 @@ def test_alembic_initialization_is_complete_and_repeatable(engine):
     with engine.begin() as connection:
         config.attributes["connection"] = connection
         command.upgrade(config, "head")
-        assert MigrationContext.configure(connection).get_current_revision() == "483ae36e6bae"
+        assert MigrationContext.configure(connection).get_current_revision() == ScriptDirectory.from_config(config).get_current_head()
 
 
 def test_upgrade_preserves_accounts_hashes_products_and_live_sessions(factory):
@@ -392,6 +452,8 @@ def test_cu01_http_real_staff_roles_and_customer_two_stores(engine, factory):
         second = Empresa(slug=slug_b, nombre="Tienda HTTP B", activo=True)
         db.add_all([first, second])
         db.flush()
+        activate_postgres_test_subscription(db, first.id)
+        activate_postgres_test_subscription(db, second.id)
         own = Sucursal(empresa_id=first.id, codigo="CENTRO", nombre="Sucursal HTTP Centro", activo=True)
         other = Sucursal(empresa_id=first.id, codigo="NORTE", nombre="Sucursal HTTP Norte", activo=True)
         db.add_all([own, other])
@@ -685,3 +747,203 @@ def test_cu02_unicode_role_key_can_expand_without_truncating_valid_names(client,
     assert created.json()["nombre"] == name
     duplicate = client.post("/api/admin/roles", headers=headers, json={"nombre": name, "permisos": []})
     assert duplicate.status_code == 409
+
+
+def test_ai_reports_and_predictions_use_postgres_with_tenant_filters(client, factory):
+    run_ai_reports_and_predictions_postgres(client, factory)
+
+
+def test_cu22_demo_history_is_repeatable_and_preserves_postgres_data(client, factory):
+    from scripts.seed_analytics_history import fingerprints, seed_history
+    from scripts.seed_demo import seed_data
+
+    # Instancia temporal del runner; jamás conecta a las bases de la laptop.
+    with factory.begin() as db:
+        seed_data(db, PG_PASSWORD)
+    reference = datetime.now(timezone.utc).date()
+    with factory.begin() as db:
+        before = fingerprints(db)
+        assert seed_history(db, reference)['creadas'] == 126
+        after = fingerprints(db)
+        for table, rows in before.items():
+            assert not rows - after[table]
+            if table not in {'compras_digitales', 'compras_digitales_lineas'}:
+                assert rows == after[table]
+        assert seed_history(db, reference)['creadas'] == 0
+        assert fingerprints(db) == after
+
+    signed = client.post('/api/auth/login', json={'correo': 'admin.urbana@vestinova.test', 'password': PG_PASSWORD})
+    assert signed.status_code == 200
+    headers = {'Authorization': 'Bearer ' + signed.json()['access_token']}
+    company = client.get('/api/empresas', headers=headers).json()[0]['id']
+    headers['X-Empresa-Id'] = str(company)
+    for analysis in ('ambos', 'prediccion', 'agrupaciones'):
+        response = client.post('/api/admin/dashboard-predictivo', headers=headers, json={'analisis': analysis})
+        assert response.status_code == 200, response.text
+        result = response.json()
+        assert result['estado'] == 'resultados' and len(result['filas']) == 3
+        assert result['origen_datos'] == {'demostracion': True, 'compras_demo': 126, 'compras_operativas': 0}
+        assert sum(row['stock_disponible_real'] for row in result['filas']) == 51
+    with factory() as db:
+        branch = db.scalar(select(Sucursal.id).where(Sucursal.empresa_id == company, Sucursal.codigo == 'CENTRO'))
+    response = client.post('/api/admin/dashboard-predictivo', headers=headers, json={'filtros': {'sucursal_id': branch}})
+    assert response.status_code == 200 and response.json()['origen_datos']['compras_demo'] == 42
+    assert client.post('/api/auth/logout', headers=headers).status_code == 204
+
+
+def test_cu18_configuration_has_real_postgres_tenant_fk_and_preserves_catalog(client, factory):
+    from app.vestidor_virtual.models import ConfiguracionVestidor
+    headers=administrator_credentials(client,factory)
+    product=client.post('/api/admin/productos',headers=headers,json={'nombre':'Polera masculina PostgreSQL','slug':'vestidor-'+uuid4().hex,'precio':'119.00'}).json()
+    variant=client.post(f"/api/admin/productos/{product['id']}/variantes",headers=headers,json={'talla':'M','color':'Gris'}).json()
+    with factory() as db:
+        company=db.get(Producto,product['id']).empresa_id
+        store=db.get(Empresa,company).slug
+        stocks=db.scalar(select(func.count()).select_from(Existencia))
+        movements=db.scalar(select(func.count()).select_from(MovimientoInventario))
+    public=f"/api/catalogo/productos/{product['slug']}"
+    original=client.get(public).json()
+    url=f"/api/admin/productos/{product['id']}/variantes/{variant['id']}/vestidor"
+    payload={'recurso_url':'/api/vestidor/recursos/polera-gris.png','tipo_prenda':'POLERA'}
+    assert client.put(url,headers=headers,json=payload).status_code==200
+    response=client.get(public+'/vestidor',params={'tienda':store})
+    assert response.status_code==200 and response.json()['compatible'] is True
+    assert response.json()['variantes'][0]['configuracion']['demostracion'] is True
+    assert client.get(public).json()==original
+    other_headers=administrator_credentials(client,factory)
+    other_company=client.get('/api/empresas',headers=other_headers).json()[0]['id']
+    assert client.put(url,headers=other_headers,json=payload).status_code==404
+    with factory() as db:
+        db.get(ConfiguracionVestidor,variant['id']).empresa_id=other_company
+        with pytest.raises(IntegrityError):db.flush()
+        db.rollback()
+        assert db.scalar(select(func.count()).select_from(Existencia))==stocks
+        assert db.scalar(select(func.count()).select_from(MovimientoInventario))==movements
+
+
+def test_cu18_demo_does_not_break_cu22_history_or_stock_in_postgres(client,factory):
+    from scripts.seed_demo import seed_data
+    from scripts.seed_tryon_demo import seed
+    from scripts.seed_analytics_history import seed_history, fingerprints
+    with factory.begin() as db:
+        seed_data(db,PG_PASSWORD)
+        seed_history(db,datetime.now(timezone.utc).date())
+        before=fingerprints(db)
+        assert seed(db)==5
+        after=fingerprints(db)
+        for name,rows in before.items():
+            assert not rows-after[name]
+            if name not in {'productos','variantes_producto','configuraciones_vestidor'}:assert rows==after[name]
+        assert seed(db)==0 and fingerprints(db)==after
+    signed=client.post('/api/auth/login',json={'correo':'admin.urbana@vestinova.test','password':PG_PASSWORD})
+    headers={'Authorization':'Bearer '+signed.json()['access_token']}
+    company=client.get('/api/empresas',headers=headers).json()[0]['id'];headers['X-Empresa-Id']=str(company)
+    dashboard=client.post('/api/admin/dashboard-predictivo',headers=headers,json={})
+    assert dashboard.status_code==200 and len(dashboard.json()['filas'])==3
+    assert sum(row['stock_disponible_real'] for row in dashboard.json()['filas'])==51
+    result=client.get('/api/catalogo/productos/demo-vestidor-polera-varon/vestidor',params={'tienda':'demo-moda-urbana'})
+    assert result.status_code==200 and len(result.json()['variantes'])==3
+    assert client.post('/api/auth/logout',headers=headers).status_code==204
+
+
+def test_integrated_web_cash_reservation_handover_and_ai_report_in_postgres(client, factory):
+    """Flujo real PostgreSQL; sin Stripe, Gemini ni respuestas HTTP simuladas."""
+    from scripts.seed_demo import seed_data
+    from app.analitica_ia.queries import build_report
+    from app.analitica_ia.schemas import Filters
+    from app.tenancy import require_tenant
+
+    with factory.begin() as db:
+        seed_data(db, PG_PASSWORD)
+        company = db.scalar(select(Empresa.id).where(Empresa.slug == 'demo-moda-urbana'))
+        branch = db.scalar(select(Sucursal.id).where(Sucursal.empresa_id == company, Sucursal.codigo == 'CENTRO'))
+        product = db.scalar(select(Producto).where(Producto.empresa_id == company, Producto.slug == 'demo-urbana-polera-oversize'))
+        variant = db.scalar(select(VarianteProducto.id).where(VarianteProducto.producto_id == product.id))
+        product_id = product.id
+        before = db.get(Existencia, (company, branch, variant)).cantidad
+        admin = db.scalar(select(Administrador).where(Administrador.correo == 'admin.urbana@vestinova.test'))
+        context = require_tenant(empresa_id=company, usuario=admin, db=db)
+        filters = Filters(sucursal_id=branch, producto_id=product_id)
+        units_before = build_report(db, context, 'prendas_vendidas', filters)['totales']['unidades']
+
+    signed = client.post('/api/auth/login', json={'correo': 'cajero.urbana@vestinova.test', 'password': PG_PASSWORD})
+    assert signed.status_code == 200
+    cashier = {'Authorization': 'Bearer ' + signed.json()['access_token'], 'X-Empresa-Id': str(company)}
+    signed = client.post('/api/tiendas/demo-moda-urbana/cuenta/login',
+                         json={'correo': 'cliente.urbana@vestinova.test', 'password': PG_PASSWORD})
+    assert signed.status_code == 200
+    customer = {'Authorization': 'Bearer ' + signed.json()['access_token']}
+    catalog = client.get('/api/admin/caja/catalogo', headers=cashier, params={'sucursal_id': branch})
+    assert catalog.status_code == 200
+    price = next(row['precio_unitario'] for row in catalog.json()['items'] if row['variante_id'] == variant)
+    sale = {'id': str(uuid4()), 'sucursal_id': branch, 'efectivo': price,
+            'lineas': [{'variante_id': variant, 'cantidad': 1, 'precio_unitario': price}]}
+    first = client.post('/api/admin/caja/ventas', headers=cashier, json=sale)
+    assert first.status_code == 201
+    repeated = client.post('/api/admin/caja/ventas', headers=cashier, json=sale)
+    assert repeated.status_code == 200 and repeated.json()['id'] == first.json()['id']
+
+    reservation_path = '/api/tiendas/demo-moda-urbana/reservas'
+    reservation = {'id': str(uuid4()), 'sucursal_id': branch,
+                   'lineas': [{'variante_id': variant, 'cantidad': 1}]}
+    result = client.post(reservation_path, headers=customer, json=reservation)
+    assert result.status_code == 201 and result.json()['estado'] == 'CONFIRMADA'
+    repeated_reservation = client.post(reservation_path, headers=customer, json=reservation)
+    assert repeated_reservation.status_code == 201  # Contrato CU10: también responde 201 al repetir UUID.
+    assert repeated_reservation.json()['id'] == result.json()['id']
+    with factory() as db:
+        stock = db.get(Existencia, (company, branch, variant))
+        assert stock.cantidad == before - 1 and stock.cantidad_comprometida == 1
+    cancelled = client.post(reservation_path + '/' + reservation['id'] + '/cancelar', headers=customer)
+    assert cancelled.status_code == 200 and cancelled.json()['estado'] == 'CANCELADA'
+    reservation['id'] = str(uuid4())
+    assert client.post(reservation_path, headers=customer, json=reservation).status_code == 201
+    delivery_path = '/api/admin/atencion-reservas/' + reservation['id'] + '/entregar'
+    proof = {'identidad_verificada': True, 'comprobacion': 'Prueba integrada PostgreSQL; identidad comprobada'}
+    delivered = client.post(delivery_path, headers=cashier, json=proof)
+    assert delivered.status_code == 200 and delivered.json()['estado'] == 'ATENDIDA'
+    assert client.post(delivery_path, headers=cashier, json=proof).status_code == 200
+    with factory() as db:
+        stock = db.get(Existencia, (company, branch, variant))
+        assert stock.cantidad == before - 2 and stock.cantidad_comprometida == 0
+        admin = db.scalar(select(Administrador).where(Administrador.correo == 'admin.urbana@vestinova.test'))
+        context = require_tenant(empresa_id=company, usuario=admin, db=db)
+        report = build_report(db, context, 'prendas_vendidas', filters)
+        assert report['totales']['unidades'] == units_before + 1
+    assert client.post('/api/auth/logout', headers=cashier).status_code == 204
+    assert client.post('/api/tiendas/demo-moda-urbana/cuenta/logout', headers=customer).status_code == 204
+
+
+def test_uploaded_garment_resource_publishes_with_real_postgres_without_changing_stock(client, factory, monkeypatch, tmp_path):
+    from io import BytesIO
+    from PIL import Image, ImageDraw
+    from app.vestidor_virtual import resources
+    monkeypatch.setattr(resources, 'STORAGE_ROOT', tmp_path / 'vestidor')
+    headers = administrator_credentials(client, factory)
+    product = client.post('/api/admin/productos', headers=headers,
+                          json={'nombre':'Camisa de prueba de recorte','precio':'129.00'}).json()
+    variant = client.post(f"/api/admin/productos/{product['id']}/variantes", headers=headers,
+                          json={'talla':'M','color':'Celeste'}).json()
+    image = Image.new('RGBA', (120, 180))
+    ImageDraw.Draw(image).rectangle((20, 15, 100, 165), fill=(80, 120, 180, 255))
+    png = BytesIO(); image.save(png, format='PNG')
+    path = f"/api/admin/productos/{product['id']}/variantes/{variant['id']}/vestidor"
+    with factory() as db:
+        stock_before = db.scalar(select(func.count()).select_from(Existencia))
+        moves_before = db.scalar(select(func.count()).select_from(MovimientoInventario))
+    uploaded = client.put(path + '/recurso', headers={**headers,'Content-Type':'image/png'}, content=png.getvalue())
+    assert uploaded.status_code == 200
+    url = uploaded.json()['recurso_url']
+    assert client.get(url).status_code == 404
+    from tests.test_virtual_fitting import ANCHORS
+    published = client.put(path, headers=headers, json={'recurso_url':url,'tipo_prenda':'CAMISA','anclajes':ANCHORS})
+    assert published.status_code == 200
+    assert client.get(url).content == png.getvalue()
+    assert client.get(path,headers=headers).json()['configuracion']['anclajes'] == ANCHORS
+    from app.vestidor_virtual.models import ConfiguracionVestidor
+    with factory() as db:
+        assert db.get(ConfiguracionVestidor,variant['id']).anclajes == ANCHORS
+        assert db.scalar(select(func.count()).select_from(Existencia)) == stock_before
+        assert db.scalar(select(func.count()).select_from(MovimientoInventario)) == moves_before
+    assert client.put(path, headers=headers, json={'recurso_url':url,'tipo_prenda':'CAMISA','activo':False}).status_code == 200
+    assert client.get(url).status_code == 404

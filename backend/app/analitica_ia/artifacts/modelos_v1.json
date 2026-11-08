@@ -1,0 +1,164 @@
+{
+  "version": "vestinova-sintetico-v1",
+  "dataset": "escenarios-prendas-sinteticos-v1",
+  "origen": "sintetico",
+  "dataset_sha256": "921b01b4a995822303e4eaed57f89bd9be394045ec80d23437455ccd60f4153e",
+  "semilla": 20261107,
+  "muestras": 3000,
+  "entrenamiento": 2400,
+  "evaluacion": 600,
+  "division": "80/20 aleatoria reproducible de escenarios independientes; no es validación temporal real",
+  "scikit_learn": "1.9.1",
+  "features": [
+    "unidades_7d",
+    "unidades_previas_7d",
+    "precio_bob",
+    "stock_disponible"
+  ],
+  "habilitado": true,
+  "metricas": {
+    "mae": 2.366578577121937,
+    "rmse": 2.949169488617423,
+    "r2": 0.9906081554026924,
+    "silhouette": 0.6160212443172933,
+    "inercia_entrenamiento": 905.2363083067042
+  },
+  "supervisado": {
+    "nombre": "Ridge",
+    "objetivo": "demanda estimada de unidades en próximos 7 días",
+    "media": [
+      35.65802741666671,
+      35.369134958333305,
+      161.5812380000001,
+      42.16787141666668
+    ],
+    "escala": [
+      32.107464026224875,
+      32.77396044851776,
+      105.56143510111897,
+      33.966673868397706
+    ],
+    "coeficientes": [
+      22.10966215356865,
+      10.08822689869996,
+      -0.4579558335737678,
+      1.059928454761122
+    ],
+    "intercepto": 36.08805137500002
+  },
+  "no_supervisado": {
+    "nombre": "KMeans",
+    "features_indexes": [
+      0,
+      2,
+      3
+    ],
+    "media": [
+      35.65802741666666,
+      161.58123799999998,
+      42.167871416666664
+    ],
+    "escala": [
+      32.10746402622486,
+      105.5614351011189,
+      33.966673868397706
+    ],
+    "centroides": [
+      [
+        1.3056310675794385,
+        1.239395262521589,
+        -0.9327552666525979
+      ],
+      [
+        -0.3432939159663369,
+        -0.3177495051099986,
+        -0.29323612802919863
+      ],
+      [
+        -0.9909703342921682,
+        -0.9490541675078659,
+        1.2615386124520547
+      ]
+    ],
+    "etiquetas": [
+      "Rotación alta",
+      "Rotación media",
+      "Rotación baja"
+    ]
+  },
+  "rangos": [
+    [
+      0.0022,
+      99.984
+    ],
+    [
+      0.002,
+      127.7181
+    ],
+    [
+      30.0039,
+      399.7285
+    ],
+    [
+      0.0139,
+      119.6185
+    ]
+  ],
+  "ejemplos_sinteticos": [
+    {
+      "entrada": [
+        23.0914,
+        24.075,
+        106.1983,
+        38.9035
+      ],
+      "objetivo_sintetico": 21.1038,
+      "estimacion": 24.096420058528988
+    },
+    {
+      "entrada": [
+        23.6085,
+        24.1451,
+        143.3731,
+        19.0536
+      ],
+      "objetivo_sintetico": 28.9283,
+      "estimacion": 23.693390050213726
+    },
+    {
+      "entrada": [
+        2.9118,
+        3.5988,
+        69.144,
+        53.5542
+      ],
+      "objetivo_sintetico": 2.7641,
+      "estimacion": 4.515558026532144
+    },
+    {
+      "entrada": [
+        89.8078,
+        108.6073,
+        267.5129,
+        7.0637
+      ],
+      "objetivo_sintetico": 95.7979,
+      "estimacion": 94.36498390974131
+    },
+    {
+      "entrada": [
+        20.3159,
+        22.6765,
+        118.0705,
+        34.1788
+      ],
+      "objetivo_sintetico": 19.9732,
+      "estimacion": 21.55575628128115
+    }
+  ],
+  "limitaciones": [
+    "Las métricas solo miden escenarios sintéticos; no acreditan precisión comercial.",
+    "No modela promociones, estacionalidad ni causas de demanda. No garantiza ventas ni existencias.",
+    "No se entrena con datos de otras empresas ni se escriben operaciones comerciales."
+  ]
+}

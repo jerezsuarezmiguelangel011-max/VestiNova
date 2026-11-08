@@ -92,10 +92,10 @@ export function copyPublicProduct(value: unknown): CatalogProduct {
     throw new Error('Respuesta de catálogo inválida.');
   }
   if (precioPromocional !== null && (typeof precioPromocional !== 'string' || !/^\d{1,8}\.\d{2}$/.test(precioPromocional) || Number(precioPromocional) >= Number(precio))) {
-    throw new Error('Respuesta de catÃ¡logo invÃ¡lida.');
+    throw new Error('Respuesta de catálogo inválida.');
   }
   if (promocionNombre !== null && (typeof promocionNombre !== 'string' || promocionNombre.length > 120 || !promocionNombre.trim())) {
-    throw new Error('Respuesta de catÃ¡logo invÃ¡lida.');
+    throw new Error('Respuesta de catálogo inválida.');
   }
   if (image !== null) {
     if (typeof image !== 'string' || image.length > 2048) throw new Error('Respuesta de catálogo inválida.');

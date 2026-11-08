@@ -1,3 +1,5 @@
+import java.security.MessageDigest
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -42,3 +44,22 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+    implementation("com.google.mediapipe:tasks-vision:1.2.2")
+    implementation("androidx.camera:camera-core:1.6.2")
+    implementation("androidx.camera:camera-camera2:1.6.2")
+    implementation("androidx.camera:camera-lifecycle:1.6.2")
+}
+
+val verifyPoseModel by tasks.registering {
+    val model = layout.projectDirectory.file("src/main/assets/pose_landmarker_lite.task")
+    inputs.file(model)
+    doLast {
+        val bytes = model.asFile.readBytes()
+        val hash = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+        check(hash == "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a") { "El modelo corporal no coincide con la versión verificada." }
+    }
+}
+tasks.named("preBuild").configure { dependsOn(verifyPoseModel) }

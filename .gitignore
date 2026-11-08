@@ -78,12 +78,15 @@ app.*.map.json
 
 # Ejecucion y editores
 .runtime/
+/backend/storage/
 /docs/_local/
 *.log
 .DS_Store
 Thumbs.db
 .idea/
-.vscode/
+.vscode/*
+!.vscode/settings.json
+*.code-workspace
 
 # Se versionan migraciones, requirements, package-lock.json y pubspec.lock.
 
@@ -95,4 +98,6 @@ Thumbs.db
 !/docs/BASE_BACKEND_EMPRESAS_INVENTARIO.md
 !/docs/CONTRATO_DESCARGA_MOVIL.md
 !/docs/CU02_USUARIOS_ROLES_PERMISOS.md
+!/docs/CU21_CU22_IA.md
+!/docs/CU18_VESTIDOR.md
 /mobile/ios/Runner/Assets.xcassets/LaunchImage.imageset/README.md

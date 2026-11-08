@@ -65,7 +65,7 @@ def test_staff_actor_context_uses_database_membership_and_only_authorized_active
                         "descarga.consultar", "promociones.consultar", "postventa.consultar"}
     role_permissions = {
         "ENCARGADO_SUCURSAL": {"abastecimiento.consultar", "abastecimiento.gestionar", "postventa.gestionar",
-                                "inventario.ajustar", "reportes.consultar"},
+                                "inventario.ajustar", "reportes.consultar", "reportes.ia.consultar"},
         "CAJERO": {"postventa.gestionar"},
         "OPERADOR": set(),
     }

@@ -8,6 +8,8 @@ from app.models import MembresiaEmpresa, PermisoRol, RolEmpresa
 
 
 PERMISSIONS = (
+    ("reportes.ia.consultar", "Generar reportes con IA", "Consultar reportes autorizados; requiere plan Profesional vigente.", ("sucursales.consultar",)),
+    ("analitica.consultar", "Consultar dashboard predictivo", "Consultar modelos evaluados; reservado al Administrador de empresa.", ("sucursales.consultar",)),
     ("catalogo.consultar", "Consultar catálogo", "Consultar prendas y sus variantes.", ()),
     ("catalogo.gestionar", "Gestionar catálogo", "Registrar y editar prendas y variantes.", ("catalogo.consultar",)),
     ("sucursales.consultar", "Consultar sucursales", "Consultar las sucursales autorizadas.", ()),
@@ -37,7 +39,7 @@ PERMISSION_REQUIREMENTS = {code: frozenset(required) for code, _, _, required in
 READ_PERMISSIONS = frozenset({"catalogo.consultar", "sucursales.consultar", "inventario.consultar", "descarga.consultar", "promociones.consultar", "postventa.consultar"})
 SYSTEM_ROLES = {
     "ADMINISTRADOR": ("Administrador de empresa", "Administración completa de la empresa.", PERMISSION_CODES),
-    "ENCARGADO_SUCURSAL": ("Encargado de sucursal", "Gestión de abastecimiento y consulta de información en sucursales asignadas.", READ_PERMISSIONS | {"abastecimiento.consultar", "abastecimiento.gestionar", "postventa.gestionar", "inventario.ajustar", "reportes.consultar"}),
+    "ENCARGADO_SUCURSAL": ("Encargado de sucursal", "Gestión de abastecimiento y consulta de información en sucursales asignadas.", READ_PERMISSIONS | {"abastecimiento.consultar", "abastecimiento.gestionar", "postventa.gestionar", "inventario.ajustar", "reportes.consultar", "reportes.ia.consultar"}),
     "CAJERO": ("Cajero", "Consulta de información en sucursales asignadas.", READ_PERMISSIONS | {"postventa.gestionar"}),
     "OPERADOR": ("Operador", "Perfil histórico de consulta en sucursales asignadas.", READ_PERMISSIONS),
 }

@@ -67,17 +67,23 @@ class Company {
     required this.name,
     required this.slug,
     required this.role,
+    this.permissions,
   });
   factory Company.fromJson(Map<String, dynamic> data) => Company(
     id: data['id'] as int,
     name: data['nombre'] as String,
     slug: data['slug'] as String,
     role: data['rol'] as String,
+    permissions: (data['permisos'] as List<dynamic>?)?.cast<String>(),
   );
   final int id;
   final String name;
   final String slug;
   final String role;
+  final List<String>? permissions;
+  bool get canUseAIReports =>
+      permissions?.contains('reportes.ia.consultar') ??
+      (role == 'ADMINISTRADOR' || role == 'ENCARGADO_SUCURSAL');
   String get roleLabel => switch (role) {
     'ADMINISTRADOR' => 'Administrador de empresa',
     'ENCARGADO_SUCURSAL' => 'Encargado de sucursal',

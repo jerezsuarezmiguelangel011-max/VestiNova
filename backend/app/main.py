@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.db import build_engine, build_session_factory, get_db
+from app.analitica_ia.api import router as analytics_router
+from app.vestidor_virtual.api import router as tryon_router
 # Autenticacion y usuarios.
 from app.autenticacion_usuarios.auth import router as auth_router
 from app.autenticacion_usuarios.customer_auth import router as customer_auth_router
@@ -134,6 +136,8 @@ def create_app(settings: Settings | None = None, *, engine=None) -> FastAPI:
     app.include_router(auth_router)
     app.include_router(customer_auth_router)
     app.include_router(staff_router)
+    app.include_router(analytics_router)
+    app.include_router(tryon_router)
 
     # Organizacion empresarial.
     app.include_router(audit_router)

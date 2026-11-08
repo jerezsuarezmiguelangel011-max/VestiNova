@@ -104,6 +104,21 @@ describe('CU05: variantes por talla y color en la empresa autorizada', () => {
     expect(root().querySelector('input[formControlName="precio"]')).toBeNull();
   });
 
+  it('abre el vestidor de la variante con el token y empresa actuales y protege cambios sin guardar', async () => {
+    await setup([VARIANT]);
+    const button = root().querySelector('[aria-label="Configurar vestidor M VERDE"]') as HTMLButtonElement;
+    expect(button).not.toBeNull(); button.click(); fixture.detectChanges();
+    const request = http.expectOne('/api/admin/productos/7/variantes/31/vestidor');
+    expect(request.request.headers.get('Authorization')).toBe(`Bearer ${TOKEN}`);
+    expect(request.request.headers.get('X-Empresa-Id')).toBe('10');
+    request.flush({ configuracion: null }); fixture.detectChanges();
+    expect(root().querySelector('#tryon-file')).not.toBeNull();
+    component.tryonEditor!.form.markAsDirty(); vi.mocked(window.confirm).mockReturnValue(false);
+    expect(component.canLeave()).toBe(false);
+    TestBed.inject(CompanyService).select(OTHER_COMPANY.id); fixture.detectChanges();
+    expect(root().querySelector('#tryon-file')).toBeNull();
+  });
+
   it('registra, edita solo el campo cambiado y vuelve a consultar la variante guardada', async () => {
     await setup();
     fill('variant-size', ' m ');
