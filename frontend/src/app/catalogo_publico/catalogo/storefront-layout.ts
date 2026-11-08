@@ -23,6 +23,8 @@ interface StorefrontBranch { id: number; nombre: string; }
         <nav aria-label="Navegación de la tienda">
           <a [routerLink]="['/tienda',slug()]">Inicio</a>
           <a [routerLink]="['/tienda',slug(),'catalogo']">Catálogo</a>
+          <a [routerLink]="['/tienda',slug(),'recomendaciones']">Para ti</a>
+          <a [routerLink]="['/tienda',slug(),'deseos']">Mis deseos</a>
           <a [routerLink]="['/tienda', slug()]" fragment="storefront-offers">Promociones</a>
           <a routerLink="/catalogo/acciones/compra" [queryParams]="{ tienda: slug() }">Mi carrito</a>
           <a [routerLink]="['/tienda',slug(),'acceso']">Mi cuenta</a>
