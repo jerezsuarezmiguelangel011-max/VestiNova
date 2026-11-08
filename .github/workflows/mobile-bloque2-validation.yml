@@ -37,4 +37,4 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.lock.txt
       - run: python -m pip install -r requirements.lock.txt
-      - run: python -m pytest -q tests/test_cu09_mobile_deferred_contract.py tests/test_cu09_stripe_flujos_alternativos.py tests/test_cu10_reservas_online.py tests/test_cu25_valoraciones.py tests/test_public_availability.py
+      - run: python -m pytest -q tests/test_cu09_mobile_deferred_contract.py tests/test_cu09_mobile_offline_integration.py tests/test_cu09_stripe_flujos_alternativos.py tests/test_cu10_reservas_online.py tests/test_cu25_valoraciones.py tests/test_public_availability.py
