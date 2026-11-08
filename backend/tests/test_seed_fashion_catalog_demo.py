@@ -45,7 +45,7 @@ def _prepare_demo_companies(db):
 
 
 def test_catalogo_ampliado_por_empresa_es_repetible_y_conserva_stock(session_factory):
-    with session_factory().begin() as db:
+    with session_factory.begin() as db:
         _prepare_demo_companies(db)
         first = seed_catalog(db)
         assert len(first) == 2
@@ -88,7 +88,7 @@ def test_catalogo_ampliado_por_empresa_es_repetible_y_conserva_stock(session_fac
 
 
 def test_semilla_contiene_variedad_de_tallas_colores_y_sin_stock(session_factory):
-    with session_factory().begin() as db:
+    with session_factory.begin() as db:
         _prepare_demo_companies(db)
         seed_catalog(db)
         andina = db.scalar(select(Empresa).where(Empresa.slug == "demo-moda-andina"))
