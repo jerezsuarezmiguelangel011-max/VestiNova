@@ -13,6 +13,7 @@ export interface WishlistItem {
   precio_vigente: string | null;
   moneda: 'BOB';
   publicada: boolean;
+  disponibilidad: 'NO_VERIFICADA' | 'DISPONIBLE_REFERENCIAL' | 'AGOTADA' | 'DESPUBLICADA';
   creado_en: string;
 }
 
