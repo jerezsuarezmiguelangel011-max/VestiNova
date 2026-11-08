@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'auth/auth_api.dart';
@@ -5,6 +7,7 @@ import 'auth/session_controller.dart';
 import 'auth/session_store.dart';
 import 'config/api_config.dart';
 import 'commerce/purchase_background.dart';
+import 'commerce/native_push_service.dart';
 import 'screens/access_page.dart';
 import 'screens/account_page.dart';
 import 'storefront/storefront_shell.dart';
@@ -19,6 +22,9 @@ Future<void> main() async {
     await PurchaseBackground.initialize();
   } catch (_) {
     // El catálogo puede usarse aunque Android no registre trabajos en segundo plano.
+  }
+  if (NativePushService.configured) {
+    unawaited(NativePushService.initialize().catchError((Object _) {}));
   }
   try {
     final api = AuthApi(ApiConfig(ApiConfig.defaultBase));

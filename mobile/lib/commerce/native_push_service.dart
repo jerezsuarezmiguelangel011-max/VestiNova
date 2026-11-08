@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'mobile_commerce_api.dart';
+import 'purchase_notices.dart';
 
 /// Identificadores públicos del proyecto Firebase, nunca claves privadas.
 class NativePushService {
@@ -10,11 +13,43 @@ class NativePushService {
   static const sender = String.fromEnvironment('FIREBASE_SENDER_ID');
   static const project = String.fromEnvironment('FIREBASE_PROJECT_ID');
 
+  static StreamSubscription<RemoteMessage>? _foreground;
+
   static bool get configured =>
       appId.isNotEmpty &&
       apiKey.isNotEmpty &&
       sender.isNotEmpty &&
       project.isNotEmpty;
+
+  /// Mientras la app está visible Android no presenta automáticamente el
+  /// banner de mensajes FCM: mostrarlo como aviso local sin duplicarlo en
+  /// segundo plano, donde lo presenta el sistema.
+  static Future<void> initialize() async {
+    if (!configured) return;
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: apiKey,
+          appId: appId,
+          messagingSenderId: sender,
+          projectId: project,
+        ),
+      );
+    }
+    _foreground ??= FirebaseMessaging.onMessage.listen((message) async {
+      final push = message.notification;
+      if (push == null) return;
+      try {
+        await PurchaseNotices.remoteRestock(
+          message.messageId ?? DateTime.now().microsecondsSinceEpoch.toString(),
+          push.title ?? 'VestiNova · Aviso de reposición',
+          push.body ?? 'Hay una actualización de stock en tu tienda.',
+        );
+      } catch (_) {
+        // No bloquear las pantallas si Android deniega notificaciones.
+      }
+    });
+  }
 
   static Future<void> register({
     required MobileCommerceApi api,
@@ -26,16 +61,7 @@ class NativePushService {
         'Configura Firebase Cloud Messaging para Android antes de registrar el canal.',
       );
     }
-    if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(
-        options: const FirebaseOptions(
-          apiKey: apiKey,
-          appId: appId,
-          messagingSenderId: sender,
-          projectId: project,
-        ),
-      );
-    }
+    await initialize();
     final messaging = FirebaseMessaging.instance;
     final permission = await messaging.requestPermission(
       alert: true,

@@ -76,6 +76,12 @@ class PurchaseNotices {
     }
   }
 
+  static Future<void> remoteRestock(
+    String messageId, String title, String body,
+  ) async {
+    await _show(_id(messageId, 'fcm'), title, body);
+  }
+
   static Future<void> finalState(String uuid, String state) async {
     final message = outcome(state);
     if (message == null) return;
