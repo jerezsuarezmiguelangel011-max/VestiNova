@@ -224,6 +224,7 @@ def test_cu20_detalle_color_y_talla_en_comprobante(client, first_group, session_
     details = result.json()["ventas_por_prenda"]
     assert len(details) == 1
     assert details[0]["color"] == "Azul"
+    assert details[0]["categoria"] == "Poleras"
     assert details[0]["talla"] == "M"
     assert details[0]["unidades"] == 2
     assert details[0]["importe"] == "210.00"
