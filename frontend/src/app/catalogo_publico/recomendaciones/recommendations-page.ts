@@ -11,7 +11,7 @@ import { StorefrontContextService } from '../catalogo/storefront-context.service
   imports: [RouterLink, ReactiveFormsModule, DatePipe],
   template: `
     <section class="rec-page">
-      <a [routerLink]="['/tienda', tienda, 'catalogo']">← Volver al catálogo</a>
+      <a [routerLink]="['/tienda', tienda(), 'catalogo']">← Volver al catálogo</a>
       <p class="rec-tag">VestiNova · CU19</p>
       <h1>Prendas recomendadas para ti</h1>
       <p>Explora sugerencias basadas en características de prendas y tus preferencias.
@@ -52,7 +52,7 @@ import { StorefrontContextService } from '../catalogo/storefront-context.service
                 } @else {
                   <p class="rec-stock">Disponibilidad sin verificar por sucursal</p>
                 }
-                <a [routerLink]="['/tienda', tienda, 'prenda', item.slug]">Ver prenda y variantes</a>
+                <a [routerLink]="['/tienda', tienda(), 'prenda', item.slug]">Ver prenda y variantes</a>
               </div>
             </article>
           } @empty {
@@ -83,7 +83,7 @@ export class RecommendationsPage {
   private readonly route = inject(ActivatedRoute);
   private readonly context = inject(StorefrontContextService);
   private readonly destroyRef = inject(DestroyRef);
-  readonly tienda = this.route.parent?.snapshot.paramMap.get('tienda') ?? '';
+  readonly tienda = signal('');
   readonly reference = signal<string | null>(null);
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
@@ -95,6 +95,17 @@ export class RecommendationsPage {
   private sequence = 0;
 
   constructor() {
+    this.route.parent?.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
+      const slug = params.get('tienda') ?? '';
+      if (slug !== this.tienda()) {
+        this.sequence++;
+        this.tienda.set(slug);
+        this.result.set(null);
+        this.error.set(null);
+        this.loading.set(false);
+        this.load();
+      }
+    });
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
       const ref = params.get('producto_slug');
       this.reference.set(ref && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(ref) ? ref : null);
@@ -106,12 +117,13 @@ export class RecommendationsPage {
     this.load();
   }
   load(): void {
-    if (!this.tienda || this.loading()) return;
+    const tienda = this.tienda();
+    if (!tienda) return;
     const seq = ++this.sequence;
     this.loading.set(true);
     this.error.set(null);
     this.result.set(null);
-    this.api.list(this.tienda, {
+    this.api.list(tienda, {
       producto_slug: this.reference() ?? undefined,
       talla: this.form.controls.talla.value.trim() || undefined,
       color: this.form.controls.color.value.trim() || undefined,
