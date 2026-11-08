@@ -57,3 +57,87 @@ def test_inactive_branches_are_not_visible_in_availability(client, scope):
     assert response.status_code == 200
     data = client.get(f"/api/catalogo/productos/{a['slug']}/disponibilidad").json()
     assert [item["sucursal_id"] for item in data["items"]] == [scope.a1.id]
+
+
+def test_catalog_filters_net_stock_and_does_not_confuse_unknown_with_out_of_stock(
+    client, scope, session_factory,
+):
+    """CU08: filtrar antes de paginar, solo saldos conocidos y netos del tenant."""
+    from sqlalchemy import select
+    from app.models import Existencia
+
+    available = product(client, scope.ah, "Disponibilidad neta CU08")
+    variant_a = variant(client, scope.ah, available["id"])
+    depleted = product(client, scope.ah, "Stock comprometido CU08")
+    variant_d = variant(client, scope.ah, depleted["id"])
+    unknown = product(client, scope.ah, "Saldo desconocido CU08")
+    variant(client, scope.ah, unknown["id"])
+    foreign = product(client, scope.bh, "Stock de otra empresa CU08")
+    variant_f = variant(client, scope.bh, foreign["id"])
+
+    post_movement(client, scope.ah, movement(scope.a1, variant_a["id"], 4))
+    post_movement(client, scope.bh, movement(scope.b1, variant_f["id"], 5))
+    with session_factory() as db:
+        # Saldos conocidos cero; y la reserva compromete todas las unidades.
+        db.add(Existencia(
+            empresa_id=scope.a.id, sucursal_id=scope.a1.id,
+            variante_id=variant_d["id"], cantidad=2, cantidad_comprometida=2,
+        ))
+        db.commit()
+
+    url = "/api/catalogo/productos"
+    valid = client.get(url, params={
+        "tienda": scope.a.slug, "disponibilidad": "DISPONIBLE",
+        "limit": 1, "offset": 0,
+    })
+    assert valid.status_code == 200, valid.text
+    assert valid.json()["total"] == 1
+    assert [x["id"] for x in valid.json()["items"]] == [available["id"]]
+    assert client.get(url, params={
+        "tienda": scope.a.slug, "disponibilidad": "DISPONIBLE",
+        "limit": 1, "offset": 1,
+    }).json()["items"] == []
+
+    sold_out = client.get(url, params={
+        "tienda": scope.a.slug, "disponibilidad": "AGOTADO",
+    })
+    assert sold_out.status_code == 200, sold_out.text
+    assert [x["id"] for x in sold_out.json()["items"]] == [depleted["id"]]
+    assert unknown["id"] not in {x["id"] for x in sold_out.json()["items"]}
+    assert foreign["id"] not in {x["id"] for x in sold_out.json()["items"]}
+
+    # Restar una reserva compromete stock sin eliminarlo físicamente.
+    with session_factory() as db:
+        stock = db.scalar(select(Existencia).where(
+            Existencia.empresa_id == scope.a.id,
+            Existencia.variante_id == variant_a["id"],
+        ))
+        stock.cantidad_comprometida = stock.cantidad
+        db.commit()
+    empty = client.get(url, params={
+        "tienda": scope.a.slug, "disponibilidad": "DISPONIBLE",
+    })
+    assert empty.json()["total"] == 0
+    assert client.get(url, params={
+        "tienda": scope.a.slug, "disponibilidad": "AGOTADO",
+    }).json()["total"] == 2
+
+
+def test_availability_filter_uses_selected_variant_size_and_color(client, scope):
+    item = product(client, scope.ah, "Talla y color filtrados CU08")
+    variant_black = variant(client, scope.ah, item["id"], talla="M", color="Negro")
+    variant_blue = variant(client, scope.ah, item["id"], talla="L", color="Azul")
+    post_movement(client, scope.ah, movement(scope.a1, variant_blue["id"], 3))
+    base = {"tienda": scope.a.slug, "disponibilidad": "DISPONIBLE"}
+    assert client.get("/api/catalogo/productos", params={
+        **base, "talla": variant_blue["talla"], "color": variant_blue["color"],
+    }).json()["total"] == 1
+    assert client.get("/api/catalogo/productos", params={
+        **base, "talla": variant_black["talla"], "color": variant_black["color"],
+    }).json()["total"] == 0
+
+    # El filtro solo admite valores expresamente definidos.
+    invalid = client.get("/api/catalogo/productos", params={
+        **base, "disponibilidad": "DISPONIBLE_INVENTADA",
+    })
+    assert invalid.status_code == 422
