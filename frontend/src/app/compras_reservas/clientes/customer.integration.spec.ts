@@ -150,4 +150,45 @@ describe('Recorrido web CU01 del cliente por tienda', () => {
     expect(root().textContent).toContain('Tienda B');
     expect(TestBed.inject(CustomerAuthService).customer()).toBeNull();
   });
+
+  it('CU10: vuelve al borrador después del login sin enviar la reserva automáticamente', async () => {
+    await setup();
+    const navigation = harness.navigateByUrl('/tienda/tienda-a/acceso?continuar=reserva&producto=camisa-de-lino');
+    (await request('/api/tiendas/tienda-a')).flush(STORE);
+    await navigation; await stable();
+
+    expect(root().textContent).toContain('Continuar con mi reserva');
+    expect(root().textContent).toContain('no se enviará');
+    const nextRoute = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    fill('#customer-email', CUSTOMER.correo);
+    fill('#customer-password', 'contraseña-cliente');
+    submit();
+    (await request('/api/tiendas/tienda-a/cuenta/login')).flush(RESPONSE);
+    await stable();
+
+    expect(nextRoute).toHaveBeenCalledWith(['/catalogo/acciones/reserva'], {
+      queryParams: { tienda: STORE.slug, slug: 'camisa-de-lino', acceso: 'reserva' },
+    });
+    http.expectNone(req => req.method === 'POST' && req.url.endsWith('/reservas'));
+  });
+
+  it('CU10: una sesión activa mantiene la intención de volver a la reserva', async () => {
+    await setup();
+    TestBed.inject(CustomerAuthService).login(STORE.slug, {
+      correo: CUSTOMER.correo, password: 'contraseña-cliente',
+    }).subscribe();
+    (await request('/api/tiendas/tienda-a/cuenta/login')).flush(RESPONSE);
+    const nextRoute = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    const navigation = harness.navigateByUrl('/tienda/tienda-a/acceso?continuar=reserva&producto=camisa-de-lino');
+    (await request('/api/tiendas/tienda-a')).flush(STORE);
+    await navigation; await stable();
+
+    expect(nextRoute).toHaveBeenCalledWith(['/catalogo/acciones/reserva'], {
+      queryParams: { tienda: STORE.slug, slug: 'camisa-de-lino', acceso: 'reserva' },
+    });
+    expect(nextRoute).not.toHaveBeenCalledWith(['/tienda', STORE.slug, 'cuenta']);
+    http.expectNone(req => req.method === 'POST' && req.url.endsWith('/reservas'));
+  });
+
 });

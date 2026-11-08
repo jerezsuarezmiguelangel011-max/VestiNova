@@ -1,8 +1,8 @@
 <div class="workspace">
   <a href="#main-content" class="workspace__skip">Saltar al contenido</a>
   <aside class="rail" aria-label="Administración VestiNova">
-    <a routerLink="/admin/productos" class="rail__brand" aria-label="VestiNova · Productos"><span class="rail__seal" aria-hidden="true">VN</span><span>VestiNova</span></a>
-    <p class="rail__label">Administración</p>
+    <a routerLink="/admin" class="rail__brand" aria-label="VestiNova · Inicio administrativo"><span class="rail__seal" aria-hidden="true">VN</span><span>VestiNova</span></a>
+    <p class="rail__label">{{ companies.active()?.rol === 'CAJERO' ? 'Operaciones de caja' : 'Administración' }}</p>
     <nav class="rail__nav" aria-label="Navegación administrativa">
       @if (companies.canViewProducts()) { <a routerLink="/admin/productos" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m7 4 5 3 5-3 4 5-4 3v8H7v-8L3 9z" /></svg>
@@ -10,22 +10,31 @@
       </a> }
       @if (companies.active()?.rol === 'CAJERO' || companies.active()?.rol === 'ENCARGADO_SUCURSAL') {
         <a routerLink="/admin/caja" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Venta en caja · CU15</a>
+        <a routerLink="/admin/atencion-reservas" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Atender retiros · CU14</a>
       }
-      @if (companies.active()) { <a routerLink="/admin/catalogo-consulta" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Consultar catálogo de prendas</a> }
-      <a routerLink="/admin/inventario" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Gestionar inventario y ajustes</a>
+      @if (companies.active()?.rol === 'ENCARGADO_SUCURSAL') {
+        <a routerLink="/admin/conciliacion" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Conciliar conflictos · CU13</a>
+      }
+      @if (companies.hasPermission('catalogo.consultar')) { <a routerLink="/admin/catalogo-consulta" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Consultar catálogo · solo lectura</a> }
+      @if (companies.active()?.rol !== 'CAJERO' && companies.hasPermission('inventario.consultar')) {
+        <a routerLink="/admin/inventario" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">{{ companies.hasPermission('inventario.ajustar') ? 'Gestionar inventario y ajustes' : 'Consultar existencias · solo lectura' }}</a>
+      }
       @if (companies.canManage()) { <a routerLink="/admin/categorias" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Categorías · CU04</a> }
       @if (companies.canManageBranches()) { <a routerLink="/admin/sucursales" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Sucursales · CU03</a> }
       @if (companies.canViewUsers()) { <a routerLink="/admin/usuarios" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Personal · CU01</a> }
       @if (companies.canViewRoles()) { <a routerLink="/admin/roles" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Roles y permisos · CU01</a> }
       @if (companies.canViewAudit()) { <a routerLink="/admin/auditoria" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Bitácora · CU02</a> }
+      @if (['ADMINISTRADOR','ENCARGADO_SUCURSAL','CAJERO'].includes(companies.active()?.rol ?? '')) {
+        <a routerLink="/admin/reservas" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">{{ companies.active()?.rol === 'CAJERO' ? 'Registrar reservas · CU10' : 'Reservas de prendas · CU10' }}</a>
+      }
       @if (companies.hasPermission('postventa.consultar')) { <a routerLink="/admin/postventa" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Cambios y devoluciones · CU17</a> }
-      @if (companies.canViewPromotions()) { <a routerLink="/admin/promociones" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Promociones Â· CU05</a> }
-      @if (companies.canViewProcurement()) { <a routerLink="/admin/abastecimiento" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Abastecimiento Â· CU06</a> }
-      @if (companies.canViewPlan()) { <a routerLink="/admin/mi-plan" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Mi plan Â· CU12</a> }
+      @if (companies.canViewPromotions() && companies.active()?.rol !== 'CAJERO') { <a routerLink="/admin/promociones" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">{{ companies.canManagePromotions() ? 'Gestionar promociones' : 'Consultar promociones' }} · CU05</a> }
+      @if (companies.canViewProcurement()) { <a routerLink="/admin/abastecimiento" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Abastecimiento · CU06</a> }
+      @if (companies.canViewPlan()) { <a routerLink="/admin/mi-plan" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Mi plan · CU12</a> }
       <a routerLink="/admin/acceso" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Mi acceso</a>
       @if (auth.user()?.es_superadministrador) {
-        <a routerLink="/admin/plataforma/empresas" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Empresas SaaS Â· CU11</a>
-        <a routerLink="/admin/plataforma/planes" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Planes SaaS Â· CU12</a>
+        <a routerLink="/admin/plataforma/empresas" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Empresas SaaS · CU11</a>
+        <a routerLink="/admin/plataforma/planes" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Planes SaaS · CU12</a>
       }
     </nav>
     <div class="rail__session">

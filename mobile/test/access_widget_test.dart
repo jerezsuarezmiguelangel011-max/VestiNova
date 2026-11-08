@@ -118,7 +118,10 @@ void main() {
       await tapVisible(tester, find.text('Crear mi cuenta'));
       expect(find.text('Tu cuenta'), findsOneWidget);
       expect(find.text('Cliente · Tienda A'), findsOneWidget);
-      expect(find.byType(DropdownButtonFormField<int>), findsNothing);
+      // CU10 incorpora un selector de cantidad para clientes, que no debe
+      // confundirse con el selector administrativo de empresas.
+      expect(find.byType(DropdownButtonFormField<int>), findsOneWidget);
+      expect(find.text('Empresa autorizada'), findsNothing);
       expect(find.text('Empresa de trabajo'), findsNothing);
       expect(find.text('Sucursales autorizadas'), findsNothing);
       expect(tester.takeException(), isNull);

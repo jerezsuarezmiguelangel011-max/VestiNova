@@ -39,7 +39,7 @@ export class CompanyPage {
     if (!this.companies.select(Number(this.candidate()))) { this.error.set('Selecciona una empresa de la lista para continuar.'); return; }
     this.navigating.set(true);
     try {
-      if (!await this.router.navigate([this.companies.canViewProducts() ? '/admin/productos' : '/admin/acceso'])) this.error.set('La empresa está seleccionada. Intenta continuar nuevamente.');
+      if (!await this.router.navigate(['/admin'])) this.error.set('La empresa está seleccionada. Intenta continuar nuevamente.');
     } catch { this.error.set('No pudimos abrir tu espacio. Inténtalo nuevamente.'); }
     finally { this.navigating.set(false); }
   }

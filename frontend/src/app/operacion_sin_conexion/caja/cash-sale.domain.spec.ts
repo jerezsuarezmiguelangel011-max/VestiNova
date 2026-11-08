@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCents, moneyToCents, quoteCashSale } from './cash-sale.domain';
+import { formatCents, moneyToCents, normalizeCashReceived, quoteCashSale } from './cash-sale.domain';
 
 describe('CU15: cálculo de caja en bolivianos', () => {
   it('calcula cantidades, total, efectivo y cambio en centavos enteros', () => {
@@ -22,4 +22,26 @@ describe('CU15: cálculo de caja en bolivianos', () => {
     expect(moneyToCents('0.01')).toBe(1);
     expect(moneyToCents('0.10')).toBe(10);
   });
+  it('normaliza efectivo escrito sin decimales o con una sola cifra decimal', () => {
+    const cases: Array<[string, string]> = [
+      ['100', '100.00'], ['100.', '100.00'], ['100.5', '100.50'],
+      ['100.50', '100.50'], ['100,5', '100.50'], ['100,50', '100.50'],
+      [' 100 ', '100.00'], ['0', '0.00'], ['0.05', '0.05'],
+    ];
+    for (const [entry, expected] of cases) {
+      expect(normalizeCashReceived(entry)).toBe(expected);
+      expect(moneyToCents(normalizeCashReceived(entry)!)).not.toBeNull();
+    }
+    expect(moneyToCents('100')).toBeNull(); // Precios centrales continúan estrictos.
+    expect(moneyToCents(normalizeCashReceived('100')!)).toBe(10000);
+    expect(formatCents(10000 - 8010)).toBe('19.90');
+  });
+
+  it('rechaza efectivo mal formado, cantidades negativas y fracciones de centavo', () => {
+    for (const entry of ['', ' ', '-1', '100.999', '100,999', '1,234.00',
+      '1e3', 'NaN', '100000000', '1.2.3', '00', '01', '+100']) {
+      expect(normalizeCashReceived(entry)).toBeNull();
+    }
+  });
+
 });

@@ -1,0 +1,90 @@
+<section class="vn-reservation-staff">
+  <header class="vn-reservation-staff__header">
+    <div>
+      <p class="vn-reservation-staff__eyebrow">VESTINOVA · CU10</p>
+      <h1>Reservas de prendas</h1>
+      <p>Registra reservas para clientes de tu empresa. Las unidades se comprometen, pero no se descuentan del stock físico hasta su atención.</p>
+    </div>
+  </header>
+
+  @if (error(); as message) { <p class="vn-reservation-staff__error" role="alert">{{ message }}</p> }
+  @if (notice(); as message) { <p class="vn-reservation-staff__notice" role="status">{{ message }}</p> }
+
+  <section class="vn-reservation-staff__card">
+    <h2>Nueva reserva</h2>
+    <p>Utiliza el identificador del cliente registrado en esta empresa. El backend verifica su pertenencia y las existencias de la sucursal.</p>
+    <form [formGroup]="form" (ngSubmit)="create()" class="vn-reservation-staff__form">
+      <label for="res-cliente">Identificador del cliente</label>
+      <input id="res-cliente" type="number" min="1" step="1" formControlName="cliente_id" required />
+
+      <label for="res-sucursal">Sucursal autorizada</label>
+      <select id="res-sucursal" formControlName="sucursal_id" required>
+        <option [ngValue]="null">Selecciona una sucursal</option>
+        @for (branch of branches(); track branch.id) {
+          <option [ngValue]="branch.id">{{ branch.nombre }}</option>
+        }
+      </select>
+
+      <label for="res-variante">Prenda y variante</label>
+      <select id="res-variante" formControlName="variante_id" required>
+        <option [ngValue]="null">Selecciona una variante</option>
+        @for (variant of variants(); track variant.id) {
+          <option [ngValue]="variant.id">{{ variant.producto_slug }} · {{ variant.talla }} / {{ variant.color }}</option>
+        }
+      </select>
+
+      <label for="res-cantidad">Cantidad</label>
+      <input id="res-cantidad" type="number" min="1" max="100" step="1" formControlName="cantidad" required />
+
+      <button type="button" class="vn-reservation-staff__secondary"
+        [disabled]="submitting() || selectedLines().length >= 30"
+        (click)="addLine()">Añadir variante</button>
+      @if (selectedLines().length > 0) {
+        <div class="vn-reservation-staff__lines" aria-label="Variantes de la reserva">
+          <h3>Variantes seleccionadas ({{ selectedLines().length }})</h3>
+          @for (line of selectedLines(); track line.id) {
+            <div class="vn-reservation-staff__line">
+              <span>{{ line.producto_slug }} · {{ line.talla }} / {{ line.color }} · {{ line.cantidad }} unidad(es)</span>
+              <button type="button" class="vn-reservation-staff__secondary"
+                [disabled]="submitting()" (click)="removeLine(line.id)">Quitar</button>
+            </div>
+          }
+        </div>
+      }
+      @if (policyHours(); as hours) {
+        <p>Vigencia configurada: <strong>{{ hours }} horas</strong> desde la confirmación central.</p>
+      } @else {
+        <p>El plazo de vencimiento se verificará en el servidor al confirmar.</p>
+      }
+      <p>Revisa cliente, sucursal y variantes. El registro solo se confirma si el servidor dispone de stock suficiente.</p>
+      <button type="submit" [disabled]="(form.invalid && selectedLines().length === 0) || submitting()">
+        {{ submitting() ? 'Registrando…' : 'Confirmar reserva' }}
+      </button>
+    </form>
+  </section>
+
+  <section class="vn-reservation-staff__card">
+    <div class="vn-reservation-staff__toolbar">
+      <h2>Reservas de mis sucursales</h2>
+      <button type="button" class="vn-reservation-staff__secondary" [disabled]="loading()" (click)="load()">Actualizar</button>
+    </div>
+    @if (loading()) { <p role="status">Cargando reservas…</p> }
+    @else if (reservations().length === 0) { <p>No se encontraron reservas para tus sucursales.</p> }
+    @else {
+      <div class="vn-reservation-staff__list">
+        @for (row of reservations(); track row.id) {
+          <article class="vn-reservation-staff__item">
+            <div>
+              <strong>{{ row.codigo }} · {{ row.estado }}</strong>
+              <p>Cliente #{{ row.cliente_id }} · Sucursal #{{ row.sucursal_id }}</p>
+              <p>Vence: {{ row.vence_en | date:'medium' }} · {{ row.lineas.length }} variante(s)</p>
+            </div>
+            @if (row.estado === 'CONFIRMADA') {
+              <button type="button" class="vn-reservation-staff__secondary" [disabled]="submitting()" (click)="cancel(row)">Cancelar</button>
+            }
+          </article>
+        }
+      </div>
+    }
+  </section>
+</section>

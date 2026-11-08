@@ -16,7 +16,7 @@ export const guestGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
   return auth.ensureSession().pipe(
-    map(user => user ? router.createUrlTree([user.es_superadministrador ? '/admin/plataforma' : '/admin/productos']) : true),
+    map(user => user ? router.createUrlTree([user.es_superadministrador ? '/admin/plataforma' : '/admin']) : true),
     catchError(() => of(true)),
   );
 };

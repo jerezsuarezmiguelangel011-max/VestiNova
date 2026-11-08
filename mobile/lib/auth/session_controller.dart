@@ -15,6 +15,7 @@ class SessionController extends ChangeNotifier {
   StaffContext? context;
   bool busy = false;
   bool restoring = true;
+  bool offlineMode = false;
   String? error;
   String? notice;
   SavedSession? _session;
@@ -24,6 +25,8 @@ class SessionController extends ChangeNotifier {
 
   bool get signedIn => account != null;
   bool get isCustomer => account is CustomerAccount;
+  /// Token en memoria: nunca se copia a SQLite ni a la cola offline.
+  String? get customerToken => isCustomer && _session?.customer == true ? _session?.token : null;
   bool get isSuperadministrator =>
       account is StaffAccount && (account as StaffAccount).superadministrator;
 
@@ -54,10 +57,12 @@ class SessionController extends ChangeNotifier {
     account = null;
     context = null;
     companies = const [];
+    offlineMode = false;
     error = null;
     _emit();
+    SavedSession? saved;
     try {
-      final saved = await store.read();
+      saved = await store.read();
       if (!_current(revision)) return;
       if (saved == null || saved.apiBase != api.config.base) {
         await _persist(revision, null);
@@ -74,6 +79,8 @@ class SessionController extends ChangeNotifier {
       restoring = false;
       if (restored is CustomerAccount) {
         customerStore = restored.store;
+        _session = saved.withCustomer(restored);
+        await _persist(revision, _session);
       } else {
         await _loadAccess(revision, saved.companyId);
       }
@@ -82,6 +89,20 @@ class SessionController extends ChangeNotifier {
       if (failure.invalidSession || failure.status == 404) {
         await _clear(revision);
         notice = 'La sesión ya no está disponible. Vuelve a iniciar sesión.';
+      } else if (saved != null && saved.customer && saved.cachedCustomer != null && _current(revision)) {
+        // Sin red: identidad previamente validada en almacenamiento seguro.
+        // Solo permite operaciones locales. El servidor reautoriza al sincronizar.
+        try {
+          final known = CustomerAccount.fromJson(saved.cachedCustomer!);
+          if (known.store.slug != saved.storeSlug) throw const FormatException('Tienda inválida.');
+          account = known;
+          customerStore = known.store;
+          offlineMode = true;
+          restoring = false;
+          notice = 'Sin conexión: identidad local previamente verificada. Las reservas siguen pendientes hasta su sincronización.';
+        } on Object {
+          error = failure.message;
+        }
       } else {
         error = failure.message;
       }
@@ -165,7 +186,7 @@ class SessionController extends ChangeNotifier {
         token: result.token,
         customer: true,
         storeSlug: store.slug,
-      );
+      ).withCustomer(result.account);
       await _persist(revision, saved);
       if (!_current(revision)) return;
       _session = saved;
@@ -231,6 +252,9 @@ class SessionController extends ChangeNotifier {
         if (_current(revision)) {
           account = current;
           customerStore = current.store;
+          offlineMode = false;
+          _session = saved.withCustomer(current);
+          await _persist(revision, _session);
         }
       } else {
         final current = await api.staffMe(saved.token);
@@ -257,11 +281,22 @@ class SessionController extends ChangeNotifier {
     }, authenticated: true);
   }
 
+  /// Cierre local cuando no hay red: borra credenciales del dispositivo sin
+  /// afirmar que el token fue revocado remotamente. Las solicitudes SQLite
+  /// permanecen conservadas y separadas por cliente.
+  Future<void> logoutLocal() async {
+    await _run((revision) async {
+      await _clear(revision);
+      notice = 'Sesión eliminada de este dispositivo. La revocación remota requiere conexión.';
+    }, authenticated: true);
+  }
+
   Future<void> _clear(int revision) async {
     await _persist(revision, null);
     if (!_current(revision)) return;
     _session = null;
     account = null;
+    offlineMode = false;
     context = null;
     companies = const [];
     customerStore = null;

@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRouteSnapshot, CanActivateFn, Router, RouterStateSnapshot, UrlTree, provideRouter } from '@angular/router';
 import { Observable, firstValueFrom, of } from 'rxjs';
 import { AuthService } from '../../autenticacion_usuarios/autenticacion/auth.service';
-import { companyAdminGuard, companyGuard } from './company.guards';
+import { adminHomeGuard, companyAdminGuard, companyGuard } from './company.guards';
 import { COMPANY_KEY } from './company.service';
 
 describe('Rutas empresariales y permisos de escritura', () => {
@@ -51,4 +51,26 @@ describe('Rutas empresariales y permisos de escritura', () => {
     http.expectOne('/api/empresas').flush({}, { status: 503, statusText: 'Unavailable' });
     expect(TestBed.inject(Router).serializeUrl(await result as UrlTree)).toBe('/admin/empresa');
   });
+  it.each([
+    ['CAJERO', '/admin/caja'],
+    ['ENCARGADO_SUCURSAL', '/admin/atencion-reservas'],
+    ['ADMINISTRADOR', '/admin/productos'],
+    ['OPERADOR', '/admin/productos'],
+  ] as const)('abre el inicio correcto para el rol %s', async (role, expected) => {
+    const result = run(adminHomeGuard);
+    http.expectOne('/api/empresas').flush([
+      { id: 2, nombre: 'Moda Andina', slug: 'demo-moda-andina', activo: true, rol: role },
+    ]);
+    expect(TestBed.inject(Router).serializeUrl(await result as UrlTree)).toBe(expected);
+  });
+
+  it('no inventa una empresa en el inicio cuando hay múltiples opciones', async () => {
+    const result = run(adminHomeGuard);
+    http.expectOne('/api/empresas').flush([
+      { id: 1, nombre: 'Moda Andina', slug: 'demo-moda-andina', activo: true, rol: 'CAJERO' },
+      { id: 2, nombre: 'Moda Urbana', slug: 'demo-moda-urbana', activo: true, rol: 'CAJERO' },
+    ]);
+    expect(TestBed.inject(Router).serializeUrl(await result as UrlTree)).toBe('/admin/empresa');
+  });
+
 });

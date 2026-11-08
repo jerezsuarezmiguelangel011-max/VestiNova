@@ -39,7 +39,7 @@ describe('Pantalla de acceso VestiNova', () => {
     expect((root.querySelector('button[type="submit"]') as HTMLButtonElement).disabled).toBe(true);
     expect(navigate).not.toHaveBeenCalled();
     response.next({ id: 1, nombre: 'Ana', correo: 'admin@vestinova.test', rol: 'ADMINISTRADOR' });
-    expect(navigate).toHaveBeenCalledWith('/admin/productos');
+    expect(navigate).toHaveBeenCalledWith('/admin');
   });
   it('muestra un error controlado y permite reintentar', async () => {
     const { component, fixture, root, response } = await setup();

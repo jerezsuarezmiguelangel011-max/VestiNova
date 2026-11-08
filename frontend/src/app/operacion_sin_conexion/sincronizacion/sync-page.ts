@@ -17,7 +17,7 @@ import { SyncService } from './sync.service';
       </header>
 
       <aside class="sync-scope" aria-label="Alcance de la sincronización">
-        Por ahora se actualiza únicamente el catálogo público. La sincronización de compras y reservas todavía no está disponible.
+        Este panel procesa actualizaciones pendientes del catálogo público. Las reservas CU10 se guardan y sincronizan desde «Preparar reserva» en la ficha de cada prenda. Las compras digitales no se confirman sin conexión.
       </aside>
 
       <div class="sync-actions">

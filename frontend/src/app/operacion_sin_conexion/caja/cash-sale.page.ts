@@ -1,160 +1,259 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { DatePipe, isPlatformBrowser } from '@angular/common';
+import { Component, DestroyRef, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { forkJoin } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
+import { AuthService } from '../../autenticacion_usuarios/autenticacion/auth.service';
 import { CompanyService } from '../../organizacion_empresarial/empresa/company.service';
 import { InventoryApiService, type InventoryBranch } from '../../inventario/inventory-api.service';
-import { ProductService } from '../../catalogo_abastecimiento/productos/product.service';
-import type { Product } from '../../catalogo_abastecimiento/productos/product.model';
-import { VariantService } from '../../catalogo_abastecimiento/productos/variant.service';
-import type { Variant } from '../../catalogo_abastecimiento/productos/variant.model';
-import { formatCents, quoteCashSale, type CashQuote } from './cash-sale.domain';
+import { CashSaleApi, type CashLine, type CashSnapshot, type CashVariant } from './cash-sale-api.service';
+import { CashSaleOfflineStore, type CashLocalSale } from './cash-sale-offline-store.service';
+import { CashSaleSyncService } from './cash-sale-sync.service';
+import { formatCents, moneyToCents, normalizeCashReceived } from './cash-sale.domain';
 
-export interface CashSalePreview {
-  id: string;
-  empresa_id: number;
-  sucursal_id: number;
-  producto_id: number;
-  variante_id: number;
-  cantidad: number;
-  precio_unitario: string;
-  total: string;
-  efectivo_propuesto: string;
-  cambio: string;
-  creado_en: string;
-  estado: 'BORRADOR_SIN_COBRO';
+interface SelectedCashLine extends CashLine {
+  nombre: string; talla: string; color: string;
 }
 
 @Component({
   selector: 'vn-cash-sale-page',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, DatePipe],
   templateUrl: './cash-sale.page.html',
   styleUrl: './cash-sale.page.css',
 })
 export class CashSalePage implements OnInit {
   readonly companies = inject(CompanyService);
+  readonly auth = inject(AuthService);
+  readonly sync = inject(CashSaleSyncService);
+  private readonly api = inject(CashSaleApi);
+  private readonly local = inject(CashSaleOfflineStore);
   private readonly inventory = inject(InventoryApiService);
-  private readonly productsApi = inject(ProductService);
-  private readonly variantApi = inject(VariantService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
   readonly branches = signal<InventoryBranch[]>([]);
-  readonly products = signal<Product[]>([]);
-  readonly variants = signal<Variant[]>([]);
+  readonly snapshot = signal<CashSnapshot | null>(null);
+  readonly localCopy = signal(false);
   readonly loading = signal(false);
-  readonly variantsLoading = signal(false);
+  readonly saving = signal(false);
   readonly error = signal<string | null>(null);
-  readonly draft = signal<CashSalePreview | null>(null);
-  readonly form = new FormGroup({
-    sucursal_id: new FormControl<number | null>(null, [Validators.required, Validators.min(1)]),
-    producto_id: new FormControl<number | null>(null, [Validators.required, Validators.min(1)]),
-    variante_id: new FormControl<number | null>(null, [Validators.required, Validators.min(1)]),
-    cantidad: new FormControl<number>(1, { nonNullable: true, validators: [Validators.required, Validators.min(1), Validators.max(100)] }),
-    efectivo: new FormControl<string>('0.00', { nonNullable: true, validators: [Validators.required, Validators.pattern(/^(?:0|[1-9]\d{0,7})\.\d{2}$/)] }),
-  });
-  readonly product = computed(() => this.products().find(p => p.id === this.form.controls.producto_id.value));
+  readonly notice = signal<string | null>(null);
+  readonly lines = signal<SelectedCashLine[]>([]);
+  readonly operations = signal<CashLocalSale[]>([]);
+  readonly chosenBranch = signal<number | null>(null);
   private revision = 0;
-  private variantsRequest = 0;
 
-  ngOnInit(): void {
+  readonly form = new FormGroup({
+    variante_id: new FormControl<number | null>(null, Validators.required),
+    cantidad: new FormControl(1, { nonNullable: true, validators: [Validators.required, Validators.min(1), Validators.max(100)] }),
+    cliente_id: new FormControl<number | null>(null),
+    efectivo: new FormControl('0.00', { nonNullable: true, validators: [Validators.required] }),
+    cobrado: new FormControl(false, { nonNullable: true, validators: Validators.requiredTrue }),
+    entregado_local: new FormControl(false, { nonNullable: true }),
+  });
+
+  constructor() {
     this.companies.changes$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
-      this.revision++;
-      this.variantsRequest++;
-      this.branches.set([]);
-      this.products.set([]);
-      this.variants.set([]);
-      this.draft.set(null);
-      this.form.reset({ sucursal_id: null, producto_id: null, variante_id: null, cantidad: 1, efectivo: '0.00' });
-      this.loading.set(false);
-      this.variantsLoading.set(false);
-      this.error.set(null);
-      this.load();
+      ++this.revision;
+      this.branches.set([]); this.snapshot.set(null); this.lines.set([]);
+      this.chosenBranch.set(null); this.operations.set([]);
+      this.localCopy.set(false); this.error.set(null); this.notice.set(null);
+      this.form.reset({ variante_id: null, cantidad: 1, cliente_id: null,
+        efectivo: '0.00', cobrado: false, entregado_local: false });
+      void this.load();
     });
-    this.load();
+    if (this.browser) {
+      const connected = () => { void this.synchronize(); };
+      window.addEventListener('online', connected);
+      this.destroyRef.onDestroy(() => window.removeEventListener('online', connected));
+    }
   }
+  ngOnInit(): void { void this.load(); }
 
-  load(): void {
-    if (!this.companies.active()) return;
-    const token = ++this.revision;
-    this.loading.set(true);
-    this.error.set(null);
-    forkJoin({
-      branches: this.inventory.branches(),
-      products: this.productsApi.list({ activo: true, limit: 100, offset: 0 }),
-    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: ({ branches, products }) => {
-        if (token !== this.revision) return;
-        this.branches.set(branches.filter(b => b.activo));
-        this.products.set(products.items.filter(p => p.activo));
-        this.loading.set(false);
-      },
-      error: () => {
-        if (token !== this.revision) return;
-        this.error.set('No fue posible consultar las sucursales o las prendas de tu empresa.');
-        this.loading.set(false);
-      },
-    });
-  }
-
-  chooseProduct(value: string): void {
-    const id = Number(value);
-    const token = ++this.variantsRequest;
-    this.variants.set([]);
-    this.draft.set(null);
-    this.form.controls.variante_id.setValue(null);
-    this.form.controls.producto_id.setValue(Number.isSafeInteger(id) && this.products().some(p => p.id === id) ? id : null);
-    const selected = this.form.controls.producto_id.value;
-    if (selected === null) { this.variantsLoading.set(false); return; }
-    this.variantsLoading.set(true);
-    this.variantApi.list(selected).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: variants => {
-        if (token !== this.variantsRequest) return;
-        this.variants.set(variants.filter(v => v.activo && v.producto_id === selected));
-        this.variantsLoading.set(false);
-      },
-      error: () => {
-        if (token !== this.variantsRequest) return;
-        this.error.set('No fue posible cargar las tallas y colores de esta prenda.');
-        this.variantsLoading.set(false);
-      },
-    });
-  }
-
-  quote(): CashQuote | null {
-    const product = this.products().find(p => p.id === this.form.controls.producto_id.value);
-    if (!product) return null;
-    return quoteCashSale(product.precio, this.form.controls.cantidad.value, this.form.controls.efectivo.value);
-  }
-
-  preview(): void {
-    this.error.set(null);
-    this.draft.set(null);
+  async load(): Promise<void> {
     const company = this.companies.active();
-    const values = this.form.getRawValue();
-    const product = this.products().find(p => p.id === values.producto_id);
-    const variant = this.variants().find(v => v.id === values.variante_id && v.producto_id === values.producto_id);
-    const branch = this.branches().find(b => b.id === values.sucursal_id);
-    const quote = this.quote();
-    if (!company || !['CAJERO', 'ENCARGADO_SUCURSAL'].includes(company.rol) || this.form.invalid
-      || !branch || !product || !variant || !quote) {
-      this.form.markAllAsTouched();
-      this.error.set('Verifica sucursal, prenda, variante, cantidad y efectivo. El importe debe cubrir el total.');
+    const user = this.auth.user();
+    if (!company || !user) return;
+    const revision = this.revision;
+    this.loading.set(true);
+    try {
+      const cached = await this.local.catalogs(company.id, user.id);
+      if (revision !== this.revision) return;
+      this.branches.set(cached.map(row => ({ id: row.sucursal_id, empresa_id: company.id,
+        codigo: String(row.sucursal_id), nombre: 'Sucursal #' + row.sucursal_id,
+        activo: true })));
+      const fresh = await firstValueFrom(this.inventory.branches());
+      if (revision === this.revision) this.branches.set(fresh.filter(row => row.activo));
+    } catch {
+      if (revision === this.revision) this.notice.set('Modo local: solo sucursales preparadas previamente.');
+    } finally {
+      if (revision === this.revision) {
+        this.loading.set(false);
+        await this.refreshOperations();
+      }
+    }
+  }
+
+  async chooseBranch(value: string): Promise<void> {
+    const branch = Number(value);
+    const company = this.companies.active();
+    const user = this.auth.user();
+    this.chosenBranch.set(null);
+    this.snapshot.set(null);
+    this.lines.set([]);
+    this.form.controls.variante_id.setValue(null);
+    this.error.set(null);
+    if (!company || !user || !Number.isSafeInteger(branch) || branch < 1 ||
+        !this.branches().some(row => row.id === branch)) return;
+    this.chosenBranch.set(branch);
+    this.loading.set(true);
+    const revision = this.revision;
+    try {
+      const snapshot = await firstValueFrom(this.api.catalog(branch));
+      if (revision !== this.revision || this.chosenBranch() !== branch) return;
+      await this.local.saveCatalog(snapshot, user.id);
+      this.snapshot.set(snapshot);
+      this.localCopy.set(false);
+      this.notice.set('Catálogo de caja actualizado y preparado en IndexedDB.');
+    } catch {
+      try {
+        const snapshot = await this.local.catalog(company.id, user.id, branch);
+        if (revision !== this.revision || this.chosenBranch() !== branch) return;
+        if (snapshot) {
+          this.snapshot.set(snapshot);
+          this.localCopy.set(true);
+          this.notice.set('Se utiliza copia local; precios y stock se revalidarán al sincronizar.');
+        } else this.error.set('No hay datos de caja preparados para esta sucursal. Conéctate y descarga el catálogo.');
+      } catch {
+        if (revision === this.revision) this.error.set('No se pudo leer el catálogo local.');
+      }
+    } finally {
+      if (revision === this.revision) this.loading.set(false);
+    }
+  }
+
+  selectedVariant(): CashVariant | null {
+    return this.snapshot()?.items.find(item => item.variante_id === this.form.controls.variante_id.value) ?? null;
+  }
+
+  addLine(): void {
+    const selected = this.selectedVariant();
+    const quantity = this.form.controls.cantidad.value;
+    if (!selected || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 100) {
+      this.error.set('Selecciona una variante y una cantidad válida.');
       return;
     }
-    this.draft.set({
-      id: crypto.randomUUID(),
-      empresa_id: company.id,
-      sucursal_id: branch.id,
-      producto_id: product.id,
-      variante_id: variant.id,
-      cantidad: quote.quantity,
-      precio_unitario: formatCents(quote.unitCents),
-      total: formatCents(quote.totalCents),
-      efectivo_propuesto: formatCents(quote.receivedCents),
-      cambio: formatCents(quote.changeCents),
-      creado_en: new Date().toISOString(),
-      estado: 'BORRADOR_SIN_COBRO',
-    });
+    if (this.lines().some(item => item.variante_id === selected.variante_id) || this.lines().length >= 30) {
+      this.error.set('No se puede duplicar una variante ni superar 30 líneas.');
+      return;
+    }
+    this.lines.update(items => [...items, { variante_id: selected.variante_id,
+      cantidad: quantity, precio_unitario: selected.precio_unitario,
+      nombre: selected.nombre, talla: selected.talla, color: selected.color }]);
+    this.form.patchValue({ variante_id: null, cantidad: 1 });
+    this.error.set(null);
   }
 
-  invalidate(): void { this.draft.set(null); }
+  removeLine(id: number): void { if (!this.saving()) this.lines.update(rows => rows.filter(row => row.variante_id !== id)); }
+  totalCents(): number {
+    return this.lines().reduce((sum, row) =>
+      sum + (moneyToCents(row.precio_unitario) ?? 0) * row.cantidad, 0);
+  }
+  total(): string { return formatCents(this.totalCents()); }
+
+  /** Solo formatea al salir del campo, para no interrumpir la escritura. */
+  normalizeCash(): void {
+    const normalized = normalizeCashReceived(this.form.controls.efectivo.value);
+    if (normalized !== null && normalized !== this.form.controls.efectivo.value) {
+      this.form.controls.efectivo.setValue(normalized);
+    }
+  }
+
+  change(): string | null {
+    const normalized = normalizeCashReceived(this.form.controls.efectivo.value);
+    const received = normalized === null ? null : moneyToCents(normalized);
+    return received !== null && received >= this.totalCents()
+      ? formatCents(received - this.totalCents()) : null;
+  }
+
+  async register(): Promise<void> {
+    if (this.saving()) return;
+    // Nunca enviar efectivo sin centavos a IndexedDB o al backend:
+    // el UUID y la huella se basan en el importe canónico.
+    this.normalizeCash();
+    const company = this.companies.active();
+    const user = this.auth.user();
+    const branch = this.chosenBranch();
+    const received = moneyToCents(this.form.controls.efectivo.value);
+    const cash = this.form.controls.cobrado.value;
+    const client = this.form.controls.cliente_id.value;
+    if (!this.browser || !company || !user || !branch || !this.snapshot() ||
+        !this.lines().length || !cash || !this.form.controls.cobrado.valid ||
+        received === null || received < this.totalCents() ||
+        (client !== null && (!Number.isSafeInteger(client) || client < 1))) {
+      this.error.set('Revisa sucursal, artículos, efectivo recibido y confirma que el cobro realmente ocurrió.');
+      return;
+    }
+    const revision = this.revision;
+    this.saving.set(true); this.error.set(null);
+    const now = new Date().toISOString();
+    const id = crypto.randomUUID();
+    const row: CashLocalSale = {
+      id, empresa_id: company.id, usuario_id: user.id, sucursal_id: branch,
+      creado_en: now, actualizado_en: now, estado: 'PENDIENTE',
+      total: this.total(), cambio: this.change() ?? '0.00',
+      motivo: null, incidencia_id: null, resultado: null,
+      solicitud: {
+        id, sucursal_id: branch, cliente_id: client,
+        lineas: this.lines().map(item => ({
+          variante_id: item.variante_id, cantidad: item.cantidad, precio_unitario: item.precio_unitario,
+        })),
+        efectivo: this.form.controls.efectivo.value,
+        origen: 'WEB_OFFLINE', creada_local_en: now,
+        efectivo_cobrado: true, entrega_local: this.form.controls.entregado_local.value,
+      },
+    };
+    try {
+      await this.local.enqueue(row);
+      if (revision !== this.revision) return;
+      this.lines.set([]);
+      this.form.reset({ variante_id: null, cantidad: 1, cliente_id: null,
+        efectivo: '0.00', cobrado: false, entregado_local: false });
+      this.notice.set('Comprobante PROVISIONAL ' + id + ' guardado. El efectivo consta localmente, no hay venta central confirmada.');
+      await this.refreshOperations();
+      if (typeof navigator !== 'undefined' && navigator.onLine) await this.synchronize();
+    } catch {
+      this.error.set('No se pudo guardar el comprobante en IndexedDB; no asumas que existe una venta registrada.');
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  async refreshOperations(): Promise<void> {
+    const company = this.companies.active();
+    const user = this.auth.user();
+    if (!company || !user) return;
+    const revision = this.revision;
+    try {
+      const rows = await this.local.list(company.id, user.id);
+      if (revision === this.revision) this.operations.set(rows);
+    } catch {
+      if (revision === this.revision) this.error.set('No se pudieron recuperar los comprobantes locales de caja.');
+    }
+  }
+
+  async synchronize(): Promise<void> {
+    await this.sync.process();
+    await this.refreshOperations();
+    if (this.sync.message()) this.notice.set(this.sync.message());
+  }
+
+  async retry(id: string): Promise<void> {
+    const company = this.companies.active();
+    const user = this.auth.user();
+    if (!company || !user) return;
+    try {
+      await this.local.retry(id, company.id, user.id);
+      await this.synchronize();
+    } catch { this.error.set('Este registro no permite reintento; revisa su estado.'); }
+  }
 }

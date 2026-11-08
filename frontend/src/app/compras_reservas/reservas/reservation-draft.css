@@ -4,7 +4,17 @@
 .reservation-eyebrow{color:#116149;font-size:11px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;margin:0 0 10px}
 .reservation-heading h1{font:400 clamp(34px,5vw,48px)/1.16 Georgia,serif;letter-spacing:-.035em;margin:0 0 14px}
 .reservation-heading p:last-child,.reservation-card p{color:#526358;font-size:14px;line-height:1.75}
-.reservation-warning{padding:18px 22px;background:#fff8e8;border:1px solid #dccba4;border-radius:10px;color:#745c27;font-size:13px;line-height:1.7}
+.reservation-guide{padding:22px 24px;background:#fffaf0;border:1px solid #ead5ac;border-radius:12px;color:#594a31}
+.reservation-guide__heading h2{font:600 17px/1.35 system-ui,sans-serif;margin:0 0 5px;color:#4c402c}
+.reservation-guide__heading p{font-size:13px;line-height:1.55;color:#746447;margin:0 0 17px}
+.reservation-guide__steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.reservation-guide__step{min-width:0;background:#fff;border:1px solid #eee3cd;border-radius:9px;padding:14px}
+.reservation-guide__step p{font-size:12px;line-height:1.65;margin:9px 0 0;color:#594f3c;overflow-wrap:break-word}
+.reservation-guide__step p strong{font-weight:700;display:inline;margin:0}
+.reservation-guide__tag{display:inline-flex;align-items:center;max-width:100%;font-size:11px;font-weight:700;line-height:1.4;border-radius:6px;padding:5px 9px}
+.reservation-guide__tag--pending{background:#fff1d9;color:#805b19}
+.reservation-guide__tag--confirmed{background:#e6f2e9;color:#266548}
+.reservation-guide__tag--conflict{background:#fbe8e5;color:#92453b}
 .reservation-warning strong{display:block;margin-bottom:6px}
 .reservation-card{padding:26px;border:1px solid #d8ded5;border-radius:12px;background:white}
 .reservation-card h2{font:400 27px/1.25 Georgia,serif;margin:0}
@@ -26,3 +36,29 @@
 .reservation-primary:disabled{opacity:.5;cursor:not-allowed}
 :is(button,a,select,input):focus-visible{outline:3px solid #116149;outline-offset:3px}
 @media(max-width:620px){.reservation-detail{grid-template-columns:1fr}.reservation-card{padding:20px}}
+
+.reservation-selected-lines{margin:8px 0 12px;padding:15px;border:1px solid #d8ded5;border-radius:9px;background:#f8fbf8}
+.reservation-selected-lines h3{margin:0 0 10px;font-size:15px}
+.reservation-selected-line{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:10px 0;border-bottom:1px solid #e1e9e1;font-size:13px}
+.reservation-selected-line:last-of-type{border-bottom:0}
+
+/* CU10: tarjeta de borrador guardado y pasos de confirmación */
+.reservation-card--draft{border-color:#bcd7c8;box-shadow:0 8px 28px rgba(21,87,62,.04)}
+.reservation-card--draft .reservation-eyebrow{margin-bottom:7px}
+.reservation-state--draft{background:#fff1d9;color:#805b19;text-transform:none;white-space:nowrap}
+.reservation-draft-intro{margin:15px 0 0;line-height:1.65!important}
+.reservation-detail--draft{margin:18px 0;gap:12px 24px}
+.reservation-lines-summary{background:#f7faf7;border:1px solid #e0e9e1;border-radius:9px;padding:16px 18px}
+.reservation-lines-summary h3{font-size:14px;margin:0 0 10px;color:#234936}
+.reservation-lines-summary__item{display:flex;align-items:center;justify-content:space-between;gap:14px;min-width:0;flex-wrap:wrap;border-top:1px solid #e5ebe6;padding:10px 0;font-size:13px}
+.reservation-lines-summary__item strong{font-weight:700}
+.reservation-technical{padding:12px 2px;margin-top:6px;font-size:12px;color:#54685b}
+.reservation-technical summary{cursor:pointer;font-weight:600}
+.reservation-technical p{margin:9px 0 0;overflow-wrap:anywhere}
+.reservation-signin-note,.reservation-ready{padding:13px 15px;background:#eff7f1;border-radius:8px;color:#24583e!important;font-size:13px!important;margin:8px 0 16px}
+.reservation-ready{border-left:3px solid #116149}
+.reservation-draft-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.reservation-draft-actions .reservation-primary{flex:1 1 230px;text-align:center}
+.reservation-draft-actions .reservation-secondary{flex:0 1 auto}
+@media(max-width:720px){.reservation-guide__steps{grid-template-columns:1fr}.reservation-guide{padding:18px}.reservation-guide__step{padding:12px 14px}}
+@media(max-width:520px){.reservation-draft-actions{flex-direction:column;align-items:stretch}.reservation-draft-actions .reservation-primary,.reservation-draft-actions .reservation-secondary{flex:initial;width:100%}}

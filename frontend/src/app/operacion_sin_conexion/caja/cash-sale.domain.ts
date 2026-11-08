@@ -18,6 +18,17 @@ export function moneyToCents(value: string): number | null {
   return Number.isSafeInteger(cents) ? cents : null;
 }
 
+/** Formatea el efectivo ingresado por el Cajero, sin usar floats.
+ * Acepta bolivianos enteros y hasta dos decimales con punto o coma.
+ * Los precios del catálogo siguen requiriendo el formato estricto N.NN.
+ */
+export function normalizeCashReceived(value: string): string | null {
+  const entry = value.trim();
+  if (!/^(?:0|[1-9]\d{0,7})(?:[.,]\d{0,2})?$/.test(entry)) return null;
+  const [bolivianos, centavos = ''] = entry.replace(',', '.').split('.');
+  return `${bolivianos}.${centavos.padEnd(2, '0')}`;
+}
+
 export function formatCents(cents: number): string {
   if (!Number.isSafeInteger(cents) || cents < 0) throw new Error('Importe monetario inválido.');
   return `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, '0')}`;

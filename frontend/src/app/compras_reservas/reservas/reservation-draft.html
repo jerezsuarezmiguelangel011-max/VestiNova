@@ -1,68 +1,231 @@
 <section class="reservation-page" aria-labelledby="reservation-title">
-  <a class="reservation-back" [routerLink]="shop.tienda() ? ['/tienda',shop.tienda(),'catalogo'] : ['/catalogo']">← Volver a la tienda</a>
+  <a class="reservation-back" [routerLink]="shop.tienda() ? ['/tienda',shop.tienda(),'catalogo'] : ['/catalogo']">← Volver al catálogo</a>
   <header class="reservation-heading">
-    <p class="reservation-eyebrow">TU TIENDA · RESERVAS</p>
-    <h1 id="reservation-title">Prepara una reserva</h1>
-    <p>Selecciona una prenda, una sucursal y una variante. Este incremento guarda un <strong>borrador local</strong>; todavía no confirma ni separa unidades en inventario.</p>
+    <p class="reservation-eyebrow">VESTINOVA · RESERVAS WEB Y PWA</p>
+    <h1 id="reservation-title">Reserva tus prendas</h1>
+    <p>Prepara una solicitud, incluso sin conexión si ya descargaste esta prenda.
+      El dispositivo la conserva y el servidor confirma su disponibilidad al sincronizar.</p>
   </header>
 
-  <aside class="reservation-warning">
-    <strong>Funcionalidad parcial</strong>
-    La reserva real requiere autenticación de cliente, validación central de stock disponible y una política de vencimiento configurada. No se genera código de retiro.
+  <aside class="reservation-guide" aria-labelledby="reservation-guide-title">
+    <div class="reservation-guide__heading">
+      <h2 id="reservation-guide-title">¿Cuándo queda reservada tu prenda?</h2>
+      <p>Guardar una solicitud no garantiza existencias. Conoce cada estado antes de confirmar.</p>
+    </div>
+    <div class="reservation-guide__steps">
+      <div class="reservation-guide__step">
+        <span class="reservation-guide__tag reservation-guide__tag--pending">1 · Pendiente</span>
+        <p>La solicitud está guardada o esperando respuesta del servidor. <strong>Todavía no separa prendas.</strong></p>
+      </div>
+      <div class="reservation-guide__step">
+        <span class="reservation-guide__tag reservation-guide__tag--confirmed">2 · Confirmada</span>
+        <p>VestiNova aceptó la reserva y comprometió las unidades disponibles para tu retiro.</p>
+      </div>
+      <div class="reservation-guide__step">
+        <span class="reservation-guide__tag reservation-guide__tag--conflict">3 · Conflicto</span>
+        <p>Si el stock cambia antes de sincronizar, la solicitud no se confirma y te explicamos el motivo.</p>
+      </div>
+    </div>
   </aside>
 
-  @if (draft(); as saved) {
-    <section class="reservation-card" aria-labelledby="reservation-saved-heading">
+  @if (cachedAt(); as date) {
+    <p class="reservation-alert" role="status">
+      <strong>Sin conexión · Copia local guardada {{ date | date:'medium' }}.</strong>
+      La disponibilidad es referencial y podría estar desactualizada.
+    </p>
+  }
+  @if (notice(); as message) { <p class="reservation-alert" role="status">{{ message }}</p> }
+  @if (error(); as message) { <p class="reservation-alert reservation-alert--error" role="alert">{{ message }}</p> }
+
+  @if (confirmed(); as latest) {
+    <section class="reservation-card" aria-labelledby="confirmed-reservation">
       <div class="reservation-card-header">
-        <h2 id="reservation-saved-heading">Borrador guardado en esta pestaña</h2>
-        <span class="reservation-state">No confirmado</span>
+        <h2 id="confirmed-reservation">Última reserva verificada</h2>
+        <span class="reservation-state">{{ latest.estado }}</span>
       </div>
       <dl class="reservation-detail">
-        <div><dt>Prenda</dt><dd>{{ saved.producto_nombre }}</dd></div>
-        <div><dt>Sucursal</dt><dd>{{ saved.sucursal_nombre }}</dd></div>
-        <div><dt>Variante</dt><dd>{{ saved.talla }} / {{ saved.color }}</dd></div>
-        <div><dt>Cantidad solicitada</dt><dd>{{ saved.cantidad }}</dd></div>
-        <div><dt>Referencia de borrador</dt><dd class="reservation-uuid">{{ saved.id }}</dd></div>
+        <div><dt>Código central</dt><dd>{{ latest.codigo }}</dd></div>
+        <div><dt>Sucursal</dt><dd>#{{ latest.sucursal_id }}</dd></div>
+        <div><dt>Estado</dt><dd>{{ latest.estado }}</dd></div>
+        <div><dt>Vencimiento</dt><dd>{{ latest.vence_en | date:'medium' }}</dd></div>
       </dl>
-      <p>Esta referencia es solo local. No es un código de reserva ni garantiza disponibilidad para el retiro.</p>
-      <button type="button" class="reservation-secondary" (click)="clearDraft()">Eliminar borrador</button>
+      @if (latest.estado === 'CONFIRMADA') {
+        <button type="button" class="reservation-secondary" [disabled]="submitting()" (click)="cancelReservation(latest.id)">Cancelar reserva en línea</button>
+      }
     </section>
   }
 
-  @if (notice(); as message) { <p role="status" class="reservation-alert">{{ message }}</p> }
-  @if (error(); as message) { <p role="alert" class="reservation-alert reservation-alert--error">{{ message }}</p> }
+  @if (draft(); as local) {
+    <section class="reservation-card reservation-card--draft" aria-labelledby="saved-draft">
+      <div class="reservation-card-header">
+        <div>
+          <p class="reservation-eyebrow">Tu selección guardada</p>
+          <h2 id="saved-draft">Borrador de reserva</h2>
+        </div>
+        <span class="reservation-state reservation-state--draft">Borrador local</span>
+      </div>
+      <p class="reservation-draft-intro">
+        Tu selección permanece en este dispositivo. <strong>No se han separado prendas ni realizado pagos.</strong>
+      </p>
+      <dl class="reservation-detail reservation-detail--draft">
+        <div><dt>Prenda</dt><dd>{{ local.producto_nombre }}</dd></div>
+        <div><dt>Sucursal de retiro</dt><dd>{{ local.sucursal_nombre }}</dd></div>
+        <div><dt>Variantes seleccionadas</dt><dd>{{ (local.lineas?.length ?? 0) || 1 }}</dd></div>
+        <div><dt>Unidades solicitadas</dt><dd>{{ draftQuantity(local) }}</dd></div>
+      </dl>
+      <div class="reservation-lines-summary">
+        <h3>Detalle de prendas</h3>
+        @for (line of draftLines(local); track line.variante_id) {
+          <div class="reservation-lines-summary__item">
+            <span>{{ line.talla }} / {{ line.color }}</span>
+            <strong>{{ line.cantidad }} {{ line.cantidad === 1 ? 'unidad' : 'unidades' }}</strong>
+          </div>
+        }
+      </div>
+      <details class="reservation-technical">
+        <summary>Ver identificador de seguimiento</summary>
+        <p class="reservation-uuid">{{ local.id }}</p>
+      </details>
+      @if (shop.tienda() === local.tienda) {
+        @if (customers.customer()?.empresa?.slug === local.tienda) {
+          <p class="reservation-ready" role="status">
+            Tu sesión está activa. Revisa los datos y confirma cuando estés listo.
+          </p>
+          <div class="reservation-draft-actions">
+            <button class="reservation-primary" type="button" [disabled]="submitting() || sync.processing()"
+              (click)="confirmDraft()">{{ submitting() ? 'Preparando solicitud…' : 'Confirmar y enviar reserva' }}</button>
+            <button type="button" class="reservation-secondary" [disabled]="submitting()" (click)="clearDraft()">Eliminar borrador</button>
+          </div>
+        } @else {
+          <p class="reservation-signin-note">Para confirmar, inicia sesión en esta tienda. Volverás a tu reserva sin perder el borrador.</p>
+          <div class="reservation-draft-actions">
+            <a class="reservation-primary" [routerLink]="['/tienda',local.tienda,'acceso']"
+              [queryParams]="{ continuar: 'reserva', producto: local.producto_slug }">
+              Iniciar sesión y volver a mi reserva
+            </a>
+            <button type="button" class="reservation-secondary" [disabled]="submitting()" (click)="clearDraft()">Eliminar borrador</button>
+          </div>
+        }
+      } @else {
+        <p class="reservation-alert reservation-alert--error">Este borrador corresponde a otra tienda.</p>
+      }
+    </section>
+  }
 
   @if (loading()) {
-    <p role="status">Consultando la prenda y las existencias físicas…</p>
+    <p role="status">Consultando opciones para reservar…</p>
   } @else if (product(); as selected) {
-    <section class="reservation-card" aria-labelledby="reservation-new-heading">
+    <section class="reservation-card" aria-labelledby="reservation-product">
       <p class="reservation-eyebrow">Prenda seleccionada</p>
-      <h2 id="reservation-new-heading">{{ selected.nombre }}</h2>
-      <p>Precio referencial: Bs {{ selected.precio }} {{ selected.moneda }}</p>
+      <h2 id="reservation-product">{{ selected.nombre }}</h2>
+      <p>Precio de referencia: Bs {{ selected.precio }} {{ selected.moneda }}</p>
       @if (selectable().length === 0) {
-        <p role="status">Por ahora no hay variantes con existencias físicas registradas en sucursales activas.</p>
+        <p>La copia conocida no contiene variantes disponibles para esta prenda.</p>
       } @else {
-        <form [formGroup]="form" (ngSubmit)="saveDraft()" class="reservation-form">
-          <label for="reservation-variant">Sucursal, talla y color</label>
-          <select id="reservation-variant" formControlName="key" required>
+        <form class="reservation-form" [formGroup]="form" (ngSubmit)="saveDraft()">
+          <label for="reservation-option">Sucursal, talla y color</label>
+          <select id="reservation-option" formControlName="key" required>
             <option value="">Selecciona una opción</option>
             @for (item of selectable(); track item.sucursal_id + ':' + item.variante_id) {
               <option [value]="item.sucursal_id + ':' + item.variante_id">{{ item.sucursal }} · {{ item.talla }} / {{ item.color }}</option>
             }
           </select>
-
-          <label for="reservation-quantity">Cantidad solicitada</label>
+          <label for="reservation-quantity">Cantidad</label>
           <input id="reservation-quantity" type="number" formControlName="cantidad" min="1" max="100" step="1" required />
-          <p class="reservation-hint">La existencia física es referencial. Esta acción no compromete stock.</p>
-
-          <button class="reservation-primary" type="submit" [disabled]="form.invalid">Guardar borrador local</button>
+          @if (policyHours(); as hours) {
+            <p class="reservation-alert">
+              Vigencia prevista: <strong>{{ hours }} horas</strong> desde la confirmación del servidor.
+              @if (cachedAt()) { Esta política corresponde a una copia local y debe revalidarse al sincronizar. }
+            </p>
+          }
+          <button class="reservation-secondary" type="button"
+            [disabled]="form.invalid || submitting() || selectedLines().length >= 30"
+            (click)="addLine()">Añadir variante a esta reserva</button>
+          @if (selectedLines().length > 0) {
+            <div class="reservation-selected-lines">
+              <h3>Variantes elegidas ({{ selectedLines().length }})</h3>
+              @for (line of selectedLines(); track line.variante_id) {
+                <div class="reservation-selected-line">
+                  <span>{{ line.sucursal_nombre }} · {{ line.talla }} / {{ line.color }} · {{ line.cantidad }} unidad(es)</span>
+                  <button type="button" class="reservation-secondary" (click)="removeLine(line.variante_id)"
+                    [disabled]="submitting()">Quitar</button>
+                </div>
+              }
+              <p class="reservation-hint">Todas las variantes deben pertenecer a una misma sucursal. Puedes añadir hasta 30.</p>
+            </div>
+          }
+          <p class="reservation-hint">Se conserva con el mismo UUID hasta obtener una respuesta definitiva. No genera pago ni descuento físico.</p>
+          <button class="reservation-primary" type="submit" [disabled]="(form.invalid && selectedLines().length === 0) || submitting()">
+            {{ submitting() ? 'Guardando…' : 'Guardar solicitud en este dispositivo' }}
+          </button>
         </form>
       }
     </section>
   } @else {
-    <div class="reservation-card">
-      <p>Abre una prenda publicada desde el catálogo para preparar su solicitud.</p>
-      <a [routerLink]="shop.tienda() ? ['/tienda',shop.tienda(),'catalogo'] : ['/catalogo']" class="reservation-secondary">Explorar prendas</a>
-    </div>
+    <section class="reservation-card">
+      <p>Selecciona una prenda de una tienda para registrar una reserva.</p>
+      <a class="reservation-secondary" [routerLink]="shop.tienda() ? ['/tienda', shop.tienda(), 'catalogo'] : ['/catalogo']">Explorar prendas</a>
+    </section>
+  }
+
+  @if (shop.tienda(); as activeShop) {
+    <section class="reservation-card" aria-labelledby="reservation-outbox">
+      <div class="reservation-card-header">
+        <h2 id="reservation-outbox">Solicitudes guardadas y sincronización</h2>
+        <button class="reservation-primary" type="button"
+          [disabled]="sync.processing() || !customers.customer()"
+          (click)="synchronize()">
+          {{ sync.processing() ? 'Sincronizando…' : 'Sincronizar pendientes' }}
+        </button>
+      </div>
+      <p>Las operaciones se guardan en IndexedDB, incluso después de cerrar y reabrir la aplicación. Para enviar o consultar tus operaciones, debes identificarte como cliente de esta tienda.</p>
+      @if (sync.message(); as message) { <p role="status" class="reservation-alert">{{ message }}</p> }
+      @for (row of offlineOperations(); track row.id) {
+        <article class="reservation-history-item">
+          <strong>{{ row.draft.producto_nombre }} · {{ row.estado }}</strong>
+          <p>{{ row.draft.sucursal_nombre }} · {{ row.draft.lineas?.length ?? 1 }} variante(s)</p>
+          @for (line of row.draft.lineas ?? []; track line.variante_id) {
+            <p>{{ line.talla }} / {{ line.color }} · {{ line.cantidad }} unidad(es)</p>
+          }
+          <p>Registrada: {{ row.creado_en | date:'medium' }} · UUID: {{ row.id }}</p>
+          @if (row.resultado; as result) {
+            <p>Código central: <strong>{{ result.codigo }}</strong> · {{ result.estado }}</p>
+            <p>Vence: {{ result.vence_en | date:'medium' }}</p>
+          }
+          @if (row.mensaje) { <p role="status">{{ row.mensaje }}</p> }
+          @if (row.estado === 'ERROR' || row.estado === 'REQUIERE_ACCESO') {
+            <button class="reservation-secondary" type="button" [disabled]="sync.processing()"
+              (click)="retryReservation(row.id)">Reintentar con el mismo UUID</button>
+          }
+          @if (row.estado === 'CONFLICTO' || row.estado === 'RECHAZADA') {
+            <p class="reservation-alert reservation-alert--error">La solicitud se conserva para revisión. No se reservó stock; prepara una nueva solicitud si cambian las condiciones.</p>
+          }
+        </article>
+      } @empty {
+        <p>No hay solicitudes pendientes guardadas para esta cuenta y tienda.</p>
+      }
+    </section>
+
+    @if (customers.customer()?.empresa?.slug === activeShop) {
+      <section class="reservation-card" aria-labelledby="reservation-history">
+        <div class="reservation-card-header">
+          <h2 id="reservation-history">Mis reservas confirmadas en el servidor</h2>
+          <button class="reservation-secondary" type="button" (click)="loadMyReservations()" [disabled]="historyLoading()">
+            {{ historyLoading() ? 'Consultando…' : 'Actualizar historial' }}
+          </button>
+        </div>
+        @for (item of reservations(); track item.id) {
+          <article class="reservation-history-item">
+            <strong>{{ item.codigo }} · {{ item.estado }}</strong>
+            <p>Sucursal #{{ item.sucursal_id }} · Vence {{ item.vence_en | date:'medium' }}</p>
+            @if (item.estado === 'CONFIRMADA') {
+              <button class="reservation-secondary" type="button" [disabled]="submitting()" (click)="cancelReservation(item.id)">Cancelar</button>
+            }
+          </article>
+        }
+      </section>
+    } @else {
+      <p class="reservation-hint">Inicia sesión para consultar y sincronizar las reservas de esta tienda.</p>
+    }
   }
 </section>

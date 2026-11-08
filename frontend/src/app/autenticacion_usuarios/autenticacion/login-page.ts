@@ -42,7 +42,7 @@ export class LoginPage {
     this.sending.set(true); this.error.set(null);
     this.auth.ensureSession().pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.sending.set(false))).subscribe({
       next: user => {
-        if (user) void this.router.navigateByUrl(user.es_superadministrador ? '/admin/plataforma' : '/admin/productos');
+        if (user) void this.router.navigateByUrl(user.es_superadministrador ? '/admin/plataforma' : '/admin');
         else this.error.set('La sesión ya no está disponible. Inicia sesión para continuar.');
       },
       error: () => this.error.set('No pudimos verificar la sesión. Revisa la conexión y vuelve a intentarlo.'),
@@ -59,7 +59,7 @@ export class LoginPage {
     this.auth.login({ correo: credentials.correo.trim().toLowerCase(), password: credentials.password })
       .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.sending.set(false)))
       .subscribe({
-        next: user => void this.router.navigateByUrl(user.es_superadministrador ? '/admin/plataforma' : '/admin/productos'),
+        next: user => void this.router.navigateByUrl(user.es_superadministrador ? '/admin/plataforma' : '/admin'),
         error: (error: unknown) => {
           const status = error instanceof HttpErrorResponse ? error.status : 0;
           this.error.set(status === 401 || status === 403

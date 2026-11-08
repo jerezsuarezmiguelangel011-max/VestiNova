@@ -53,7 +53,8 @@ describe('Control manual de operaciones de sincronización', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(root.textContent).toContain('Todavía no hay operaciones');
-    expect(root.querySelector('.sync-scope')?.textContent).toContain('Por ahora se actualiza únicamente el catálogo público. La sincronización de compras y reservas todavía no está disponible.');
+    expect(root.querySelector('.sync-scope')?.textContent).toContain('Este panel procesa actualizaciones pendientes del catálogo público.');
+    expect(root.querySelector('.sync-scope')?.textContent).toContain('Las reservas CU10 se guardan y sincronizan desde «Preparar reserva»');
   });
 
   it('registra únicamente una actualización de catálogo al pulsar el botón explícito', async () => {

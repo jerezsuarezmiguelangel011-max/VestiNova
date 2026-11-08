@@ -41,6 +41,7 @@ export class CustomerAccessPage {
   readonly sending = signal(false);
   readonly registering = signal(false);
   readonly showPassword = signal(false);
+  readonly returningToReservation = signal(false);
   readonly error = signal<string | null>(null);
   readonly passwordPolicy = PASSWORD_POLICY_MESSAGE;
   readonly form = new FormGroup({
@@ -51,6 +52,11 @@ export class CustomerAccessPage {
   });
 
   ngOnInit(): void {
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
+      const resumeProduct = params.get('producto');
+      this.returningToReservation.set(params.get('continuar') === 'reserva' &&
+        !!resumeProduct && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(resumeProduct));
+    });
     this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
       this.revision++; this.changed.next(); this.slug = params.get('tienda') ?? '';
       this.currentShop.set(this.slug);
@@ -79,7 +85,19 @@ export class CustomerAccessPage {
    * por el navegador como redirección arbitraria.
    */
   private navigateAfterAccess(): void {
-    if (this.route.snapshot.queryParamMap.get('continuar') === 'compra') {
+    const continueTo = this.route.snapshot.queryParamMap.get('continuar');
+    if (continueTo === 'reserva') {
+      const productSlug = this.route.snapshot.queryParamMap.get('producto');
+      // Aceptamos solo una referencia interna al catálogo de esta misma tienda.
+      // Nunca utilizamos una URL externa ni una ruta enviada libremente.
+      if (productSlug && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(productSlug)) {
+        void this.router.navigate(['/catalogo/acciones/reserva'], {
+          queryParams: { tienda: this.slug, slug: productSlug, acceso: 'reserva' },
+        });
+        return;
+      }
+    }
+    if (continueTo === 'compra') {
       void this.router.navigate(['/catalogo/acciones/compra'], {
         queryParams: { tienda: this.slug },
       });

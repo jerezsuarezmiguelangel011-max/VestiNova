@@ -2,61 +2,125 @@
   <header>
     <p class="cash-eyebrow">VestiNova · CU15</p>
     <h1 id="cash-title">Venta presencial de contado</h1>
-    <p>Primer incremento de caja: consulta prendas y variantes de la empresa, calcula el total en bolivianos, comprueba el efectivo propuesto y calcula el cambio.</p>
+    <p>Registra las ventas en efectivo de tu sucursal. Los cobros sin conexión generan
+      comprobantes provisionales y se validan con el servidor al sincronizar.</p>
   </header>
-  <aside class="cash-warning"><strong>Simulación de preparación, no venta confirmada.</strong>
-    No registra cobros, inventario, comprobantes ni ventas offline; se requiere integración transaccional del backend.
+  <aside class="cash-warning">
+    <strong>¿Qué ocurre si se corta Internet en la sucursal?</strong>
+    <p><b>Con conexión:</b> la venta se registra y el servidor confirma el inventario.</p>
+    <p><b>Sin conexión:</b> si ya preparaste el catálogo y mantienes una sesión válida,
+      puedes registrar el efectivo en este dispositivo. Se crea un comprobante
+      <b>PROVISIONAL</b> con UUID, pero todavía no se descuenta stock central.</p>
+    <p><b>Al recuperar Internet:</b> sincroniza la venta. Si el servidor valida stock y
+      precios, queda <b>CONFIRMADA</b>. Si detecta un problema, aparece un conflicto
+      para CU13. Antes de entregar prendas sin conexión, comprueba físicamente las
+      existencias y sigue el procedimiento de la sucursal.</p>
   </aside>
+  @if (error(); as message) { <p role="alert" class="cash-error">{{ message }}</p> }
+  @if (notice(); as message) { <p role="status" class="cash-success">{{ message }}</p> }
   @if (companies.active(); as company) {
     <section class="cash-card">
-      <h2>Preparar borrador de venta</h2>
+      <h2>1. Seleccionar sucursal y preparar datos</h2>
       <p>Empresa: <strong>{{ company.nombre }}</strong></p>
-      @if (loading()) { <p role="status">Consultando sucursales y catálogo…</p> }
-      @if (error(); as message) { <p role="alert" class="cash-error">{{ message }}</p> }
-      <form [formGroup]="form" (ngSubmit)="preview()" (input)="invalidate()" (change)="invalidate()">
-        <label for="cash-branch">Sucursal autorizada</label>
-        <select id="cash-branch" formControlName="sucursal_id" [disabled]="loading()">
-          <option [ngValue]="null">Selecciona una sucursal</option>
-          @for (branch of branches(); track branch.id) {
-            <option [ngValue]="branch.id">{{ branch.codigo }} · {{ branch.nombre }}</option>
-          }
-        </select>
-        <label for="cash-product">Prenda publicada</label>
-        <select id="cash-product" #productSelect [value]="form.controls.producto_id.value ?? ''" (change)="chooseProduct(productSelect.value)" [disabled]="loading()">
-          <option value="">Selecciona una prenda</option>
-          @for (item of products(); track item.id) {
-            <option [value]="item.id">{{ item.nombre }} · Bs {{ item.precio }}</option>
-          }
-        </select>
-        <label for="cash-variant">Variante</label>
-        <select id="cash-variant" formControlName="variante_id" [disabled]="variantsLoading() || variants().length === 0">
-          <option [ngValue]="null">{{ variantsLoading() ? 'Cargando variantes…' : 'Selecciona talla y color' }}</option>
-          @for (item of variants(); track item.id) {
-            <option [ngValue]="item.id">{{ item.talla }} · {{ item.color }}</option>
-          }
-        </select>
-        <label for="cash-quantity">Cantidad</label>
-        <input id="cash-quantity" type="number" min="1" max="100" step="1" formControlName="cantidad" required />
-        <label for="cash-received">Efectivo propuesto (Bs)</label>
-        <input id="cash-received" type="text" inputmode="decimal" formControlName="efectivo" placeholder="150.00" required />
-        <p class="cash-hint">El precio mostrado es del catálogo administrativo y aún no incorpora descuentos mayoristas ni promociones.</p>
-        <button class="cash-primary" type="submit" [disabled]="loading() || variantsLoading() || form.invalid">Calcular borrador de venta</button>
-      </form>
+      <label class="cash-label" for="cash-branch">Sucursal autorizada</label>
+      <select id="cash-branch" class="cash-select" [value]="chosenBranch() ?? ''"
+        (change)="chooseBranch($any($event.target).value)">
+        <option value="">Seleccionar sucursal</option>
+        @for (branch of branches(); track branch.id) {
+          <option [value]="branch.id">{{ branch.nombre }}</option>
+        }
+      </select>
+      @if (loading()) { <p role="status">Preparando catálogo de caja…</p> }
+      @if (snapshot(); as snap) {
+        <p>Catálogo guardado {{ snap.descargado_en | date:'medium' }} · {{ snap.items.length }} variantes.</p>
+        @if (localCopy()) { <p class="cash-warning">Copia local: los precios pueden cambiar y serán revalidados por el servidor.</p> }
+      } @else { <p>Con conexión, selecciona una sucursal para descargar sus precios a IndexedDB.</p> }
     </section>
-    @if (draft(); as receipt) {
-      <section class="cash-card cash-preview" role="status" aria-label="Resultado de preparación">
-        <div class="cash-preview-head"><h2>Resumen preliminar</h2><span>BORRADOR · SIN COBRO</span></div>
-        <dl>
-          <div><dt>Referencia local</dt><dd>{{ receipt.id }}</dd></div>
-          <div><dt>Variante ID</dt><dd>{{ receipt.variante_id }}</dd></div>
-          <div><dt>Cantidad</dt><dd>{{ receipt.cantidad }}</dd></div>
-          <div><dt>Precio unitario</dt><dd>Bs {{ receipt.precio_unitario }}</dd></div>
-          <div><dt>Total preliminar</dt><dd>Bs {{ receipt.total }}</dd></div>
-          <div><dt>Efectivo propuesto</dt><dd>Bs {{ receipt.efectivo_propuesto }}</dd></div>
-          <div><dt>Cambio calculado</dt><dd>Bs {{ receipt.cambio }}</dd></div>
-        </dl>
-        <p><strong>Este documento no es comprobante de venta.</strong> No se registró pago ni se descontó inventario.</p>
+    @if (snapshot()) {
+      <section class="cash-card">
+        <h2>2. Preparar productos y cobro</h2>
+        <form [formGroup]="form" (ngSubmit)="register()">
+          <label for="cash-variant">Prenda, talla y color</label>
+          <select id="cash-variant" formControlName="variante_id">
+            <option [ngValue]="null">Selecciona una variante</option>
+            @for (item of snapshot()!.items; track item.variante_id) {
+              <option [ngValue]="item.variante_id">{{ item.nombre }} · {{ item.talla }} / {{ item.color }} · Bs {{ item.precio_unitario }}</option>
+            }
+          </select>
+          <label for="cash-quantity">Cantidad</label>
+          <input id="cash-quantity" formControlName="cantidad" type="number" min="1" max="100" step="1" />
+          <button type="button" class="cash-secondary" (click)="addLine()" [disabled]="saving() || lines().length >= 30">Añadir prenda a la venta</button>
+          <h3>Prendas elegidas</h3>
+          @for (line of lines(); track line.variante_id) {
+            <div class="cash-line">
+              <span>{{ line.nombre }} · {{ line.talla }} / {{ line.color }} · {{ line.cantidad }} unidad(es) · Bs {{ line.precio_unitario }}</span>
+              <button type="button" class="cash-secondary" (click)="removeLine(line.variante_id)" [disabled]="saving()">Quitar</button>
+            </div>
+          } @empty { <p>Agrega al menos una variante.</p> }
+          <p class="cash-total">Total calculado: <strong>Bs {{ total() }}</strong></p>
+          <label for="cash-client">Cliente registrado (ID opcional)</label>
+          <input id="cash-client" type="number" min="1" step="1" formControlName="cliente_id" />
+          <label for="cash-cash">Efectivo realmente recibido (Bs)</label>
+          <input id="cash-cash" type="text" inputmode="decimal" formControlName="efectivo"
+            placeholder="Ej.: 100 o 100.50" (blur)="normalizeCash()"
+            aria-describedby="cash-format-hint" />
+          <p id="cash-format-hint" class="cash-hint">Puedes escribir <strong>100</strong>,
+            <strong>100.5</strong> o <strong>100,50</strong>.
+            Se completan los dos decimales al salir del campo.</p>
+          <p class="cash-change" aria-live="polite">Cambio para el cliente:
+            <strong [class.cash-change--invalid]="change() === null">
+              {{ change() === null ? 'Efectivo insuficiente o inválido' : 'Bs ' + change() }}
+            </strong>
+          </p>
+          <label class="cash-checkbox">
+            <input type="checkbox" formControlName="cobrado" />
+            Confirmo que el efectivo indicado fue recibido realmente.
+          </label>
+          <label class="cash-checkbox">
+            <input type="checkbox" formControlName="entregado_local" />
+            Confirmo que las prendas ya fueron entregadas físicamente al cliente
+            (marcar solo si ocurrió realmente).
+          </label>
+          <button class="cash-primary" type="submit"
+            [disabled]="saving() || !lines().length || change() === null || !form.controls.cobrado.value">
+            {{ saving() ? 'Guardando…' : 'Registrar cobro y generar comprobante provisional' }}
+          </button>
+        </form>
       </section>
     }
+    <section class="cash-card">
+      <div class="cash-toolbar">
+        <h2>3. Comprobantes y sincronización</h2>
+        <button class="cash-secondary" type="button" (click)="synchronize()" [disabled]="sync.processing()">
+          {{ sync.processing() ? 'Sincronizando…' : 'Sincronizar ventas pendientes' }}
+        </button>
+      </div>
+      @if (sync.message(); as message) { <p role="status">{{ message }}</p> }
+      <p>Los comprobantes provisionales se conservan en IndexedDB por empresa y cajero, incluso si se pierde una respuesta.</p>
+      @for (row of operations(); track row.id) {
+        <article class="cash-receipt">
+          <strong>{{ row.resultado?.codigo ?? ('PROVISIONAL ' + row.id) }} · {{ row.estado }}</strong>
+          <p>Registrada: {{ row.creado_en | date:'medium' }} · Sucursal #{{ row.sucursal_id }}</p>
+          <p>UUID: {{ row.id }}</p>
+          <p>Total Bs {{ row.total }} · Efectivo Bs {{ row.solicitud.efectivo }} · Cambio Bs {{ row.cambio }}</p>
+          @for (line of row.solicitud.lineas; track line.variante_id) {
+            <p>Variante #{{ line.variante_id }} · {{ line.cantidad }} unidad(es) · Bs {{ line.precio_unitario }}</p>
+          }
+          @if (row.solicitud.entrega_local) { <p>Entrega física documentada localmente, pendiente de validación central.</p> }
+          @if (row.motivo) { <p role="status">{{ row.motivo }}</p> }
+          @if (row.incidencia_id) { <p>Incidencia central CU13: {{ row.incidencia_id }}</p> }
+          @if (row.resultado) {
+            <p>Comprobante central confirmado {{ row.resultado!.confirmada_en | date:'medium' }}</p>
+          }
+          @if (row.estado === 'ERROR' || row.estado === 'REQUIERE_ACCESO') {
+            <button class="cash-secondary" type="button" (click)="retry(row.id)"
+              [disabled]="sync.processing()">Reintentar sin cambiar UUID</button>
+          }
+          @if (row.estado === 'CONFLICTO' || row.estado === 'RECHAZADA') {
+            <p class="cash-error">No se confirmó la venta ni el stock; conserva la evidencia del cobro para conciliación autorizada.</p>
+          }
+        </article>
+      } @empty { <p>No hay comprobantes locales para esta cuenta y empresa.</p> }
+    </section>
   }
 </section>

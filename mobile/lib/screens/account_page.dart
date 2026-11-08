@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../auth/auth_models.dart';
 import '../auth/session_controller.dart';
+import '../reservations/customer_reservations_page.dart';
 
 class AccountPage extends StatelessWidget {
   const AccountPage({super.key, required this.controller});
@@ -43,8 +44,11 @@ class AccountPage extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         if (customer)
-          const Text(
-            'Tu cuenta pertenece a esta tienda. Tu acceso está verificado.',
+          Text(
+            controller.offlineMode
+                ? 'Modo offline: esta identidad fue validada anteriormente. '
+                    'Las operaciones se guardan localmente, pero no están confirmadas por el servidor.'
+                : 'Tu cuenta pertenece a esta tienda y el acceso está verificado.',
           )
         else ...[
           Text(
@@ -109,6 +113,7 @@ class AccountPage extends StatelessWidget {
               ),
           ],
         ],
+        if (customer) CustomerReservationsPage(controller: controller),
         const SizedBox(height: 28),
         OutlinedButton.icon(
           onPressed: controller.busy ? null : controller.refresh,
@@ -117,9 +122,9 @@ class AccountPage extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         FilledButton.icon(
-          onPressed: controller.busy ? null : controller.logout,
+          onPressed: controller.busy ? null : (controller.offlineMode ? controller.logoutLocal : controller.logout),
           icon: const Icon(Icons.logout),
-          label: const Text('Cerrar sesión'),
+          label: Text(controller.offlineMode ? 'Salir de este dispositivo (sin Internet)' : 'Cerrar sesión'),
         ),
       ],
     );

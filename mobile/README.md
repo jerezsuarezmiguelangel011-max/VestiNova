@@ -1,6 +1,6 @@
 # VestiNova móvil — cuenta y acceso
 
-Flutter/Dart propio para CU01. El Flutter heredado permanece separado. Incluye Cliente por tienda y personal, selección empresarial posterior al login, identidad/rol/sucursales, restauración validada por API y cierre revocable. No implementa catálogo móvil, reservas, ventas offline ni sincronización.
+Flutter/Dart propio para CU01. El Flutter heredado permanece separado. Incluye Cliente por tienda y personal, selección empresarial posterior al login, identidad/rol/sucursales, restauración validada por API y cierre revocable. En la rama temporal CU10 incorpora una copia limitada del catálogo para reservas, almacenamiento SQLite y sincronización de reservas de clientes. No implementa todavía ventas de contado offline ni la experiencia de reservas del personal móvil.
 
 ## Preparar
 
@@ -48,3 +48,24 @@ Resultado: `build/app/outputs/flutter-apk/app-debug.apk`. Transferir solo ese ar
 Contratos: [cuenta/acceso](../docs/CONTRATO_CU01_CUENTAS.md), [descarga privada](../docs/CONTRATO_DESCARGA_MOVIL.md) y [catálogo web](../docs/CONTRATO_CATALOGO.md). La app guarda el token con `flutter_secure_storage`; no persiste contraseñas ni concede acceso offline por conservar un token.
 
 Pruebas anteriores: 41 controladas y 2 Dart HTTP reales mediante el runner aislado de backend (`--mobile-http --flutter-bin RUTA_FLUTTER`). Estas últimas usan almacén en memoria, no KeyStore nativo. El usuario reportó login/restauración/cierre Android para Cliente y una sola cuenta mixta SaaS/Administrador empresarial. CU01 sigue con aceptación parcial por otros actores/recorridos; iOS no se compiló ni verificó en Windows. La evidencia detallada permanece local.
+
+
+## CU10 — Reserva de prendas con persistencia SQLite
+
+La cuenta de Cliente incluye una sección Reservas: descarga hasta veinte productos públicos con su disponibilidad y política, guarda las variantes localmente, crea solicitudes PENDIENTE con UUID estable y sincroniza con FastAPI al reconectarse. No se paga ni compromete inventario central al guardar offline.
+
+Instalar dependencias nuevas en `mobile/`:
+
+```powershell
+flutter pub get
+flutter analyze
+flutter test
+```
+
+`flutter pub get` regenerará `pubspec.lock` con `sqflite`, `path` y `uuid`. Es parte del commit final a realizar por el usuario. Probar SQLite en emulador o Android físico, no solo en pruebas widget.
+
+Para probar el modo offline: iniciar sesión mientras hay Internet, descargar catálogo, activar modo avión, guardar reserva, forzar cierre, reabrir la app y comprobar que la cuenta indica identidad local previamente validada y reserva PENDIENTE. Al reconectar, sincronizar y verificar que el UUID y la operación sobrevivan. Un conflicto de inventario conserva el registro local y no equivale a una reserva confirmada.
+
+La identidad local restaurada vive en `flutter_secure_storage`; nunca concede permisos centrales sin respuesta del servidor. Se puede salir del dispositivo sin conexión, aunque la revocación remota del token requiere conectividad. Las operaciones SQLite se conservan por tenant/cliente y se filtran por la cuenta activa.
+
+Consultar `docs/CU10_OFFLINE_WEB_MOVIL.md` para el contrato, estados y el resto de escenarios pendientes.

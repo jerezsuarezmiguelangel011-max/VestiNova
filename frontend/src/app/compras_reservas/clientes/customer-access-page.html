@@ -10,6 +10,12 @@
         <button type="button" class="vn-button" [class.vn-button--primary]="!registering()" [attr.aria-pressed]="!registering()" (click)="mode(false)" [disabled]="sending()">Iniciar sesión</button>
         <button type="button" class="vn-button" [class.vn-button--primary]="registering()" [attr.aria-pressed]="registering()" (click)="mode(true)" [disabled]="sending()">Crear cuenta</button>
       </div>
+      @if (returningToReservation()) {
+        <div class="customer-return-message" role="status">
+          <strong>Continuar con mi reserva</strong>
+          <p>Después de acceder, volverás a tu selección guardada. La reserva no se enviará hasta que pulses «Confirmar y enviar reserva».</p>
+        </div>
+      }
       <p>{{ registering() ? 'Tu cuenta será exclusiva de esta tienda.' : 'Usa la cuenta que registraste en esta tienda.' }}</p>
       @if (error(); as message) { <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p> }
       <form [formGroup]="form" (ngSubmit)="submit()" novalidate>

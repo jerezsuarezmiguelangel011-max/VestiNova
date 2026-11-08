@@ -22,3 +22,24 @@
 .cash-preview dd{margin:0;font-size:14px;font-weight:600;overflow-wrap:anywhere}
 :is(button,input,select):focus-visible{outline:3px solid #116149;outline-offset:3px}
 @media(max-width:680px){.cash-card{padding:18px}.cash-preview dl{grid-template-columns:1fr}}
+
+.cash-label{display:block;font-size:13px;font-weight:600;margin:12px 0 7px}
+.cash-select{width:min(100%,650px);min-height:44px;padding:10px;border:1px solid #bac7bd;border-radius:7px;background:white}
+.cash-card form .cash-secondary,.cash-secondary{color:#116149;border:1px solid #116149;background:#f0f7f1;border-radius:7px;min-height:42px;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:600}
+.cash-secondary:disabled{opacity:.5;cursor:not-allowed}
+.cash-success{background:#e9f5ec;color:#24583e;padding:14px;border-radius:7px}
+.cash-line,.cash-toolbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.cash-line{padding:10px 0;border-bottom:1px solid #e7ebe6;font-size:13px}
+.cash-total{font-size:17px!important;color:#202a25!important}
+.cash-card form label.cash-checkbox{display:flex;align-items:center;gap:12px;line-height:1.5}
+.cash-card form label.cash-checkbox input{width:20px;height:20px;min-height:auto}
+.cash-receipt{border:1px solid #d8ded5;border-radius:8px;margin:14px 0;padding:18px;overflow-wrap:anywhere;background:#fafcf9}
+.cash-receipt p{margin:8px 0;font-size:13px}
+
+/* CU15: cambio visible mientras se escribe y ayuda de formato de efectivo. */
+.cash-change{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;font-size:15px!important;color:#283a2d!important;margin:12px 0!important}
+.cash-change strong{font-size:22px;color:#166043}
+.cash-change strong.cash-change--invalid{font-size:14px;color:#9b493e}
+.cash-card form p.cash-hint{margin:0!important;font-size:12px!important;color:#597063}
+.cash-warning p{margin:7px 0 0;color:#745c27;font-size:13px;line-height:1.6}
+.cash-warning p b{font-weight:700}

@@ -1,4 +1,5 @@
 """CU09: consulta pública de existencias referenciales sin mezclar empresas."""
+from datetime import datetime
 from tests.test_tenancy_inventory import scope, product, variant, movement, post_movement
 
 
@@ -18,18 +19,28 @@ def test_availability_is_scoped_to_public_product_branch_and_variant(client, sco
     assert data["alcance"] == "STOCK_FISICO_REFERENCIAL"
     assert data["consultado_en"]
     assert len(data["items"]) == 2
-    assert data["items"][0] == {
+    first = data["items"][0]
+    # CU10 compromete unidades sin descontar el stock físico. El catálogo
+    # muestra además la disponibilidad neta y cuándo se actualizó el saldo.
+    assert {key: value for key, value in first.items() if key != "actualizado_en"} == {
         "sucursal_id": scope.a1.id,
         "sucursal": scope.a1.nombre,
         "variante_id": av["id"],
         "talla": "M",
         "color": "VERDE",
         "hay_existencias_fisicas": True,
+        "hay_disponibilidad": True,
         "saldo_registrado": True,
     }
-    assert data["items"][1]["sucursal_id"] == scope.a2.id
-    assert data["items"][1]["hay_existencias_fisicas"] is False
-    assert data["items"][1]["saldo_registrado"] is False
+    assert first["actualizado_en"] is not None
+    assert datetime.fromisoformat(first["actualizado_en"])
+
+    second = data["items"][1]
+    assert second["sucursal_id"] == scope.a2.id
+    assert second["hay_existencias_fisicas"] is False
+    assert second["hay_disponibilidad"] is False
+    assert second["actualizado_en"] is None
+    assert second["saldo_registrado"] is False
     assert all(item["sucursal_id"] != scope.b1.id for item in data["items"])
 
 

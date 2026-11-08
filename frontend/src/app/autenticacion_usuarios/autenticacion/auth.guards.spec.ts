@@ -25,9 +25,9 @@ describe('Rutas privadas del MVP', () => {
     const result = await run(adminGuard);
     expect(TestBed.inject(Router).serializeUrl(result as UrlTree)).toBe('/admin/login?motivo=conexion');
   });
-  it('envía al administrador autenticado a productos desde el login', async () => {
+  it('envía a la entrada autorizada desde el login', async () => {
     setup(of({ id: 1 }));
     const result = await run(guestGuard);
-    expect(TestBed.inject(Router).serializeUrl(result as UrlTree)).toBe('/admin/productos');
+    expect(TestBed.inject(Router).serializeUrl(result as UrlTree)).toBe('/admin');
   });
 });

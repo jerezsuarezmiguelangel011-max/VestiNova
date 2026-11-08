@@ -3,3 +3,7 @@
 .customer-store-back{display:inline-flex;margin:10px 0 20px;min-height:38px;align-items:center;gap:8px;color:#2a6b48;font-size:13px;font-weight:600;text-decoration:none;text-underline-offset:4px}
 .customer-store-back:hover{text-decoration:underline}
 .customer-store-back:focus-visible{outline:3px solid #478761;outline-offset:4px}
+
+.customer-return-message{padding:14px 16px;border:1px solid #bdd9c7;border-radius:9px;background:#ecf6ef;color:#24563c;margin:16px 0}
+.customer-return-message strong{font-size:14px;display:block;margin-bottom:4px}
+.customer-return-message p{font-size:13px;line-height:1.55;margin:0;color:#355e45}

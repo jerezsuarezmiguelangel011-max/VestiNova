@@ -1,8 +1,10 @@
 <section class="inventory-page">
   <div class="inventory-heading">
-    <p class="inventory-eyebrow">Operaciones · CU07</p>
-    <h1>Inventario por sucursal</h1>
-    <p>Consulta las existencias y los movimientos registrados en tu empresa. Cada ajuste es trazable y se valida en el servidor.</p>
+    <p class="inventory-eyebrow">{{ companies.hasPermission('inventario.ajustar') ? 'Operaciones · CU07' : 'Consulta · CU07' }}</p>
+    <h1>{{ companies.hasPermission('inventario.ajustar') ? 'Inventario por sucursal' : 'Consultar existencias' }}</h1>
+    <p>{{ companies.hasPermission('inventario.ajustar')
+      ? 'Consulta las existencias y los movimientos de tu empresa. Los ajustes autorizados se registran con trazabilidad.'
+      : 'Consulta el stock disponible y el kardex de tus sucursales autorizadas. Este perfil no puede modificar existencias.' }}</p>
   </div>
 
   @if (companies.active(); as company) {
@@ -109,7 +111,7 @@
             </tbody>
           </table></div>
           @if (balances().total > balances().items.length) { <p>Primeras {{ balances().items.length }} de {{ balances().total }} existencias. Se muestran hasta 100 por consulta.</p> }
-          <p class="inventory-note">Disponible = físico − comprometido. El registro central de reservas de CU10 todavía debe conectarse con este saldo.</p>
+          <p class="inventory-note">Disponible = físico − comprometido. Las reservas confirmadas de CU10 comprometen existencias hasta su atención, cancelación o vencimiento.</p>
         }
       </section>
 
