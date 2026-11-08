@@ -26,6 +26,11 @@ import { CustomerWishlistApi, type WishlistItem } from './customer-wishlist-api.
             <p>Talla {{ item.talla }} · {{ item.color }}</p>
             @if (item.publicada) {
               <p><strong>Bs {{ item.precio_vigente }}</strong> (precio consultado en línea)</p>
+              @switch (item.disponibilidad) {
+                @case ('DISPONIBLE_REFERENCIAL') { <p class="wish-stock">Hay unidades conocidas en alguna sucursal; verificar antes de comprar.</p> }
+                @case ('AGOTADA') { <p class="wish-inactive">Sin unidades disponibles según las sucursales consultadas.</p> }
+                @default { <p class="wish-stock">Disponibilidad no verificada.</p> }
+              }
               <a [routerLink]="['/tienda', tienda, 'prenda', item.slug]">Ver prenda</a>
             } @else {
               <p class="wish-inactive">Variante no disponible actualmente.</p>
@@ -58,7 +63,7 @@ import { CustomerWishlistApi, type WishlistItem } from './customer-wishlist-api.
     .wish-body button:disabled{opacity:.5}.wish-date{color:#6c7a6e;font-size:12px!important}
     .wish-error{padding:12px;background:#fff0f0;color:#a02735}
     .wish-notice{padding:12px;background:#ebf5ed;color:#176b4b}
-    .wish-inactive{color:#a02735}
+    .wish-inactive{color:#a02735}.wish-stock{color:#486b55}
   `,
 })
 export class CustomerWishlistPage {
