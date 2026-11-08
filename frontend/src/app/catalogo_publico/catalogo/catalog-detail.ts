@@ -11,6 +11,9 @@ import { CatalogImage } from './catalog-image';
 import { CatalogLocalError, type CatalogProduct, type CatalogResult } from './catalog.models';
 import { StorefrontContextService } from './storefront-context.service';
 import { PurchaseSelectionService } from '../../compras_reservas/compras/purchase-selection.service';
+import { CustomerAuthService } from '../../compras_reservas/clientes/customer-auth.service';
+import { CustomerWishlistApi } from '../../compras_reservas/deseos/customer-wishlist-api.service';
+import { CustomerRecommendationsService } from '../recomendaciones/customer-recommendations.service';
 
 @Component({
   selector: 'vn-catalog-detail',
@@ -25,6 +28,12 @@ export class CatalogDetailPage {
   readonly inStorefront = inject(ActivatedRoute).parent?.snapshot.routeConfig?.path === 'tienda/:tienda';
   readonly storefront = inject(StorefrontContextService);
   private readonly cart = inject(PurchaseSelectionService);
+  private readonly customerAuth = inject(CustomerAuthService);
+  private readonly wishlist = inject(CustomerWishlistApi);
+  private readonly personal = inject(CustomerRecommendationsService);
+  readonly wishlistBusy = signal(false);
+  readonly wishlistError = signal<string | null>(null);
+  readonly wishlistNotice = signal<string | null>(null);
   readonly cartNotice = signal(false);
   readonly cartError = signal<string | null>(null);
   private readonly availabilityApi = inject(CatalogApiService);
@@ -73,6 +82,9 @@ export class CatalogDetailPage {
       if (response) {
         this.product.set(response.data);
         this.source.set(response.source);
+        if (response.source === 'network' && this.inStorefront) {
+          this.registerConsentedView(response.data.slug);
+        }
         this.downloadedAt.set(response.downloadedAt);
         if (this.shop.tienda()) this.loadVariants(response.data.slug);
         if (this.inStorefront && response.source === 'network' && this.selectedBranchId() !== null) this.consultAvailability();
@@ -125,6 +137,55 @@ export class CatalogDetailPage {
     }
     this.cart.add({ data: item, source: 'network', downloadedAt: null }, selected);
     this.cartNotice.set(true);
+  }
+
+  addToWishlist(): void {
+    if (this.wishlistBusy()) return;
+    this.wishlistError.set(null);
+    this.wishlistNotice.set(null);
+    const tienda = this.shop.tienda();
+    const variant = this.selectedVariantId();
+    if (!tienda || this.source() !== 'network') {
+      this.wishlistError.set('Conéctate para guardar la variante publicada.');
+      return;
+    }
+    if (!variant || !this.variants().some(item => item.id === variant)) {
+      this.wishlistError.set('Selecciona primero una talla y un color.');
+      return;
+    }
+    if (!this.customerAuth.token(tienda)) {
+      this.wishlistError.set('Debes iniciar sesión como cliente en esta tienda para guardar prendas.');
+      return;
+    }
+    this.wishlistBusy.set(true);
+    this.wishlist.add(tienda, variant).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: response => {
+        this.wishlistBusy.set(false);
+        this.wishlistNotice.set(response.agregado
+          ? 'Variante guardada en tu lista de deseos.'
+          : 'Esta variante ya estaba en tu lista de deseos.');
+      },
+      error: () => {
+        this.wishlistBusy.set(false);
+        this.wishlistError.set('No se pudo guardar la variante. Revisa tu sesión o conexión.');
+      },
+    });
+  }
+
+  private registerConsentedView(slug: string): void {
+    const tienda = this.shop.tienda();
+    if (!tienda || !this.personal.activeSession(tienda)) return;
+    this.personal.preferences(tienda).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: state => {
+        if (!state.habilitado || this.product()?.slug !== slug || this.shop.tienda() !== tienda) return;
+        this.personal.registerView(tienda, slug)
+          .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => {},
+            error: () => {}, // La navegación funciona aunque falle el registro opcional.
+          });
+      },
+      error: () => {},
+    });
   }
 
   private loadVariants(slug: string): void {
@@ -185,6 +246,9 @@ export class CatalogDetailPage {
     this.selectedBranchId.set(this.inStorefront ? this.storefront.branch() : null);
     this.cartNotice.set(false);
     this.cartError.set(null);
+    this.wishlistNotice.set(null);
+    this.wishlistError.set(null);
+    this.wishlistBusy.set(false);
     this.selectedVariantId.set(null);
     this.availabilityLoading.set(false);
     this.availabilityError.set(null);

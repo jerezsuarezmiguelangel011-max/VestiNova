@@ -50,6 +50,10 @@ from app.operacion_sin_conexion.mobile_download import router as mobile_router
 from app.compras_reservas.reservas.attention import router as attention_reservations_router
 from app.operacion_sin_conexion.caja.online import router as cash_sales_router, catalog_router as cash_catalog_router
 from app.operacion_sin_conexion.sincronizacion.reconciliation import router as reconciliation_router
+from app.catalogo_publico.recomendaciones import router as recomendaciones_router
+from app.catalogo_publico.historial_recomendaciones import router as historial_recomendaciones_router
+from app.compras_reservas.deseos import router as deseos_router
+from app.reportes_comerciales import router as reportes_comerciales_router
 
 
 def create_app(settings: Settings | None = None, *, engine=None) -> FastAPI:
@@ -143,6 +147,10 @@ def create_app(settings: Settings | None = None, *, engine=None) -> FastAPI:
     app.include_router(cash_catalog_router)
     app.include_router(cash_sales_router)
     app.include_router(reconciliation_router)
+    app.include_router(recomendaciones_router)
+    app.include_router(historial_recomendaciones_router)
+    app.include_router(deseos_router)
+    app.include_router(reportes_comerciales_router)
     app.include_router(postventa_cliente_router)
     app.include_router(postventa_personal_router)
     app.include_router(mobile_router)

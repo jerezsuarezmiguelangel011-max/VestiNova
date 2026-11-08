@@ -1,0 +1,182 @@
+"""La semilla ampliada no duplica ni reinicia datos comerciales al repetirse."""
+from sqlalchemy import func, select
+
+from app.models import (
+    Administrador, CategoriaProducto, Empresa, Existencia, MembresiaEmpresa,
+    MovimientoInventario, Producto, Sucursal, VarianteProducto,
+)
+from scripts.seed_fashion_catalog_demo import GROUPS, STYLES, seed_catalog
+
+
+def _prepare_demo_companies(db):
+    for slug, tag, locations in (
+        ("demo-moda-andina", "andina", ("CENTRO", "NORTE")),
+        ("demo-moda-urbana", "urbana", ("CENTRO", "NORTE", "SUR")),
+    ):
+        company = Empresa(slug=slug, nombre=tag.title(), activo=True)
+        admin = Administrador(
+            correo=f"admin.{tag}@vestinova.test", nombre=f"Administrador {tag}",
+            password_hash="test-hash-no-login", activo=True,
+        )
+        db.add_all([company, admin])
+        db.flush()
+        db.add(MembresiaEmpresa(
+            administrador_id=admin.id, empresa_id=company.id,
+            rol="ADMINISTRADOR", activo=True,
+        ))
+        for code in locations:
+            db.add(Sucursal(
+                empresa_id=company.id, codigo=code,
+                nombre=f"{tag.title()} {code}", activo=True,
+            ))
+        jeans = CategoriaProducto(
+            empresa_id=company.id, nombre="Jeans",
+            nombre_clave="jeans", descripcion="Categoría antigua", activo=True,
+        )
+        db.add(jeans)
+        db.flush()
+        db.add(Producto(
+            empresa_id=company.id, categoria_id=jeans.id,
+            slug=f"demo-{tag}-jean-recto", nombre=f"Jean recto {tag}",
+            descripcion="Registro anterior de prueba.",
+            precio=199, moneda="BOB", activo=True,
+        ))
+    db.flush()
+
+
+def test_catalogo_ampliado_por_empresa_es_repetible_y_conserva_stock(session_factory):
+    with session_factory.begin() as db:
+        _prepare_demo_companies(db)
+        first = seed_catalog(db)
+        assert len(first) == 2
+        assert all(row["categorias"] == len(GROUPS) for row in first)
+        assert all(row["productos"] == len(STYLES) for row in first)
+        assert first[0]["sucursales"] == 2
+        assert first[1]["sucursales"] == 3
+        categories = db.scalars(select(CategoriaProducto).where(
+            CategoriaProducto.nombre_clave == "pantalones",
+        )).all()
+        assert len(categories) == 2
+        for tag in ("andina", "urbana"):
+            original = db.scalar(select(Producto).where(
+                Producto.slug == f"demo-{tag}-jean-recto",
+            ))
+            category = db.get(CategoriaProducto, original.categoria_id)
+            assert category.nombre == "Pantalones"
+
+        original_count = db.scalar(select(func.count()).select_from(Producto))
+        variant_count = db.scalar(select(func.count()).select_from(VarianteProducto))
+        movements_count = db.scalar(select(func.count()).select_from(MovimientoInventario))
+        stock = db.scalar(select(Existencia).where(
+            Existencia.cantidad > 2,
+        ).order_by(Existencia.empresa_id, Existencia.sucursal_id))
+        assert stock is not None
+        example = db.scalar(select(Producto).where(
+            Producto.slug == "demo-andina-catalogo-polera-manga-corta",
+        ))
+        assert example.imagen_url is not None
+        assert example.imagen_url.startswith("https://images.pexels.com/photos/")
+        assert "w=640" in example.imagen_url
+        stock_key = (stock.empresa_id, stock.sucursal_id, stock.variante_id)
+        stock.cantidad = 2
+        stock.cantidad_comprometida = 1
+        db.flush()
+
+        again = seed_catalog(db)
+        assert all(row["productos"] == 0 and row["variantes"] == 0
+                   and row["existencias"] == 0 and row["movimientos"] == 0
+                   for row in again)
+        assert db.scalar(select(func.count()).select_from(Producto)) == original_count
+        assert db.scalar(select(func.count()).select_from(VarianteProducto)) == variant_count
+        assert db.scalar(select(func.count()).select_from(MovimientoInventario)) == movements_count
+        assert db.get(Existencia, stock_key).cantidad == 2
+        assert db.get(Existencia, stock_key).cantidad_comprometida == 1
+
+
+def test_semilla_contiene_variedad_de_tallas_colores_y_sin_stock(session_factory):
+    with session_factory.begin() as db:
+        _prepare_demo_companies(db)
+        seed_catalog(db)
+        andina = db.scalar(select(Empresa).where(Empresa.slug == "demo-moda-andina"))
+        rows = db.execute(select(Producto, VarianteProducto).join(
+            VarianteProducto, VarianteProducto.producto_id == Producto.id,
+        ).where(Producto.empresa_id == andina.id,
+                VarianteProducto.empresa_id == andina.id)).all()
+        groups = {db.get(CategoriaProducto, product.categoria_id).nombre
+                  for product, _ in rows}
+        assert set(GROUPS) <= groups
+        assert any(variant.talla == "M" for _, variant in rows)
+        assert any(variant.talla == "40" for _, variant in rows)
+        assert any(variant.talla == "39" for _, variant in rows)
+        assert any(variant.color == "Azul" for _, variant in rows)
+        # La demostración se limita a moda masculina: no existen productos
+        # publicados llamados bolso/cartera en la colección ampliada.
+        new_products = [p for p, _ in rows if "-catalogo-" in p.slug]
+        assert len({p.id for p in new_products}) == len(STYLES)
+        assert all("Bolso" not in p.nombre and "Cartera" not in p.nombre
+                   for p in new_products)
+        assert any("Billetera clásica de hombre" in p.nombre for p in new_products)
+        assert any("relaxed fit masculino" in p.nombre for p in new_products)
+        assert all(product.imagen_url is not None
+                   for product, _ in rows
+                   if "catalogo-" in product.slug)
+        assert db.scalar(select(func.count()).select_from(Existencia).where(
+            Existencia.empresa_id == andina.id,
+            Existencia.cantidad == 0,
+        )) > 0
+
+
+
+def test_semilla_masculina_despublica_bolso_demo_sin_borrar_existencia(session_factory):
+    with session_factory.begin() as db:
+        _prepare_demo_companies(db)
+        andina = db.scalar(select(Empresa).where(Empresa.slug == "demo-moda-andina"))
+        centro = db.scalar(select(Sucursal).where(
+            Sucursal.empresa_id == andina.id, Sucursal.codigo == "CENTRO",
+        ))
+        accesorios = CategoriaProducto(
+            empresa_id=andina.id, nombre="Accesorios",
+            nombre_clave="accesorios", descripcion="Accesorios",
+            activo=True,
+        )
+        db.add(accesorios)
+        db.flush()
+        old_bag = Producto(
+            empresa_id=andina.id, categoria_id=accesorios.id,
+            slug="demo-andina-catalogo-bolso-cruzado",
+            nombre="Bolso cruzado · Andina",
+            descripcion="Prenda demo anterior",
+            precio=139, moneda="BOB", activo=True,
+        )
+        db.add(old_bag)
+        db.flush()
+        variant = VarianteProducto(
+            empresa_id=andina.id, producto_id=old_bag.id,
+            talla="Única", color="Negro", activo=True,
+        )
+        db.add(variant)
+        db.flush()
+        db.add(Existencia(
+            empresa_id=andina.id, sucursal_id=centro.id,
+            variante_id=variant.id, cantidad=4, cantidad_comprometida=1,
+        ))
+        db.flush()
+
+        seed_catalog(db)
+        db.flush()
+
+        assert old_bag.activo is False
+        previous_stock = db.get(Existencia, (andina.id, centro.id, variant.id))
+        assert previous_stock.cantidad == 4
+        assert previous_stock.cantidad_comprometida == 1
+        billetera = db.scalar(select(Producto).where(
+            Producto.slug == "demo-andina-catalogo-billetera-clasica",
+            Producto.empresa_id == andina.id,
+        ))
+        assert billetera is not None and billetera.activo is True
+        assert "Billetera clásica de hombre" in billetera.nombre
+        # Repetir no reactiva la cartera ni reescribe existencias.
+        seed_catalog(db)
+        db.flush()
+        assert old_bag.activo is False
+        assert db.get(Existencia, (andina.id, centro.id, variant.id)).cantidad == 4

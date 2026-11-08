@@ -15,6 +15,7 @@ import { CustomerAuthService } from './customer-auth.service';
         <p>Tu acceso pertenece a esta tienda.</p>
         @if (error(); as message) { <p class="vn-alert vn-alert--error" role="alert">{{ message }}</p> }
         <a class="vn-button" [routerLink]="['/tienda', slug, 'compras']">Consultar historial de compras · CU16</a>
+        <a class="vn-button" [routerLink]="['/tienda', slug, 'deseos']">Mi lista de deseos · CU23</a>
         <button type="button" class="vn-button vn-button--primary" [disabled]="closing()" (click)="logout()">{{ closing() ? 'Cerrando sesión…' : 'Cerrar sesión' }}</button>
       } @else { <h1 id="account-title" class="vn-title">Sesión no disponible</h1><p>Vuelve al enlace de acceso de tu tienda.</p> }
     </section></main>`,

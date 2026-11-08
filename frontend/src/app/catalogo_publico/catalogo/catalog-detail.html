@@ -154,9 +154,21 @@
               <a class="vn-button" routerLink="/catalogo/acciones/reserva"
                  [queryParams]="{ slug: item.slug, tienda: shop.tienda() }">Preparar reserva</a>
             }
+            <button type="button" class="vn-button" (click)="addToWishlist()"
+              [disabled]="wishlistBusy() || variantsLoading() || source() !== 'network'">
+              {{ wishlistBusy() ? 'Guardando…' : 'Guardar en mi lista de deseos' }}
+            </button>
+            <a class="vn-button" [routerLink]="['/tienda', shop.tienda(), 'recomendaciones']"
+               [queryParams]="{ producto_slug: item.slug }">Ver prendas similares · CU19</a>
             <a class="storefront-fitting-link" [routerLink]="['/catalogo/vestidor', item.slug]"
                [queryParams]="{ tienda: shop.tienda() }">Probar virtualmente ↗</a>
           </div>
+          @if (wishlistError(); as message) { <p role="alert" class="storefront-cart-error">{{ message }}</p> }
+          @if (wishlistNotice(); as message) {
+            <p role="status" class="storefront-cart-notice">{{ message }}
+              <a [routerLink]="['/tienda', shop.tienda(), 'deseos']">Ver mi lista</a>
+            </p>
+          }
           @if (cartError(); as message) { <p class="storefront-cart-error" role="alert">{{ message }}</p> }
           @if (cartNotice()) {
             <div class="storefront-cart-notice" role="status">
