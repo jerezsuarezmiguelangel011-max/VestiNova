@@ -10,10 +10,10 @@ de inventario, deseos o conflictos de sincronización anteriores.
   existencias en Andina Centro y Andina Norte.
 - Moda Urbana Demo: 26 modelos adicionales, con variantes y existencias en
   Urbana Centro, Urbana Norte y Urbana Sur.
-- Seis categorías generales por empresa: **Poleras, Camisas, Pantalones,
+- Seis categorías generales por empresa (solo moda masculina): **Poleras, Camisas, Pantalones,
   Abrigos, Calzado y Accesorios**.
 - Ejemplos: polera oversize, camisa de lino, pantalón cargo, jean amplio,
-  chompa tejida, parka, zapatillas, botines, gorra y chalina.
+  chompa tejida, parka, zapatillas, botines, gorra, billetera y chalina.
 - Tallas de ropa (S/M/L), de pantalón (38/40/42), de calzado (37/39/41)
   y talla única para accesorios.
 - Dos colores por modelo, con disponibilidad variada por sucursal y algunos
@@ -31,8 +31,8 @@ descripción, pero **no son subcategorías navegables reales**. Esa jerarquía
 requeriría un cambio separado de CU04, esquema y UI.
 
 **Fotos:** las prendas nuevas se crean sin fotografías externas. La interfaz
-debe conservar su tratamiento de imágenes opcionales. No se insertan enlaces
-inestables a fotografías que podrían dejar de funcionar durante la defensa.
+debe conservar su tratamiento de imágenes opcionales. Se sustituyen las imágenes previas asignadas por la propia semilla; se
+conservan las fotografías introducidas manualmente por un administrador.
 
 ## Comandos de Windows / PowerShell
 
@@ -77,3 +77,41 @@ vendido, reservado o ajustado en una prueba.
 
 Los estilos y cantidades son **datos sintéticos de demostración**, no
 inventario de tiendas reales.
+
+
+## Ajuste del 8 de noviembre: solo moda masculina
+
+- El catálogo de **Moda Andina Demo** y **Moda Urbana Demo** ofrece
+  prendas y accesorios para hombre.
+- El antiguo modelo de demostración `bolso-cruzado` se **despublica**
+  si mantiene su nombre original de la semilla; no se borran sus
+  existencias, compras, reservas, movimientos o deseos.
+- Se agrega `billetera-clasica` en lugar del bolso dentro de los
+  26 modelos activos de demostración por tienda.
+- El modelo `jean-wide-leg` pasa a denominarse «Jean relaxed fit masculino».
+  Los registros y variantes existentes conservan sus identificadores.
+- Las fotografías se actualizarán al repetir la semilla **solo si la URL
+  anterior coincidía con la que colocó la semilla vieja**. Si el administrador
+  asignó una fotografía personalizada, no se sobrescribe.
+- Las portadas del portal y de cada tienda usan fotografías editoriales
+  masculinas distintas; Moda Andina utiliza un estilo cálido y Moda Urbana,
+  un estilo streetwear.
+- Las páginas de CU19 y CU23 utilizan el componente de imagen del catálogo,
+  con una ilustración alternativa si una foto remota falla.
+
+### Actualización
+
+```powershell
+cd D:\Proyectos\vestinova-mvp
+git switch trabajo/web-cu19-cu20-cu23
+git pull --ff-only origin trabajo/web-cu19-cu20-cu23
+
+cd backend
+.\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider tests/test_seed_fashion_catalog_demo.py
+.\.venv\Scripts\python.exe -m scripts.seed_fashion_catalog_demo
+```
+
+**Nota:** el comando de siembra solo se debe ejecutar cuando haya pasado
+la prueba anterior. El script vuelve a utilizar la base `vestinova_pruebas`.
+Si el navegador no actualiza las fotografías, haz una recarga completa de la
+página para descartar recursos antiguos de caché.
