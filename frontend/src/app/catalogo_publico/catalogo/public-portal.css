@@ -87,3 +87,51 @@
 .public-shop-card:focus-visible{outline:3px solid #397b54;outline-offset:3px}
 
 #public-top,#como-funciona,#tiendas{scroll-margin-top:18px}
+
+
+/* Campaña editorial VestiNova / moda masculina 2026. */
+.public-hero-art{isolation:isolate;background:#254635}
+.public-look-portrait{
+  position:absolute;inset:0;z-index:0;
+  background-image:linear-gradient(90deg,#173b2c65,#182f2560),
+    url('https://images.pexels.com/photos/16069737/pexels-photo-16069737.jpeg?auto=compress&cs=tinysrgb&w=1200');
+  background-size:cover;background-position:center 35%;filter:saturate(.83);
+}
+.public-hero-art .public-orbit{z-index:1;pointer-events:none;border-color:#e2efdf45}
+.public-hero-art .public-fashion-shape{display:none}
+.public-hero-monogram{position:absolute;top:34px;right:35px;z-index:2;color:#fff8;
+  border:1px solid #fff7;font:italic 34px Georgia,serif;padding:8px 12px}
+.public-float-tag,.public-art-caption{z-index:3}
+.public-float-tag{background:#f6f0e8f0}
+.public-shop-illustration--andina{
+  background-image:linear-gradient(115deg,#153c3030,#142e2755),
+    url('https://images.pexels.com/photos/5191436/pexels-photo-5191436.jpeg?auto=compress&cs=tinysrgb&w=960');
+  background-size:cover;background-position:center 45%;
+}
+.public-shop-illustration--urbana{
+  background-image:linear-gradient(115deg,#1a1f2677,#09181b33),
+    url('https://images.pexels.com/photos/28758240/pexels-photo-28758240.jpeg?auto=compress&cs=tinysrgb&w=960');
+  background-size:cover;background-position:center 42%;
+}
+.public-shop-illustration--andina:before,
+.public-shop-illustration--urbana:before{width:75%;height:165%;border-color:#ffffff60}
+.public-shop-illustration--andina .public-shop-initial,
+.public-shop-illustration--urbana .public-shop-initial{
+  position:absolute;left:23px;bottom:19px;z-index:1;width:64px;height:64px;
+  background:#f7f3e7ed;border:1px solid #c6d6c4;border-radius:3px;
+  font:italic 29px Georgia,serif;box-shadow:0 10px 35px #11261b28;
+}
+.public-shop-illustration--urbana .public-shop-initial{
+  background:#1b2623e9;color:#e8eee1;border:1px solid #ffffff6e;
+}
+.public-shop-illustration--andina .public-shop-overlay,
+.public-shop-illustration--urbana .public-shop-overlay{
+  z-index:1;bottom:24px;right:22px;font-size:9px;
+  background:#122c228c;padding:7px 9px;letter-spacing:.09em;
+}
+.public-shop-card:hover .public-shop-illustration--andina,
+.public-shop-card:hover .public-shop-illustration--urbana{background-size:cover}
+@media(max-width:850px){
+  .public-look-portrait{background-position:center 35%}
+  .public-hero-monogram{top:22px;right:22px;font-size:25px}
+}
