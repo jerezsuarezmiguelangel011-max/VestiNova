@@ -24,6 +24,7 @@ jobs:
       - run: dart format lib/commerce lib/storefront lib/reservations
       - run: flutter analyze --no-pub --no-fatal-infos
       - run: flutter test --no-pub
+      - run: flutter build apk --debug --no-pub --dart-define=API_BASE_URL=http://10.0.2.2:8001/api
   backend:
     runs-on: ubuntu-latest
     defaults:
