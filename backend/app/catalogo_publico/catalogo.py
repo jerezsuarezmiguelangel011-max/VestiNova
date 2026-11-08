@@ -1,5 +1,6 @@
 """CU08: consulta pública del catálogo, precios y existencias referenciales."""
 from decimal import Decimal
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
@@ -80,6 +81,7 @@ def public_list(
     temporada: str | None = Query(default=None, min_length=1, max_length=60),
     precio_min: Decimal | None = Query(default=None, ge=0),
     precio_max: Decimal | None = Query(default=None, ge=0),
+    disponibilidad: Literal['DISPONIBLE', 'AGOTADO'] | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -120,6 +122,45 @@ def public_list(
         filters.append(variant.exists())
     if q and q.strip():
         filters.append(func.lower(Producto.nombre).contains(q.strip().lower(), autoescape=True))
+    if disponibilidad is not None:
+        # El estado se calcula sobre la variante seleccionada (si existen filtros)
+        # y el stock NETO de todas las sucursales activas de la misma empresa.
+        # No confundir ausencia de saldo conocido con AGOTADO.
+        stock_query = (
+            select(Existencia.variante_id)
+            .join(
+                VarianteProducto,
+                (VarianteProducto.id == Existencia.variante_id) &
+                (VarianteProducto.empresa_id == Existencia.empresa_id),
+            )
+            .join(
+                Sucursal,
+                (Sucursal.id == Existencia.sucursal_id) &
+                (Sucursal.empresa_id == Existencia.empresa_id),
+            )
+            .where(
+                Existencia.empresa_id == Producto.empresa_id,
+                VarianteProducto.producto_id == Producto.id,
+                VarianteProducto.activo.is_(True),
+                Sucursal.activo.is_(True),
+            )
+        )
+        if talla and talla.strip():
+            stock_query = stock_query.where(
+                func.lower(VarianteProducto.talla) == talla.strip().lower()
+            )
+        if color and color.strip():
+            stock_query = stock_query.where(
+                func.lower(VarianteProducto.color) == color.strip().lower()
+            )
+        recorded = stock_query.correlate(Producto).exists()
+        available = stock_query.where(
+            Existencia.cantidad > Existencia.cantidad_comprometida
+        ).correlate(Producto).exists()
+        if disponibilidad == 'DISPONIBLE':
+            filters.append(available)
+        else:
+            filters.extend((recorded, ~available))
     total = db.scalar(select(func.count()).select_from(Producto).where(*filters)) or 0
     products = db.scalars(
         select(Producto).where(*filters).order_by(Producto.id.desc()).offset(offset).limit(limit)

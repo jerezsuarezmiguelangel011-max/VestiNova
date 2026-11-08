@@ -214,6 +214,7 @@ class StoreFilters {
     this.season = '',
     this.minPrice = '',
     this.maxPrice = '',
+    this.availability = '',
   });
   final String q;
   final int? categoryId;
@@ -222,6 +223,8 @@ class StoreFilters {
   final String season;
   final String minPrice;
   final String maxPrice;
+  /// Valores del filtro de stock vigente: DISPONIBLE, AGOTADO o vacío.
+  final String availability;
   Map<String, String> toQuery() => {
     if (q.trim().isNotEmpty) 'q': q.trim(),
     if (categoryId != null) 'categoria_id': '$categoryId',
@@ -230,6 +233,8 @@ class StoreFilters {
     if (season.trim().isNotEmpty) 'temporada': season.trim(),
     if (minPrice.isNotEmpty) 'precio_min': minPrice,
     if (maxPrice.isNotEmpty) 'precio_max': maxPrice,
+    if (availability == 'DISPONIBLE' || availability == 'AGOTADO')
+      'disponibilidad': availability,
   };
 }
 

@@ -64,6 +64,13 @@ class StorefrontRepository {
       if (!e.network) {
         rethrow;
       }
+      if (filters.availability.isNotEmpty) {
+        throw const StorefrontException(
+          'El filtro de disponibilidad necesita Internet para consultar '
+          'el stock neto actual. Selecciona Todas para navegar offline.',
+          network: true,
+        );
+      }
       final saved = await _read(tienda, 'products');
       if (saved == null) {
         rethrow;

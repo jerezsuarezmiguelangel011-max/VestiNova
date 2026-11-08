@@ -40,6 +40,7 @@ class _StorefrontCatalogPageState extends State<StorefrontCatalogPage> {
   String? _savedAt;
   String? _error;
   int? _category;
+  String _availability = 'TODAS';
   int _revision = 0;
   @override
   void initState() {
@@ -72,6 +73,7 @@ class _StorefrontCatalogPageState extends State<StorefrontCatalogPage> {
     season: _season.text,
     minPrice: _min.text,
     maxPrice: _max.text,
+    availability: _availability == 'TODAS' ? '' : _availability,
   );
 
   Future<void> _loadCategories() async {
@@ -251,6 +253,27 @@ class _StorefrontCatalogPageState extends State<StorefrontCatalogPage> {
                 _filterText(_max, 'Precio máx. Bs'),
               ],
             ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              key: ValueKey(_availability),
+              initialValue: _availability,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Disponibilidad (stock actual)',
+                helperText: 'Disponible en al menos una sucursal activa. Requiere Internet.',
+                border: OutlineInputBorder(),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'TODAS', child: Text('Todas las prendas')),
+                DropdownMenuItem(value: 'DISPONIBLE', child: Text('Solo disponibles')),
+                DropdownMenuItem(value: 'AGOTADO', child: Text('Solo agotadas')),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _availability = value);
+                }
+              },
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -264,7 +287,10 @@ class _StorefrontCatalogPageState extends State<StorefrontCatalogPage> {
                     for (final c in [_size, _color, _season, _min, _max]) {
                       c.clear();
                     }
-                    setState(() => _category = null);
+                    setState(() {
+                      _category = null;
+                      _availability = 'TODAS';
+                    });
                     _load();
                   },
                   child: const Text('Limpiar filtros'),
