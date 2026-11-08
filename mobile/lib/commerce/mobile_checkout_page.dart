@@ -51,7 +51,9 @@ class _MobileCheckoutPageState extends State<MobileCheckoutPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _load();
+      _load().then((_) {
+        if (mounted && token != null) _sync();
+      });
     }
   }
 
@@ -255,6 +257,7 @@ class _MobileCheckoutPageState extends State<MobileCheckoutPage>
         Text('Precio referencial: Bs ' + widget.product.effectivePrice),
         const SizedBox(height: 12),
         DropdownButtonFormField<int>(
+          key: ValueKey(branchId),
           initialValue: branchId, isExpanded: true,
           decoration: const InputDecoration(labelText: 'Sucursal de retiro'),
           items: branches.map((b) => DropdownMenuItem<int>(
@@ -267,7 +270,7 @@ class _MobileCheckoutPageState extends State<MobileCheckoutPage>
           initialValue: quantity,
           decoration: const InputDecoration(labelText: 'Cantidad'),
           items: List.generate(5, (i) => DropdownMenuItem(
-            value: i + 1, child: Text('' + (i + 1).toString() + ' unidad(es)'),
+            value: i + 1, child: Text((i + 1).toString() + ' unidad(es)'),
           )),
           onChanged: (v) => setState(() => quantity = v ?? 1),
         ),
