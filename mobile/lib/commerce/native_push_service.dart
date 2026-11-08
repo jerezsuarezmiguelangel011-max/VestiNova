@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -14,8 +15,13 @@ class NativePushService {
   static const project = String.fromEnvironment('FIREBASE_PROJECT_ID');
 
   static StreamSubscription<RemoteMessage>? _foreground;
+  static bool _ready = false;
 
-  static bool get configured =>
+  /// Disponible únicamente tras inicializar Firebase correctamente.
+  /// Con google-services.json en Android no hacen falta --dart-define de Firebase.
+  static bool get configured => _ready;
+
+  static bool get _hasExplicitOptions =>
       appId.isNotEmpty &&
       apiKey.isNotEmpty &&
       sender.isNotEmpty &&
@@ -25,17 +31,24 @@ class NativePushService {
   /// banner de mensajes FCM: mostrarlo como aviso local sin duplicarlo en
   /// segundo plano, donde lo presenta el sistema.
   static Future<void> initialize() async {
-    if (!configured) return;
+    if (!Platform.isAndroid) return;
     if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(
-        options: const FirebaseOptions(
-          apiKey: apiKey,
-          appId: appId,
-          messagingSenderId: sender,
-          projectId: project,
-        ),
-      );
+      if (_hasExplicitOptions) {
+        await Firebase.initializeApp(
+          options: const FirebaseOptions(
+            apiKey: apiKey,
+            appId: appId,
+            messagingSenderId: sender,
+            projectId: project,
+          ),
+        );
+      } else {
+        // Requiere Android con google-services.json y el Gradle plugin.
+        await Firebase.initializeApp();
+      }
     }
+    _ready = Firebase.apps.isNotEmpty;
+    if (!_ready) return;
     _foreground ??= FirebaseMessaging.onMessage.listen((message) async {
       final push = message.notification;
       if (push == null) return;
@@ -56,12 +69,14 @@ class NativePushService {
     required String tienda,
     required String token,
   }) async {
-    if (!configured) {
-      throw StateError(
-        'Configura Firebase Cloud Messaging para Android antes de registrar el canal.',
-      );
+    try {
+      await initialize();
+    } catch (_) {
+      throw StateError('Firebase no pudo iniciar. Comprueba el archivo google-services.json y la configuración Android.');
     }
-    await initialize();
+    if (!configured) {
+      throw StateError('Configura Firebase Cloud Messaging para Android antes de registrar el canal.');
+    }
     final messaging = FirebaseMessaging.instance;
     final permission = await messaging.requestPermission(
       alert: true,

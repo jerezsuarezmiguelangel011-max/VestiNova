@@ -4,6 +4,12 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Solo activar el complemento con el archivo de Firebase local.
+// Así las compilaciones automatizadas sin credenciales/configuración siguen funcionando.
+if (file("google-services.json").isFile) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "com.vestinova.vestinova_mobile"
     compileSdk = flutter.compileSdkVersion

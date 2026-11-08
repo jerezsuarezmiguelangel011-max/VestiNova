@@ -46,3 +46,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Configuración Firebase local de la app Android (se añade desde la consola).
+/android/app/google-services.json

@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -23,8 +23,13 @@ Future<void> main() async {
   } catch (_) {
     // El catálogo puede usarse aunque Android no registre trabajos en segundo plano.
   }
-  if (NativePushService.configured) {
-    unawaited(NativePushService.initialize().catchError((Object _) {}));
+  if (Platform.isAndroid) {
+    try {
+      await NativePushService.initialize();
+    } catch (_) {
+      // Si Firebase falta o la consola no tiene acceso, VestiNova sigue iniciando.
+      // La pantalla CU26 indicará que el canal móvil no está configurado.
+    }
   }
   try {
     final api = AuthApi(ApiConfig(ApiConfig.defaultBase));
