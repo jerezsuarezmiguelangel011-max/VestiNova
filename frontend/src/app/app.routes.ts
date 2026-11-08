@@ -11,12 +11,14 @@ export const routes: Routes = [
   { path: 'tienda/:tienda/acceso', loadComponent: () => import('./compras_reservas/clientes/customer-access-page').then(m => m.CustomerAccessPage) },
   { path: 'tienda/:tienda/cuenta', canActivate: [customerGuard], loadComponent: () => import('./compras_reservas/clientes/customer-account-page').then(m => m.CustomerAccountPage) },
   { path: 'tienda/:tienda/compras', canActivate: [customerGuard], loadComponent: () => import('./compras_reservas/compras/purchase-history-page').then(m => m.PurchaseHistoryPage) },
+  { path: 'tienda/:tienda/deseos', canActivate: [customerGuard], loadComponent: () => import('./compras_reservas/deseos/customer-wishlist-page').then(m => m.CustomerWishlistPage) },
   {
     path: 'tienda/:tienda',
     loadComponent: () => import('./catalogo_publico/catalogo/storefront-layout').then(m => m.StorefrontLayout),
     children: [
       { path: '', pathMatch: 'full', loadComponent: () => import('./catalogo_publico/catalogo/storefront-home').then(m => m.StorefrontHomePage) },
       { path: 'catalogo', loadComponent: () => import('./catalogo_publico/catalogo/catalog-list').then(m => m.CatalogListPage) },
+      { path: 'recomendaciones', loadComponent: () => import('./catalogo_publico/recomendaciones/recommendations-page').then(m => m.RecommendationsPage) },
       { path: 'prenda/:slug', loadComponent: () => import('./catalogo_publico/catalogo/catalog-detail').then(m => m.CatalogDetailPage) },
     ],
   },
@@ -54,6 +56,7 @@ export const routes: Routes = [
       { path: 'caja', canActivate: [cashierGuard], loadComponent: () => import('./operacion_sin_conexion/caja/cash-sale.page').then(m => m.CashSalePage) },
       { path: 'atencion-reservas', canActivate: [cashierGuard], loadComponent: () => import('./compras_reservas/reservas/reservation-attention-page').then(m => m.ReservationAttentionPage) },
       { path: 'conciliacion', canActivate: [managerGuard], loadComponent: () => import('./operacion_sin_conexion/sincronizacion/reconciliation-page').then(m => m.ReconciliationPage) },
+      { path: 'reportes-comerciales', canActivate: [staffPermissionGuard], data: { permission: 'reportes.consultar' }, loadComponent: () => import('./reportes_comerciales/reports-page').then(m => m.ReportsPage) },
       {
         path: 'catalogo-consulta', canActivate: [companyGuard],
         loadComponent: () => import('./catalogo_publico/catalogo/admin-catalog-page').then(m => m.AdminCatalogPage),
