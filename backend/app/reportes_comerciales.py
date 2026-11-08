@@ -14,7 +14,7 @@ from app.compras_reservas.compras.domain import identifier_token
 from app.compras_reservas.compras.persistence import PurchaseRecord
 from app.compras_reservas.reservas.online import ReservationRecord
 from app.db import get_db
-from app.models import Existencia, Sucursal, VarianteProducto
+from app.models import Existencia, Producto, Sucursal, VarianteProducto
 from app.organizacion_empresarial.plans import current_subscription, subscription_state
 from app.operacion_sin_conexion.caja.online import CashSale
 from app.tenancy import TenantContext, authorized_branch, authorized_branches_statement, check_permission, require_tenant
@@ -175,13 +175,24 @@ def reports(
                 VarianteProducto.id.in_(variant_ids),
             )).all()
         } if variant_ids else {}
+        product_ids = {variant.producto_id for variant in variants.values()}
+        products = {
+            product.id: product for product in db.scalars(select(Producto).where(
+                Producto.empresa_id == context.empresa_id,
+                Producto.id.in_(product_ids),
+            )).all()
+        } if product_ids else {}
         grouped = {}
         for branch_id, variant_id, name, qty, amount, synthetic in detail_lines:
             v = variants.get(variant_id)
-            key = (branch_id, variant_id, name, v.talla if v else "—", v.color if v else "—", synthetic)
+            product = products.get(v.producto_id) if v else None
+            category = product.categoria_nombre if product else "Sin categoría"
+            key = (branch_id, variant_id, name, v.talla if v else "—",
+                   v.color if v else "—", category, synthetic)
             if key not in grouped:
                 grouped[key] = {"sucursal_id": branch_id, "producto": name,
                                 "talla": key[3], "color": key[4],
+                                "categoria": category,
                                 "unidades": 0, "importe": Decimal("0.00"),
                                 "es_demo": synthetic}
             grouped[key]["unidades"] += qty
