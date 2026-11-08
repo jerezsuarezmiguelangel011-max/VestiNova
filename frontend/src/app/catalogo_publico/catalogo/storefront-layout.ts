@@ -41,18 +41,24 @@ interface StorefrontBranch { id: number; nombre: string; }
         </main>
       } @else {
         @if (showHero()) {
-          <section class="storefront-hero" aria-labelledby="storefront-heading">
+          <section class="storefront-hero" aria-labelledby="storefront-heading"
+                   [class.storefront-hero--andina]="slug() === 'demo-moda-andina'"
+                   [class.storefront-hero--urbana]="slug() === 'demo-moda-urbana'">
             <div class="storefront-hero-copy">
-              <p class="storefront-eyebrow">UNA TIENDA DE VESTINOVA</p>
+              <p class="storefront-eyebrow">VESTINOVA · MODA MASCULINA</p>
               <h1 id="storefront-heading">{{ name() }}</h1>
-              <p>Descubre sus prendas, encuentra tus favoritas y explora las promociones vigentes.</p>
+              <p>{{ slug() === 'demo-moda-urbana'
+                 ? 'Streetwear para hombre. Básicos oversize, denim, zapatillas y combinaciones para todos los días.'
+                 : 'Moda masculina con carácter. Camisas, pantalones, prendas clásicas y accesorios para tu estilo.' }}</p>
+              <p class="storefront-campaign-label">{{ slug() === 'demo-moda-urbana'
+                ? 'URBANA / STREET EDITION' : 'ANDINA / EVERYDAY ESSENTIALS' }}</p>
               <a class="storefront-hero-link" href="#storefront-collections" (click)="jumpToCollections($event)">Explorar colección <span aria-hidden="true">↗</span></a>
             </div>
             <div class="storefront-hero-art" aria-hidden="true">
+              <div class="storefront-photo"></div>
               <div class="storefront-orbit"></div>
-              <div class="storefront-fashion-front"></div>
-              <div class="storefront-fashion-back"></div>
-              <span>{{ name() }}</span>
+              <div class="storefront-brand-emblem">{{ slug() === 'demo-moda-urbana' ? 'MU' : 'MA' }}</div>
+              <span>VESTINOVA / MEN'S COLLECTION</span>
             </div>
           </section>
         }
