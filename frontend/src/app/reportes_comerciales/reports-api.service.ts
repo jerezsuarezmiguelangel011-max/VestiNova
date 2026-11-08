@@ -29,7 +29,7 @@ export interface CommercialReport {
   nota: string;
   por_sucursal: ReportRow[];
   ventas_por_prenda: Array<{
-    sucursal_id: number; producto: string; talla: string; color: string;
+    sucursal_id: number; producto: string; categoria: string; talla: string; color: string;
     unidades: number; importe: string; es_demo: boolean;
   }>;
   totales: Omit<ReportRow, 'sucursal_id' | 'sucursal'>;
