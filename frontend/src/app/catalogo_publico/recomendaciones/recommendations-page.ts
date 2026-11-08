@@ -6,10 +6,11 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { RecommendationsApi, type RecommendationResult } from './recommendations-api.service';
 import { StorefrontContextService } from '../catalogo/storefront-context.service';
 import { CustomerRecommendationsService } from './customer-recommendations.service';
+import { CatalogImage } from '../catalogo/catalog-image';
 
 @Component({
   selector: 'vn-recommendations',
-  imports: [RouterLink, ReactiveFormsModule, DatePipe],
+  imports: [RouterLink, ReactiveFormsModule, DatePipe, CatalogImage],
   template: `
     <section class="rec-page">
       <a [routerLink]="['/tienda', tienda(), 'catalogo']">← Volver al catálogo</a>
@@ -61,7 +62,7 @@ import { CustomerRecommendationsService } from './customer-recommendations.servi
         <div class="rec-grid">
           @for (item of data.items; track item.producto_id) {
             <article class="rec-item">
-              @if (item.imagen_url) { <img [src]="item.imagen_url" [alt]="item.nombre" loading="lazy" /> }
+              <vn-catalog-image [url]="item.imagen_url" [name]="item.nombre" />
               <div class="rec-copy">
                 <p class="rec-tag">{{ item.categoria }}</p>
                 <h2>{{ item.nombre }}</h2>
@@ -94,7 +95,7 @@ import { CustomerRecommendationsService } from './customer-recommendations.servi
     .rec-plain{min-height:auto;padding:4px 8px}.rec-note{font-size:13px;color:#586a60}
     .rec-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin-top:20px}
     .rec-item{border:1px solid #d6e3d7;border-radius:12px;overflow:hidden;background:#fff}
-    .rec-item img{width:100%;height:210px;object-fit:cover}.rec-copy{padding:18px}
+    .rec-item vn-catalog-image{display:block;height:210px;background:#e8eee4}.rec-copy{padding:18px}
     .rec-copy h2{font:400 24px Georgia,serif;margin:8px 0}.rec-copy p{font-size:13px;line-height:1.55}
     .rec-copy a{display:inline-block;margin-top:10px;color:#126c50;font-weight:700}
     .rec-consent{display:flex;gap:16px;justify-content:space-between;align-items:center;flex-wrap:wrap;
