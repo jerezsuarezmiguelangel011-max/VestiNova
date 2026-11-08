@@ -24,7 +24,20 @@ jobs:
       - run: dart format lib/commerce lib/storefront lib/reservations
       - run: flutter analyze --no-pub --no-fatal-infos
       - run: flutter test --no-pub
-      - run: flutter build apk --debug --no-pub --dart-define=API_BASE_URL=http://10.0.2.2:8001/api
+      # APK de demostración para Redmi real (misma Wi-Fi que el backend).
+      # Sin google-services.json en CI: permite verificar CU08/CU09/CU10/CU25,
+      # pero no declara probada la recepción push FCM de CU26.
+      - name: Construir APK Android demo para Redmi
+        env:
+          VESTINOVA_CI_TEST_APK: "1"
+        run: flutter build apk --debug --no-pub --dart-define=API_BASE_URL=http://192.168.0.9:8001/api
+      - name: Publicar APK Android de prueba
+        uses: actions/upload-artifact@v4
+        with:
+          name: VestiNova-Redmi-Bloque2
+          path: mobile/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
   backend:
     runs-on: ubuntu-latest
     defaults:
