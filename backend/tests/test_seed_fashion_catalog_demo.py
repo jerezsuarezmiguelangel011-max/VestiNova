@@ -109,6 +109,14 @@ def test_semilla_contiene_variedad_de_tallas_colores_y_sin_stock(session_factory
         assert any(variant.talla == "40" for _, variant in rows)
         assert any(variant.talla == "39" for _, variant in rows)
         assert any(variant.color == "Azul" for _, variant in rows)
+        # La demostración se limita a moda masculina: no existen productos
+        # publicados llamados bolso/cartera en la colección ampliada.
+        new_products = [p for p, _ in rows if "-catalogo-" in p.slug]
+        assert len({p.id for p in new_products}) == len(STYLES)
+        assert all("Bolso" not in p.nombre and "Cartera" not in p.nombre
+                   for p in new_products)
+        assert any("Billetera clásica de hombre" in p.nombre for p in new_products)
+        assert any("relaxed fit masculino" in p.nombre for p in new_products)
         assert all(product.imagen_url is not None
                    for product, _ in rows
                    if "catalogo-" in product.slug)
