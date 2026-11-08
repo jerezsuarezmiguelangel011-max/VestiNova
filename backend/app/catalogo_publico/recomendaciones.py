@@ -99,6 +99,15 @@ def recommended(
         own = by_product.get(product.id, [])
         if not own:
             continue
+        if talla and color and not any(
+            v.talla.casefold() == talla.casefold() and
+            v.color.casefold() == color.casefold() for v in own
+        ):
+            continue
+        if talla and not any(v.talla.casefold() == talla.casefold() for v in own):
+            continue
+        if color and not any(v.color.casefold() == color.casefold() for v in own):
+            continue
         score, reasons = _score(product, reference, own, talla, color)
         available = None if sucursal_id is None else any(
             balances[v.id].cantidad > balances[v.id].cantidad_comprometida
