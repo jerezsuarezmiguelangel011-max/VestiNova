@@ -139,7 +139,8 @@ class MobileCommerceApi {
 
   Future<List<Map<String, dynamic>>> history(String slug, String token) async {
     final data =
-        await call('GET', '${account(slug)}/compras', token: token) as Map;
+        await call('GET', '${account(slug)}/compras',
+            token: token, query: {'limit': '100'}) as Map;
     return (data['items'] as List)
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();

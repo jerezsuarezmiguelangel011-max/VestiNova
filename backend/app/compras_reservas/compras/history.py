@@ -20,7 +20,7 @@ def history_item(purchase: Purchase, entrega: EntregaCompra | None = None) -> di
     return {
         "id": str(purchase.id),
         "estado": "CONFIRMADA",
-        "seguimiento_entrega": "ENTREGADA" if entrega else "NO_DISPONIBLE",
+        "seguimiento_entrega": "ENTREGADA" if entrega else "PENDIENTE",
         "entregada_en": entrega.entregada_en.isoformat() if entrega else None,
         "moneda": "BOB",
         "importe_total": f"{purchase.total:.2f}",
