@@ -196,7 +196,9 @@ def _serializar(attempt: CheckoutAttempt) -> dict:
     return {**_serialize(attempt), "es_diferida": True,
             "pago_verificado": attempt.estado == "CONFIRMADA",
             "reserva_confirmada": False,
-            "detalle": attempt.aviso or "Consulta el estado antes de asumir un cobro."}
+            "detalle": attempt.aviso or ("Pago Stripe TEST verificado y compra confirmada. " 
+                "La entrega o retiro continúa pendiente." if attempt.estado == "CONFIRMADA" 
+                else "Aún no hay confirmación definitiva de cobro ni compra.")}
 
 
 @router.post("/sincronizar")
