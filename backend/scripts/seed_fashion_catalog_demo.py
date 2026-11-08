@@ -93,7 +93,7 @@ PHOTO_IDS = {
     "zapatillas-urbanas": 11757389,
     "botines-temporada": 26851197,
     "zapatos-vestir": 17286664,
-    "sandalias-casuales": 31517347,
+    "sandalias-casuales": 12896849,
     "gorra-lisa": 3649521,
     "chalina-tejida": 7870646,
     "billetera-clasica": 4452390,
