@@ -174,11 +174,14 @@ class _MobileReviewsPageState extends State<MobileReviewsPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text('Mis compras',
-              style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              'Mis compras',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const Text(
               'Historial de compras confirmadas de tu cuenta en esta tienda. '
-              'La confirmación del pago no significa que la prenda fue entregada.'),
+              'La confirmación del pago no significa que la prenda fue entregada.',
+            ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: busy ? null : _load,
@@ -192,9 +195,11 @@ class _MobileReviewsPageState extends State<MobileReviewsPage> {
             if (!busy && purchases.isEmpty && error == null)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
-                child: Text('Aún no hay compras confirmadas en esta cuenta. '
+                child: Text(
+                  'Aún no hay compras confirmadas en esta cuenta. '
                   'Si acabas de sincronizar una compra, vuelve y pulsa '
-                  'Actualizar historial. Comprueba que sea la misma cuenta y tienda.'),
+                  'Actualizar historial. Comprueba que sea la misma cuenta y tienda.',
+                ),
               ),
             for (final purchase in purchases)
               Card(
@@ -203,11 +208,15 @@ class _MobileReviewsPageState extends State<MobileReviewsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Comprobante de compra',
-                        style: Theme.of(context).textTheme.titleMedium),
+                      Text(
+                        'Comprobante de compra',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 5),
-                      SelectableText('N.º ${purchase['id']}',
-                        style: Theme.of(context).textTheme.bodySmall),
+                      SelectableText(
+                        'N.º ${purchase['id']}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                       Text('Fecha: ${_fecha(purchase['creado_en'])}'),
                       const SizedBox(height: 6),
                       Text(
@@ -216,42 +225,54 @@ class _MobileReviewsPageState extends State<MobileReviewsPage> {
                             : 'Estado: ${purchase['estado'] ?? 'NO VERIFICADO'}',
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      Text(_entregada(purchase)
-                          ? 'Entrega: ENTREGADA'
-                          : 'Entrega o retiro: PENDIENTE de confirmación. '
-                            'Consulta con la tienda antes de desplazarte.'),
+                      Text(
+                        _entregada(purchase)
+                            ? 'Entrega: ENTREGADA'
+                            : 'Entrega o retiro: PENDIENTE de confirmación. '
+                                  'Consulta con la tienda antes de desplazarte.',
+                      ),
                       const SizedBox(height: 8),
                       for (final raw in (purchase['items'] as List? ?? []))
-                        Builder(builder: (context) {
-                          final item = Map<String, dynamic>.from(raw as Map);
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 3),
-                            child: Text(
-                              '${item['nombre'] ?? 'Prenda'} · '
-                              '${item['cantidad'] ?? 0} u. · '
-                              'Bs ${item['subtotal'] ?? '0.00'}',
-                            ),
-                          );
-                        }),
+                        Builder(
+                          builder: (context) {
+                            final item = Map<String, dynamic>.from(raw as Map);
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 3),
+                              child: Text(
+                                '${item['nombre'] ?? 'Prenda'} · '
+                                '${item['cantidad'] ?? 0} u. · '
+                                'Bs ${item['subtotal'] ?? '0.00'}',
+                              ),
+                            );
+                          },
+                        ),
                       const SizedBox(height: 5),
-                      Text('Total: ${_importe(purchase)}',
-                        style: Theme.of(context).textTheme.titleMedium),
+                      Text(
+                        'Total: ${_importe(purchase)}',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                       if (_entregada(purchase))
                         const Padding(
                           padding: EdgeInsets.only(top: 8),
-                          child: Text('Compra entregada. Ya puedes valorar '
+                          child: Text(
+                            'Compra entregada. Ya puedes valorar '
                             'sus prendas en la sección inferior.',
-                            style: TextStyle(color: Colors.teal)),
+                            style: TextStyle(color: Colors.teal),
+                          ),
                         ),
                     ],
                   ),
                 ),
               ),
             const Divider(height: 36),
-            Text('Valorar prendas entregadas',
-              style: Theme.of(context).textTheme.titleLarge),
-            const Text('Solo se permite valorar una compra CONFIRMADA y ENTREGADA. '
-              'Una valoración por producto y compra.'),
+            Text(
+              'Valorar prendas entregadas',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const Text(
+              'Solo se permite valorar una compra CONFIRMADA y ENTREGADA. '
+              'Una valoración por producto y compra.',
+            ),
             const SizedBox(height: 16),
             if (eligible.isEmpty)
               const Text(
