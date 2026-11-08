@@ -35,15 +35,34 @@ class MobileReservationService {
     if (ApiConfig.storeSlug(tienda) != tienda) {
       throw const FormatException('Tienda inválida.');
     }
-    final productsData = await _get(
-      _api('/catalogo/productos', {
-        'tienda': tienda,
-        'limit': '20',
-        'offset': '0',
-      }),
-    );
-    if (productsData is! Map || productsData['items'] is! List) {
-      throw const FormatException('Lista de productos no válida.');
+    // Precargar TODAS las prendas del catálogo de reserva (límite explícito
+    // de 300). La primera página de 20 ocultaba opciones reservables offline.
+    // Si la descarga es parcial, preservar intacto el catálogo SQLite previo.
+    final products = <dynamic>[];
+    int total = 0;
+    for (var offset = 0; offset < 300; offset += 100) {
+      final page = await _get(
+        _api('/catalogo/productos', {
+          'tienda': tienda,
+          'limit': '100',
+          'offset': '$offset',
+        }),
+      );
+      if (page is! Map || page['items'] is! List || page['total'] is! int) {
+        throw const FormatException('Lista de productos no válida.');
+      }
+      total = page['total'] as int;
+      products.addAll(page['items'] as List);
+      if (products.length >= total) break;
+      if ((page['items'] as List).isEmpty) {
+        throw const FormatException('Descarga incompleta de prendas.');
+      }
+    }
+    if (products.length != total) {
+      throw const FormatException(
+        'Catálogo superior a 300 prendas: descarga offline incompleta. '
+        'Se conserva la copia anterior.',
+      );
     }
     final policy = await _get(
       _api('/tiendas/${Uri.encodeComponent(tienda)}/reservas/politica', {}),
@@ -55,7 +74,6 @@ class MobileReservationService {
       throw const FormatException('Política de reservas no válida.');
     }
     final hours = policy['vigencia_horas'] as int;
-    final products = productsData['items'] as List<dynamic>;
     final now = DateTime.now().toUtc().toIso8601String();
     final items = <Map<String, Object?>>[];
     for (final value in products) {
