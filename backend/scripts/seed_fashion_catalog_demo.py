@@ -30,7 +30,7 @@ GROUPS = {
     "Pantalones": "Jeans, pantalones de vestir, cargo y joggers.",
     "Abrigos": "Chompas, chaquetas, blazers y prendas de invierno.",
     "Calzado": "Zapatillas, botines, zapatos formales y sandalias.",
-    "Accesorios": "Gorras, chalinas, bolsos, cinturones y sombreros.",
+    "Accesorios": "Gorras, chalinas, billeteras, cinturones y sombreros.",
 }
 
 # código, nombre, categoría general, subtipo, material, temporada,
@@ -46,7 +46,7 @@ STYLES = (
     ("camisa-cuadros", "Camisa casual a cuadros", "Camisas", "Casual a cuadros", "Algodón", "Invierno", "159.00", "superior", ("Azul", "Rojo"), 7),
     ("camisa-manga-corta", "Camisa manga corta tropical", "Camisas", "Manga corta", "Viscosa", "Verano", "139.00", "superior", ("Verde", "Beige"), 9),
 
-    ("jean-wide-leg", "Jean corte amplio", "Pantalones", "Jean amplio", "Denim", "Todo el año", "209.00", "pantalon", ("Azul", "Negro"), 8),
+    ("jean-wide-leg", "Jean relaxed fit masculino", "Pantalones", "Jean amplio", "Denim", "Todo el año", "209.00", "pantalon", ("Azul", "Negro"), 8),
     ("pantalon-cargo", "Pantalón cargo urbano", "Pantalones", "Cargo", "Gabardina", "Todo el año", "199.00", "pantalon", ("Verde", "Negro"), 7),
     ("pantalon-sastre", "Pantalón de vestir", "Pantalones", "Sastre", "Poliéster", "Todo el año", "229.00", "pantalon", ("Gris", "Negro"), 6),
     ("pantalon-jogger", "Pantalón jogger cómodo", "Pantalones", "Jogger", "Algodón", "Invierno", "149.00", "pantalon", ("Negro", "Gris"), 10),
@@ -64,7 +64,7 @@ STYLES = (
 
     ("gorra-lisa", "Gorra clásica lisa", "Accesorios", "Gorra", "Algodón", "Verano", "59.00", "unica", ("Negro", "Azul"), 12),
     ("chalina-tejida", "Chalina tejida", "Accesorios", "Chalina", "Acrílico", "Invierno", "69.00", "unica", ("Gris", "Beige"), 8),
-    ("bolso-cruzado", "Bolso cruzado", "Accesorios", "Bolso", "Sintético", "Todo el año", "139.00", "unica", ("Negro", "Marrón"), 7),
+    ("billetera-clasica", "Billetera clásica de hombre", "Accesorios", "Billetera", "Cuero sintético", "Todo el año", "89.00", "unica", ("Negro", "Marrón"), 7),
     ("cinturon-clasico", "Cinturón clásico", "Accesorios", "Cinturón", "Sintético", "Todo el año", "79.00", "unica", ("Negro", "Marrón"), 9),
     ("sombrero-flexible", "Sombrero de ala flexible", "Accesorios", "Sombrero", "Textil", "Verano", "89.00", "unica", ("Beige", "Negro"), 6),
 )
@@ -265,6 +265,14 @@ def seed_catalog(db: Session) -> list[dict]:
             for name, description in GROUPS.items()
         }
         relabeled = _reclassify_legacy(db, company.id, tag, categories)
+        # Retirar el bolso de la versión anterior del catálogo público de
+        # hombre, conservando sus registros de inventario, ventas y deseos.
+        previous_bag = db.scalar(select(Producto).where(
+            Producto.empresa_id == company.id,
+            Producto.slug == f"demo-{tag}-catalogo-bolso-cruzado",
+        ))
+        if previous_bag is not None and previous_bag.nombre == f"Bolso cruzado · {line}":
+            previous_bag.activo = False
         # Los productos de la semilla original conservan sus datos salvo que
         # no tengan fotografía asignada y se complete solo ese campo.
         for code, photo_id in PHOTO_LEGACY.items():
@@ -272,7 +280,10 @@ def seed_catalog(db: Session) -> list[dict]:
                 Producto.empresa_id == company.id,
                 Producto.slug == f"demo-{tag}-{code}",
             ))
-            if original is not None and original.imagen_url is None:
+            if original is not None and (
+                original.imagen_url is None
+                or original.imagen_url == photo_url(PRIOR_PHOTO_LEGACY[code])
+            ):
                 original.imagen_url = photo_url(photo_id)
         inserted = {"productos": 0, "variantes": 0, "existencias": 0,
                     "movimientos": 0, "imagenes": 0}
@@ -284,7 +295,7 @@ def seed_catalog(db: Session) -> list[dict]:
                 product = Producto(
                     empresa_id=company.id, categoria_id=categories[category].id,
                     slug=product_slug, nombre=f"{title} · {line}",
-                    descripcion=(f"Tipo de prenda: {subtype}. Colección de demostración "
+                    descripcion=(f"Moda masculina. Tipo de prenda: {subtype}. Colección de demostración "
                                  f"{line} para explorar modelos, colores, tallas y sucursales. "
                                  "Los precios y el inventario son datos ficticios."),
                     material=material, temporada=season,
@@ -297,9 +308,17 @@ def seed_catalog(db: Session) -> list[dict]:
                 inserted["productos"] += 1
             elif product.empresa_id != company.id:
                 raise ValueError(f"Colisión de identificador de producto demo: {product_slug}.")
-            if product.imagen_url is None:
+            # Reemplazar SOLO la URL de la semilla vieja o una vacía.
+            # Las imágenes modificadas manualmente permanecen intactas.
+            previous_photo = PRIOR_PHOTO_IDS.get(code)
+            if (product.imagen_url is None or (
+                previous_photo is not None
+                and product.imagen_url == photo_url(previous_photo)
+            )) and product.imagen_url != photo_url(PHOTO_IDS[code]):
                 product.imagen_url = photo_url(PHOTO_IDS[code])
                 inserted["imagenes"] += 1
+            if code == "jean-wide-leg" and product.nombre == f"Jean corte amplio · {line}":
+                product.nombre = f"{title} · {line}"
 
             for size_index, size in enumerate(SIZES[sizing]):
                 for color_index, color in enumerate(colors):
