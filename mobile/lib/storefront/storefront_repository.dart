@@ -43,9 +43,13 @@ class StorefrontRepository {
       }
       return StorefrontResult(result);
     } on StorefrontException catch (e) {
-      if (!e.network) rethrow;
+      if (!e.network) {
+        rethrow;
+      }
       final saved = await _read(tienda, 'products');
-      if (saved == null) rethrow;
+      if (saved == null) {
+        rethrow;
+      }
       final data = Map<String, dynamic>.from(saved.value as Map);
       await warmVariants(tienda);
       final items = (data['items'] as List)
@@ -60,13 +64,21 @@ class StorefrontRepository {
   }
 
   bool _matches(StoreProduct item, StoreFilters filters) {
-    if (filters.q.isNotEmpty && !item.name.toLowerCase().contains(filters.q.trim().toLowerCase())) return false;
-    if (filters.categoryId != null && item.categoryId != filters.categoryId) return false;
-    if (filters.season.isNotEmpty && item.season.toLowerCase() != filters.season.trim().toLowerCase()) return false;
+    if (filters.q.isNotEmpty && !item.name.toLowerCase().contains(filters.q.trim().toLowerCase())) {
+      return false;
+    }
+    if (filters.categoryId != null && item.categoryId != filters.categoryId) {
+      return false;
+    }
+    if (filters.season.isNotEmpty && item.season.toLowerCase() != filters.season.trim().toLowerCase()) {
+      return false;
+    }
     final min = double.tryParse(filters.minPrice);
     final max = double.tryParse(filters.maxPrice);
     final price = double.tryParse(item.price);
-    if (price == null || (min != null && price < min) || (max != null && price > max)) return false;
+    if (price == null || (min != null && price < min) || (max != null && price > max)) {
+      return false;
+    }
     // No inventar variantes conocidas: si faltan no incluir el producto.
     if (filters.size.isNotEmpty || filters.color.isNotEmpty) {
       final variants = _localVariants[item.slug] ?? const <StoreVariant>[];
@@ -99,9 +111,13 @@ class StorefrontRepository {
       await _save(tienda, 'categories', result.map((e) => {'id': e.id, 'nombre': e.name}).toList());
       return StorefrontResult(result);
     } on StorefrontException catch (e) {
-      if (!e.network) rethrow;
+      if (!e.network) {
+        rethrow;
+      }
       final saved = await _read(tienda, 'categories');
-      if (saved == null) rethrow;
+      if (saved == null) {
+        rethrow;
+      }
       return StorefrontResult(
         (saved.value as List).map((e) => StoreCategory.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
         fromCache: true, savedAt: saved.savedAt);
@@ -114,7 +130,9 @@ class StorefrontRepository {
       await _save(tienda, 'detail/$slug', result.toJson());
       return StorefrontResult(result);
     } on StorefrontException catch (e) {
-      if (!e.network) rethrow;
+      if (!e.network) {
+        rethrow;
+      }
       var saved = await _read(tienda, 'detail/$slug');
       if (saved == null) {
         final catalog = await _read(tienda, 'products');
@@ -140,7 +158,9 @@ class StorefrontRepository {
       await _save(tienda, 'variants/$slug', result.map((v) => v.toJson()).toList());
       return StorefrontResult(result);
     } on StorefrontException catch (e) {
-      if (!e.network) rethrow;
+      if (!e.network) {
+        rethrow;
+      }
       final saved = await _read(tienda, 'variants/$slug');
       if (saved != null) {
         return StorefrontResult(
@@ -149,7 +169,9 @@ class StorefrontRepository {
       }
       await warmVariants(tienda);
       final known = _localVariants[slug];
-      if (known != null) return StorefrontResult(known, fromCache: true, partial: true);
+      if (known != null) {
+        return StorefrontResult(known, fromCache: true, partial: true);
+      }
       rethrow;
     }
   }
@@ -160,9 +182,13 @@ class StorefrontRepository {
       await _save(tienda, 'stock/$slug', result.map((e) => e.toJson()).toList());
       return StorefrontResult(result);
     } on StorefrontException catch (e) {
-      if (!e.network) rethrow;
+      if (!e.network) {
+        rethrow;
+      }
       final saved = await _read(tienda, 'stock/$slug');
-      if (saved == null) rethrow;
+      if (saved == null) {
+        rethrow;
+      }
       return StorefrontResult((saved.value as List)
         .map((e) => StoreStock.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
         fromCache: true, savedAt: saved.savedAt);
@@ -178,7 +204,9 @@ class StorefrontRepository {
       final page = await api.products(tienda, limit: 100, offset: offset);
       total = page.total;
       products.addAll(page.items);
-      if (products.length >= page.total || page.items.isEmpty) break;
+      if (products.length >= page.total || page.items.isEmpty) {
+        break;
+      }
     }
     final variants = <Map<String, dynamic>>[];
     int variantTotal = 0;
@@ -186,7 +214,9 @@ class StorefrontRepository {
       final page = await api.allVariantsPage(tienda, offset);
       variantTotal = page['total'] as int;
       variants.addAll((page['items'] as List).map((e) => Map<String, dynamic>.from(e as Map)));
-      if (variants.length >= variantTotal || (page['items'] as List).isEmpty) break;
+      if (variants.length >= variantTotal || (page['items'] as List).isEmpty) {
+        break;
+      }
     }
     final categories = await api.categories(tienda);
     await cache.writeBundle(tienda, {

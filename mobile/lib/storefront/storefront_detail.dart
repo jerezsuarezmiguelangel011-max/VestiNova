@@ -45,12 +45,18 @@ class _StorefrontDetailPageState extends State<StorefrontDetailPage> {
       StorefrontResult<List<StoreStock>>? stock;
       try { stock = await widget.repository.availability(widget.tienda, widget.slug); }
       on StorefrontException catch (error) {
-        if (!error.network) rethrow;
+        if (!error.network) {
+          rethrow;
+        }
       }
-      if (!mounted || id != _loadId) return;
+      if (!mounted || id != _loadId) {
+        return;
+      }
       setState(() {
         _detail = product; _variants = variants; _stock = stock;
-        if (!variants.value.any((v) => v.id == _variantId)) _variantId = null;
+        if (!variants.value.any((v) => v.id == _variantId)) {
+          _variantId = null;
+        }
       });
       // El seguimiento se registra exclusivamente tras consentimiento explícito
       // y sesión válida; el error de seguimiento no bloquea el catálogo.
@@ -63,9 +69,13 @@ class _StorefrontDetailPageState extends State<StorefrontDetailPage> {
         } catch (_) { /* Consultar la prenda nunca depende del seguimiento. */ }
       }
     } catch (error) {
-      if (mounted && id == _loadId) setState(() => _error = '$error');
+      if (mounted && id == _loadId) {
+        setState(() => _error = '$error');
+      }
     } finally {
-      if (mounted && id == _loadId) setState(() => _busy = false);
+      if (mounted && id == _loadId) {
+        setState(() => _busy = false);
+      }
     }
   }
 
@@ -80,15 +90,23 @@ class _StorefrontDetailPageState extends State<StorefrontDetailPage> {
       return;
     }
     if (_variantId == null) { notice(context, 'Selecciona una talla y color.'); return; }
-    if (_saving) return;
+    if (_saving) {
+      return;
+    }
     setState(() => _saving = true);
     try {
       final created = await widget.api.addWish(widget.tienda, token, _variantId!);
-      if (mounted) notice(context, created ? 'Prenda guardada en tus deseos.' : 'Ya estaba guardada en tus deseos.');
+      if (mounted) {
+        notice(context, created ? 'Prenda guardada en tus deseos.' : 'Ya estaba guardada en tus deseos.');
+      }
     } catch (error) {
-      if (mounted) notice(context, 'No se guardó el deseo: $error');
+      if (mounted) {
+        notice(context, 'No se guardó el deseo: $error');
+      }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 

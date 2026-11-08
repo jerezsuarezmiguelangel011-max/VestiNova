@@ -38,7 +38,7 @@ class _StorefrontCatalogPageState extends State<StorefrontCatalogPage> {
   @override
   void initState() {
     super.initState();
-    widget.repository.warmVariants(widget.tienda).catchError((Object _) {}).then((_) { if (mounted) _load(); });
+    widget.repository.warmVariants(widget.tienda).catchError((Object _) {}).then((_) { if (mounted) { _load(); } });
     _loadCategories();
   }
   @override
@@ -54,7 +54,9 @@ class _StorefrontCatalogPageState extends State<StorefrontCatalogPage> {
   Future<void> _loadCategories() async {
     try {
       final result = await widget.repository.categories(widget.tienda);
-      if (mounted) setState(() => _categories = result.value);
+      if (mounted) {
+        setState(() => _categories = result.value);
+      }
     } catch (_) { /* La consulta principal comunica errores de red. */ }
   }
 
@@ -64,30 +66,44 @@ class _StorefrontCatalogPageState extends State<StorefrontCatalogPage> {
     try {
       final result = await widget.repository.products(widget.tienda,
         filters: _filters, offset: offset);
-      if (!mounted || id != _revision) return;
+      if (!mounted || id != _revision) {
+        return;
+      }
       setState(() {
         _page = result.value; _cache = result.fromCache;
         _partial = result.partial; _savedAt = result.savedAt;
       });
     } catch (error) {
-      if (!mounted || id != _revision) return;
+      if (!mounted || id != _revision) {
+        return;
+      }
       setState(() => _error = error.toString());
     } finally {
-      if (mounted && id == _revision) setState(() => _loading = false);
+      if (mounted && id == _revision) {
+        setState(() => _loading = false);
+      }
     }
   }
 
   Future<void> _download() async {
-    if (_downloading) return;
+    if (_downloading) {
+      return;
+    }
     setState(() => _downloading = true);
     try {
       final count = await widget.repository.download(widget.tienda);
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       notice(context, '$count prendas guardadas para consulta local.');
     } catch (error) {
-      if (mounted) notice(context, 'No se completó la descarga: $error. Se conserva la copia anterior.');
+      if (mounted) {
+        notice(context, 'No se completó la descarga: $error. Se conserva la copia anterior.');
+      }
     } finally {
-      if (mounted) setState(() => _downloading = false);
+      if (mounted) {
+        setState(() => _downloading = false);
+      }
     }
   }
 

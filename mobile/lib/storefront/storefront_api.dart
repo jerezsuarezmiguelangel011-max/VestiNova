@@ -28,7 +28,9 @@ class StorefrontApi {
     final req = http.Request(method, url)
       ..followRedirects = false
       ..headers['Accept'] = 'application/json';
-    if (token != null && token.isNotEmpty) req.headers['Authorization'] = 'Bearer $token';
+    if (token != null && token.isNotEmpty) {
+      req.headers['Authorization'] = 'Bearer $token';
+    }
     if (body != null) {
       req.headers['Content-Type'] = 'application/json';
       req.body = jsonEncode(body);
@@ -39,7 +41,9 @@ class StorefrontApi {
       ).timeout(const Duration(seconds: 15));
       final dynamic data = response.bodyBytes.isEmpty
           ? null : jsonDecode(utf8.decode(response.bodyBytes));
-      if (response.statusCode >= 200 && response.statusCode < 300) return data;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return data;
+      }
       final detail = data is Map ? data['detail'] : null;
       final msg = detail is String ? detail : 'La operación no pudo completarse (${response.statusCode}).';
       throw StorefrontException(msg, status: response.statusCode,
@@ -62,7 +66,9 @@ class StorefrontApi {
     return value;
   }
   List<dynamic> _array(dynamic value) {
-    if (value is! List) throw const StorefrontException('Listado no válido.');
+    if (value is! List) {
+      throw const StorefrontException('Listado no válido.');
+    }
     return value;
   }
 
