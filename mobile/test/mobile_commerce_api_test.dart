@@ -48,7 +48,7 @@ void main() {
           '/api/tiendas/demo-moda-andina/cuenta/compras');
         expect(request.url.queryParameters['limit'], '100');
         expect(request.headers['Authorization'], 'Bearer cliente');
-        return http.Response(jsonEncode({
+        return http.Response.bytes(utf8.encode(jsonEncode({
           'items': [
             {
               'id': 'ddddeeee-1111-4111-8111-111111111111',
@@ -72,7 +72,7 @@ void main() {
             },
           ],
           'total': 2, 'limit': 100, 'offset': 0,
-        }), 200);
+        })), 200, headers: {'content-type': 'application/json; charset=utf-8'});
       }),
     );
     addTearDown(api.close);
