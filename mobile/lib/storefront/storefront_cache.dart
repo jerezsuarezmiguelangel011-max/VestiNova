@@ -30,15 +30,21 @@ class StorefrontCache {
   Future<void> write(String tienda, String key, Object value) async {
     final db = await _db;
     await db.insert('catalogo_publico_cache', {
-      'tienda': tienda, 'clave': key, 'json': jsonEncode(value),
+      'tienda': tienda,
+      'clave': key,
+      'json': jsonEncode(value),
       'guardado_en': DateTime.now().toUtc().toIso8601String(),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<CachedPublicData?> read(String tienda, String key) async {
     final db = await _db;
-    final rows = await db.query('catalogo_publico_cache',
-      where: 'tienda = ? AND clave = ?', whereArgs: [tienda, key], limit: 1);
+    final rows = await db.query(
+      'catalogo_publico_cache',
+      where: 'tienda = ? AND clave = ?',
+      whereArgs: [tienda, key],
+      limit: 1,
+    );
     if (rows.isEmpty) return null;
     return CachedPublicData(
       jsonDecode(rows.single['json'] as String),
@@ -52,8 +58,10 @@ class StorefrontCache {
     await db.transaction((tx) async {
       for (final entry in entries.entries) {
         await tx.insert('catalogo_publico_cache', {
-          'tienda': tienda, 'clave': entry.key,
-          'json': jsonEncode(entry.value), 'guardado_en': at,
+          'tienda': tienda,
+          'clave': entry.key,
+          'json': jsonEncode(entry.value),
+          'guardado_en': at,
         }, conflictAlgorithm: ConflictAlgorithm.replace);
       }
     });
@@ -62,7 +70,9 @@ class StorefrontCache {
   Future<void> close() async {
     final pending = _pending;
     _pending = null;
-    try { if (pending != null) await (await pending).close(); } catch (_) {}
+    try {
+      if (pending != null) await (await pending).close();
+    } catch (_) {}
   }
 }
 

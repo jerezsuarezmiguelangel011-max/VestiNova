@@ -1,16 +1,31 @@
 /// Modelos de CU08, CU19, CU23 y CU24; los IDs de producto y variante
 /// deliberadamente NO son intercambiables.
 class StoreProduct {
-  const StoreProduct({required this.id, required this.slug, required this.name,
-    required this.price, this.salePrice, this.promotion, this.imageUrl,
-    this.category = '', this.categoryId, this.description = '',
-    this.material = '', this.measurements = '', this.season = '',
-    this.reasons = const [], this.availability = 'NO_VERIFICADA',
-    this.comparisonVariants = const []});
+  const StoreProduct({
+    required this.id,
+    required this.slug,
+    required this.name,
+    required this.price,
+    this.salePrice,
+    this.promotion,
+    this.imageUrl,
+    this.category = '',
+    this.categoryId,
+    this.description = '',
+    this.material = '',
+    this.measurements = '',
+    this.season = '',
+    this.reasons = const [],
+    this.availability = 'NO_VERIFICADA',
+    this.comparisonVariants = const [],
+  });
 
   factory StoreProduct.fromJson(Map<String, dynamic> json) {
     final id = json['id'] ?? json['producto_id'];
-    if (id is! int || id < 1 || json['slug'] is! String || json['nombre'] is! String) {
+    if (id is! int ||
+        id < 1 ||
+        json['slug'] is! String ||
+        json['nombre'] is! String) {
       throw const FormatException('Producto de catálogo no válido.');
     }
     final price = json['precio'];
@@ -19,7 +34,9 @@ class StoreProduct {
     }
     final reasons = json['motivos'];
     return StoreProduct(
-      id: id, slug: json['slug'] as String, name: json['nombre'] as String,
+      id: id,
+      slug: json['slug'] as String,
+      name: json['nombre'] as String,
       price: price.toString(),
       salePrice: json['precio_promocional']?.toString(),
       promotion: json['promocion_nombre'] as String?,
@@ -30,11 +47,19 @@ class StoreProduct {
       material: (json['material'] ?? '') as String,
       measurements: (json['medidas'] ?? '') as String,
       season: (json['temporada'] ?? '') as String,
-      reasons: reasons is List ? reasons.whereType<String>().toList(growable: false) : const [],
+      reasons: reasons is List
+          ? reasons.whereType<String>().toList(growable: false)
+          : const [],
       availability: (json['disponibilidad'] ?? 'NO_VERIFICADA') as String,
       comparisonVariants: json['variantes'] is List
-        ? (json['variantes'] as List).map((e) => StoreComparisonVariant.fromJson(Map<String,dynamic>.from(e as Map))).toList()
-        : const [],
+          ? (json['variantes'] as List)
+                .map(
+                  (e) => StoreComparisonVariant.fromJson(
+                    Map<String, dynamic>.from(e as Map),
+                  ),
+                )
+                .toList()
+          : const [],
     );
   }
 
@@ -58,23 +83,34 @@ class StoreProduct {
 }
 
 class StoreComparisonVariant {
-  const StoreComparisonVariant({required this.size, required this.color, required this.branches});
-  factory StoreComparisonVariant.fromJson(Map<String, dynamic> json) => StoreComparisonVariant(
-    size: json['talla'] as String, color: json['color'] as String,
-    branches: ((json['sucursales'] ?? []) as List).map((e) {
-      final data = Map<String, dynamic>.from(e as Map);
-      return '${data['sucursal']}: ${data['estado']}';
-    }).toList(),
-  );
+  const StoreComparisonVariant({
+    required this.size,
+    required this.color,
+    required this.branches,
+  });
+  factory StoreComparisonVariant.fromJson(Map<String, dynamic> json) =>
+      StoreComparisonVariant(
+        size: json['talla'] as String,
+        color: json['color'] as String,
+        branches: ((json['sucursales'] ?? []) as List).map((e) {
+          final data = Map<String, dynamic>.from(e as Map);
+          return '${data['sucursal']}: ${data['estado']}';
+        }).toList(),
+      );
   final String size;
   final String color;
   final List<String> branches;
 }
 
 class StoreVariant {
-  const StoreVariant({required this.id, required this.size, required this.color});
+  const StoreVariant({
+    required this.id,
+    required this.size,
+    required this.color,
+  });
   factory StoreVariant.fromJson(Map<String, dynamic> json) => StoreVariant(
-    id: json['id'] as int, size: json['talla'] as String,
+    id: json['id'] as int,
+    size: json['talla'] as String,
     color: json['color'] as String,
   );
   final int id;
@@ -84,13 +120,20 @@ class StoreVariant {
 }
 
 class StoreStock {
-  const StoreStock({required this.branch, required this.variantId,
-    required this.status, this.updatedAt});
+  const StoreStock({
+    required this.branch,
+    required this.variantId,
+    required this.status,
+    this.updatedAt,
+  });
   factory StoreStock.fromJson(Map<String, dynamic> json) => StoreStock(
     branch: (json['sucursal'] ?? '') as String,
     variantId: json['variante_id'] as int,
-    status: json['saldo_registrado'] != true ? 'NO_VERIFICADO'
-      : json['hay_disponibilidad'] == true ? 'DISPONIBLE' : 'AGOTADO',
+    status: json['saldo_registrado'] != true
+        ? 'NO_VERIFICADO'
+        : json['hay_disponibilidad'] == true
+        ? 'DISPONIBLE'
+        : 'AGOTADO',
     updatedAt: json['actualizado_en'] as String?,
   );
   final String branch;
@@ -100,18 +143,25 @@ class StoreStock {
 }
 
 class StoreWish {
-  const StoreWish({required this.variantId, required this.product,
-    required this.size, required this.color, required this.publicada,
-    required this.stockStatus});
+  const StoreWish({
+    required this.variantId,
+    required this.product,
+    required this.size,
+    required this.color,
+    required this.publicada,
+    required this.stockStatus,
+  });
   factory StoreWish.fromJson(Map<String, dynamic> json) => StoreWish(
     variantId: json['variante_id'] as int,
     product: StoreProduct.fromJson({
       'id': json['producto_id'],
-      'slug': json['slug'] ?? '', 'nombre': json['nombre'],
+      'slug': json['slug'] ?? '',
+      'nombre': json['nombre'],
       'precio': json['precio_vigente'] ?? '0.00',
       'imagen_url': json['imagen_url'],
     }),
-    size: json['talla'] as String, color: json['color'] as String,
+    size: json['talla'] as String,
+    color: json['color'] as String,
     publicada: json['publicada'] == true,
     stockStatus: (json['disponibilidad'] ?? 'NO_VERIFICADA') as String,
   );
@@ -125,19 +175,25 @@ class StoreWish {
 
 class StoreCategory {
   const StoreCategory({required this.id, required this.name});
-  factory StoreCategory.fromJson(Map<String, dynamic> json) => StoreCategory(
-    id: json['id'] as int, name: json['nombre'] as String,
-  );
+  factory StoreCategory.fromJson(Map<String, dynamic> json) =>
+      StoreCategory(id: json['id'] as int, name: json['nombre'] as String);
   final int id;
   final String name;
 }
 
 class StorePage {
-  const StorePage({required this.items, required this.total,
-    required this.limit, required this.offset});
+  const StorePage({
+    required this.items,
+    required this.total,
+    required this.limit,
+    required this.offset,
+  });
   factory StorePage.fromJson(Map<String, dynamic> json) => StorePage(
-    items: (json['items'] as List).map((e) => StoreProduct.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
-    total: json['total'] as int, limit: json['limit'] as int,
+    items: (json['items'] as List)
+        .map((e) => StoreProduct.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList(),
+    total: json['total'] as int,
+    limit: json['limit'] as int,
     offset: json['offset'] as int,
   );
   final List<StoreProduct> items;
@@ -147,8 +203,15 @@ class StorePage {
 }
 
 class StoreFilters {
-  const StoreFilters({this.q='', this.categoryId, this.size='', this.color='',
-    this.season='', this.minPrice='', this.maxPrice=''});
+  const StoreFilters({
+    this.q = '',
+    this.categoryId,
+    this.size = '',
+    this.color = '',
+    this.season = '',
+    this.minPrice = '',
+    this.maxPrice = '',
+  });
   final String q;
   final int? categoryId;
   final String size;
@@ -169,12 +232,21 @@ class StoreFilters {
 
 extension StoreProductCache on StoreProduct {
   Map<String, dynamic> toJson() => {
-    'id': id, 'slug': slug, 'nombre': name, 'precio': price,
-    'precio_promocional': salePrice, 'promocion_nombre': promotion,
-    'imagen_url': imageUrl, 'categoria_nombre': category,
-    'categoria_id': categoryId, 'descripcion': description,
-    'material': material, 'medidas': measurements, 'temporada': season,
-    'motivos': reasons, 'disponibilidad': availability,
+    'id': id,
+    'slug': slug,
+    'nombre': name,
+    'precio': price,
+    'precio_promocional': salePrice,
+    'promocion_nombre': promotion,
+    'imagen_url': imageUrl,
+    'categoria_nombre': category,
+    'categoria_id': categoryId,
+    'descripcion': description,
+    'material': material,
+    'medidas': measurements,
+    'temporada': season,
+    'motivos': reasons,
+    'disponibilidad': availability,
   };
 }
 
@@ -184,7 +256,8 @@ extension StoreVariantCache on StoreVariant {
 
 extension StoreStockCache on StoreStock {
   Map<String, dynamic> toJson() => {
-    'sucursal': branch, 'variante_id': variantId,
+    'sucursal': branch,
+    'variante_id': variantId,
     'saldo_registrado': status != 'NO_VERIFICADO',
     'hay_disponibilidad': status == 'DISPONIBLE',
     'actualizado_en': updatedAt,
