@@ -41,7 +41,7 @@ describe('VestiNova · portal multitenant', () => {
     expect(html.textContent).not.toContain('Acceso para empresas');
     expect(html.textContent).not.toContain('Entrar al panel empresarial');
     expect(html.querySelector('.public-monogram')?.textContent).toBe('VN');
-    expect(html.querySelector('#public-closing-title')?.textContent).toContain('Cada tienda');
+    expect(html.querySelector('#public-closing-title')?.textContent).toContain('Andina o Urbana');
     expect(html.querySelector('nav a[href="#como-funciona"]')?.textContent).toContain('Cómo funciona');
     expect(html.querySelector('nav a[href="#tiendas"]')?.textContent).toContain('Explorar tiendas');
     expect(html.querySelector('.public-action-main[href="#tiendas"]')).not.toBeNull();
