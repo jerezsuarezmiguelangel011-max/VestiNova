@@ -1,0 +1,75 @@
+name: VestiNova CU24 CU25 CU26 validation
+
+on:
+  push:
+    branches:
+      - trabajo/cu24-cu26-miguel
+  workflow_dispatch:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.15.0'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: backend/requirements.lock.txt
+      - run: python -m pip install -r requirements.lock.txt
+      - run: python -m alembic heads
+      - run: python -m pytest -q tests
+
+  migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: vestinova_mvp
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_test_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d vestinova_mvp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      APP_ENV: local
+      DATABASE_URL: postgresql+psycopg://postgres:ci_test_only@127.0.0.1:5432/vestinova_mvp
+      JWT_SECRET: ci_only_secret_for_tests_please_do_not_use_in_prod_123456789
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: backend/requirements.lock.txt
+      - run: python -m pip install -r requirements.lock.txt
+      - name: Apply full Alembic migration chain to PostgreSQL
+        run: python -m alembic upgrade head
+      - run: python -m alembic current

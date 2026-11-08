@@ -12,10 +12,22 @@ export interface PurchaseHistoryLine {
   subtotal: string;
 }
 
+export interface ProductReview {
+  id: number;
+  compra_id: string;
+  producto_id: number;
+  puntuacion: number;
+  comentario: string | null;
+  compra_verificada: boolean;
+  creado_en: string;
+  actualizado_en: string;
+}
+
 export interface PurchaseHistoryItem {
   id: string;
   estado: 'CONFIRMADA';
-  seguimiento_entrega: 'NO_DISPONIBLE';
+  seguimiento_entrega: 'NO_DISPONIBLE' | 'ENTREGADA';
+  entregada_en?: string | null;
   moneda: 'BOB';
   importe_total: string;
   creado_en: string;
@@ -82,6 +94,18 @@ export class CustomerPurchasesService {
 
   requestAfterSale(slug: string, request: CreateAfterSaleRequest): Observable<AfterSaleRequest> {
     return this.http.post<AfterSaleRequest>(`${this.base(slug)}/postventa`, request, { headers: this.headers(slug) });
+  }
+
+  reviews(slug: string): Observable<{ items: ProductReview[] }> {
+    return this.http.get<{ items: ProductReview[] }>(`${this.base(slug)}/valoraciones`, { headers: this.headers(slug) });
+  }
+
+  createReview(slug: string, value: { compra_id: string; producto_id: number; puntuacion: number; comentario: string }): Observable<ProductReview> {
+    return this.http.post<ProductReview>(`${this.base(slug)}/valoraciones`, value, { headers: this.headers(slug) });
+  }
+
+  editReview(slug: string, id: number, value: { puntuacion: number; comentario: string }): Observable<ProductReview> {
+    return this.http.patch<ProductReview>(`${this.base(slug)}/valoraciones/${id}`, value, { headers: this.headers(slug) });
   }
 
   private base(slug: string): string { return `/api/tiendas/${encodeURIComponent(slug)}/cuenta`; }

@@ -25,6 +25,8 @@ interface StorefrontBranch { id: number; nombre: string; }
           <a [routerLink]="['/tienda',slug(),'catalogo']">Catálogo</a>
           <a [routerLink]="['/tienda',slug(),'recomendaciones']">Para ti</a>
           <a [routerLink]="['/tienda',slug(),'deseos']">Mis deseos</a>
+          <a [routerLink]="['/tienda',slug(),'alertas']">Mis alertas</a>
+          <a [routerLink]="['/tienda',slug(),'comparar']">Comparar</a>
           <a [routerLink]="['/tienda', slug()]" fragment="storefront-offers">Promociones</a>
           <a routerLink="/catalogo/acciones/compra" [queryParams]="{ tienda: slug() }">Mi carrito</a>
           <a [routerLink]="['/tienda',slug(),'acceso']">Mi cuenta</a>

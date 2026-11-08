@@ -177,3 +177,8 @@
 @media(max-width:840px){.storefront-detail .catalog-detail__product{grid-template-columns:1fr}.storefront-detail .catalog-detail__product > vn-catalog-image{max-height:430px;margin:0 auto;width:min(100%,530px)}}
 @media(max-width:500px){.storefront-detail .catalog-detail__product > vn-catalog-image{min-height:290px;max-height:350px}.storefront-product-actions .storefront-add-cart{width:100%}.storefront-detail h1{font-size:34px}}
 @media(prefers-reduced-motion:reduce){.storefront-detail *{transition:none!important}}
+
+/* CU24: acciones de comparación sin anidar botones en enlaces. */
+.vn-comparison-tile { display: flex; flex-direction: column; gap: .6rem; min-width: 0; }
+.vn-comparison-tile > .catalog-card { flex: 1; }
+.vn-comparison-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; margin: 1rem 0; }

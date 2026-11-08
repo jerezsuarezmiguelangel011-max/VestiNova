@@ -16,6 +16,9 @@ class Settings:
     jwt_secret: str
     session_minutes: int = 120
     cors_origins: tuple[str, ...] = ("http://127.0.0.1:4201", "http://localhost:4201")
+    vapid_public_key: str = ""
+    vapid_private_key: str = ""
+    vapid_contact: str = ""
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -41,7 +44,10 @@ class Settings:
         if not 5 <= duration <= 1440:
             raise ValueError("SESSION_MINUTES debe estar entre 5 y 1440.")
         origins = tuple(origin.strip() for origin in (values.get("CORS_ORIGINS", "http://127.0.0.1:4201,http://localhost:4201") or "").split(",") if origin.strip())
-        return cls(database_url, secret, duration, origins)
+        return cls(database_url, secret, duration, origins,
+                   vapid_public_key=values.get("VAPID_PUBLIC_KEY", "") or "",
+                   vapid_private_key=values.get("VAPID_PRIVATE_KEY", "") or "",
+                   vapid_contact=values.get("VAPID_CONTACT", "") or "")
 
 
 def validate_local_database_url(value: str) -> None:

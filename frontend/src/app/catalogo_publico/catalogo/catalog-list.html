@@ -115,8 +115,16 @@
       </div>
     } @else {
       <p role="status">{{ result().total }} {{ result().total === 1 ? 'prenda encontrada' : 'prendas encontradas' }}</p>
+      @if (!inAdmin && shop.tienda()) {
+        <div class="vn-comparison-toolbar">
+          <a class="vn-button" [routerLink]="inStorefront ? ['/tienda', shop.tienda(), 'comparar'] : ['/catalogo/acciones/comparar']"
+             [queryParams]="inStorefront ? null : { tienda: shop.tienda() }">Comparar prendas ({{ comparison.count() }}/4)</a>
+          @if (comparisonMessage(); as message) { <span role="status">{{ message }}</span> }
+        </div>
+      }
       <div class="catalog-grid">
         @for (product of result().items; track product.id) {
+          <div class="vn-comparison-tile">
           <a class="catalog-card" [routerLink]="inStorefront ? ['/tienda', shop.tienda(), 'prenda', product.slug] : [inAdmin ? '/admin/catalogo-consulta' : '/catalogo', product.slug]" [queryParams]="inAdmin || inStorefront ? null : { tienda: shop.tienda() }" [attr.aria-label]="'Ver detalle de ' + product.nombre">
             <div class="catalog-card__image"><vn-catalog-image [url]="product.imagen_url" [name]="product.nombre" /></div>
             <div class="catalog-card__body">
@@ -133,6 +141,11 @@
               <span>{{ inStorefront ? 'Ver prenda y disponibilidad' : 'Ver detalle' }} <span aria-hidden="true">↗</span></span>
             </div>
           </a>
+          @if (!inAdmin && shop.tienda()) {
+            <button class="vn-button" type="button" [disabled]="source() !== 'network'"
+                    (click)="addToComparison(product)">Agregar a comparación</button>
+          }
+          </div>
         }
       </div>
     }

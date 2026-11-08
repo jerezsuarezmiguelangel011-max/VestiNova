@@ -1,0 +1,27 @@
+<section aria-labelledby="deliveries-title">
+  <h1 id="deliveries-title">Entregas de compras digitales</h1>
+  <p>Confirma únicamente compras que se hayan entregado físicamente. La confirmación no descuenta existencias por segunda vez.</p>
+  <button type="button" class="vn-button" (click)="reload()" [disabled]="loading()">Actualizar</button>
+  @if (loading()) { <p role="status">Cargando compras…</p> }
+  @if (error(); as msg) { <p role="alert" class="vn-alert vn-alert--error">{{ msg }}</p> }
+  @if (notice(); as msg) { <p role="status">{{ msg }}</p> }
+  @for (p of purchases(); track p.id) {
+    <article class="vn-delivery-card">
+      <h2>Compra {{ p.id }}</h2>
+      <p>Cliente #{{ p.cliente_id }} · Sucursal #{{ p.sucursal_id }} · Bs {{ p.importe_total }}</p>
+      <ul>@for (line of p.items; track line.producto_id) {
+        <li>{{ line.nombre }} ({{ line.cantidad }})</li>
+      }</ul>
+      @if (p.entrega === 'ENTREGADA') {
+        <p>Entrega confirmada: {{ p.entregada_en }}</p>
+      } @else {
+        <label>Constancia de comprobación
+          <input #proof type="text" maxlength="200" minlength="3" placeholder="Ej. Documento revisado y prendas entregadas">
+        </label>
+        <label><input #verified type="checkbox"> Verifiqué la identidad del cliente y entregué estas prendas.</label>
+        <button type="button" class="vn-button vn-button--primary" [disabled]="saving()"
+                (click)="confirm(p.id, verified.checked, proof.value)">Confirmar entrega</button>
+      }
+    </article>
+  } @empty { @if (!loading()) { <p>No hay compras confirmadas en tus sucursales.</p> } }
+</section>

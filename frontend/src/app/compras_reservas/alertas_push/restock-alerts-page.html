@@ -1,0 +1,57 @@
+<main class="customer-shell customer-page account-subpage">
+  <div class="customer-brand"><span aria-hidden="true">VN</span> VestiNova</div>
+  <nav class="customer-breadcrumb" aria-label="Ruta de navegación">
+    <a [routerLink]="['/tienda',slug,'cuenta']">Mi cuenta</a><span aria-hidden="true">/</span><span>Mis alertas</span>
+  </nav>
+  <section class="customer-card customer-card--wide vn-card account-section" aria-labelledby="alerts-title">
+    <header class="account-section__header">
+      <div><p class="account-eyebrow">REPOSICIÓN DE PRENDAS · CU26</p>
+        <h1 id="alerts-title">Mis alertas</h1>
+        <p>Recibe un aviso si se repone una talla y color agotados en la sucursal que elegiste.</p>
+      </div>
+      <a class="vn-button vn-button--primary" [routerLink]="['/tienda',slug,'catalogo']">Explorar prendas</a>
+    </header>
+    <div class="account-info-banner"><strong>Los avisos no reservan prendas.</strong>
+      <span>La disponibilidad puede cambiar. Para activar una alerta, entra al detalle de una prenda agotada y selecciona la sucursal.</span>
+    </div>
+    @if (!statusLoading()) {
+      @if (serverEnabled() === false) {
+        <div class="account-support-note" role="status"><strong>Notificaciones aún no configuradas.</strong>
+          <p>El servidor necesita la configuración Web Push (VAPID). No podrás activar nuevas alertas desde el navegador hasta completarla.</p></div>
+      } @else if (browserEnabled() === false) {
+        <div class="account-support-note" role="status"><strong>Este navegador todavía no puede recibir avisos push desde esta sesión.</strong>
+          <p>Durante el desarrollo con Angular <code>ng serve</code> no se activa el Service Worker. Para probar notificaciones reales se requiere la PWA habilitada en un entorno seguro.</p></div>
+      }
+    }
+    <div class="account-list-heading"><div><h2>Alertas activas <span>({{ alerts().length }})</span></h2>
+      <p>Solo se muestran las alertas de esta tienda y de tu cuenta.</p></div>
+      <button type="button" class="vn-button" (click)="reload()" [disabled]="loading()">{{ loading() ? 'Actualizando…' : 'Actualizar lista' }}</button>
+    </div>
+    @if (loading()) { <p role="status" class="account-state">Consultando tus alertas…</p> }
+    @if (error(); as msg) { <p class="vn-alert vn-alert--error" role="alert">{{ msg }}</p> }
+    @if (notice(); as msg) { <p role="status" class="account-feedback">{{ msg }}</p> }
+    @if (!loading() && !error() && alerts().length === 0) {
+      <div class="account-empty"><span aria-hidden="true">♧</span><h2>Aún no tienes alertas activas</h2>
+        <p>Ve al catálogo, selecciona una prenda y consulta su disponibilidad. Si una variante está agotada, podrás solicitar un aviso cuando el servicio esté disponible.</p>
+        <a class="vn-button vn-button--primary" [routerLink]="['/tienda',slug,'catalogo']">Ver catálogo</a>
+      </div>
+    }
+    <div class="account-alert-grid">
+      @for (item of alerts(); track item.id) {
+        <article class="account-alert-card">
+          <div class="account-alert-card__header"><span class="account-status">Alerta activa</span>
+            <small>Creada {{ item.creado_en | date:'dd/MM/yyyy':'-0400' }}</small></div>
+          <h3>{{ item.producto_nombre || 'Prenda no disponible' }}</h3>
+          <p><strong>Talla:</strong> {{ item.talla || 'No disponible' }} <span aria-hidden="true">·</span> <strong>Color:</strong> {{ item.color || 'No disponible' }}</p>
+          <p><strong>Sucursal:</strong> {{ item.sucursal_nombre || 'Sucursal no disponible' }}</p>
+          <div class="account-alert-card__actions">
+            @if (item.producto_slug) { <a class="vn-button" [routerLink]="['/tienda',slug,'prenda',item.producto_slug]">Ver prenda</a> }
+            <button type="button" class="vn-button account-button-danger" [disabled]="processing()" (click)="cancel(item.id)">
+              {{ busyId() === item.id ? 'Cancelando…' : 'Cancelar alerta' }}
+            </button>
+          </div>
+        </article>
+      }
+    </div>
+  </section>
+</main>

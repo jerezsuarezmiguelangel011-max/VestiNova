@@ -20,6 +20,7 @@ import { CatalogPwaService, type CatalogPwaState } from './catalog-pwa.service';
         <nav aria-label="Navegación del catálogo">
           <a routerLink="/catalogo" [queryParams]="{ tienda: data.shop.tienda() }">Catálogo de prendas</a>
           <a routerLink="/catalogo/acciones/compra" [queryParams]="{ tienda: data.shop.tienda() }">Mi selección</a>
+          <a routerLink="/catalogo/acciones/comparar" [queryParams]="{ tienda: data.shop.tienda() }">Comparar prendas</a>
           <a routerLink="/catalogo/acciones/sincronizacion" [queryParams]="{ tienda: data.shop.tienda() }">Sincronización</a>
         </nav>
       </header>

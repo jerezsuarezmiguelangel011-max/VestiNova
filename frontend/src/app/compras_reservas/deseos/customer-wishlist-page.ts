@@ -10,7 +10,10 @@ import { CatalogImage } from '../../catalogo_publico/catalogo/catalog-image';
   imports: [RouterLink, DatePipe, CatalogImage],
   template: `
   <main class="wish-page">
-    <a [routerLink]="['/tienda', tienda(), 'catalogo']">← Volver a la tienda</a>
+    <nav class="wish-links" aria-label="Navegación de deseos">
+      <a [routerLink]="['/tienda', tienda(), 'cuenta']">← Mi cuenta</a>
+      <a [routerLink]="['/tienda', tienda(), 'catalogo']">Explorar catálogo</a>
+    </nav>
     <p class="wish-tag">VestiNova · CU23</p>
     <h1>Mi lista de deseos</h1>
     <p>Estas variantes están guardadas en tu cuenta de esta tienda.
@@ -53,6 +56,7 @@ import { CatalogImage } from '../../catalogo_publico/catalogo/catalog-image';
   `,
   styles: `
     :host{display:block}.wish-page{max-width:1050px;margin:0 auto;padding:30px;color:#27382e}
+    .wish-links{display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:1rem}.wish-links a{color:#176b4b;text-underline-offset:4px}
     .wish-page h1{font:400 42px Georgia,serif}.wish-page>p{line-height:1.65}
     .wish-tag{font-weight:700;color:#116a4d;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
     .wish-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px;margin-top:24px}

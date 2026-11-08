@@ -30,6 +30,7 @@
       @if (['ADMINISTRADOR', 'ENCARGADO_SUCURSAL'].includes(companies.active()?.rol ?? '') && companies.hasPermission('reportes.consultar')) {
         <a routerLink="/admin/reportes-comerciales" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Reportes comerciales · CU20</a>
       }
+      @if (['ADMINISTRADOR','ENCARGADO_SUCURSAL','CAJERO'].includes(companies.active()?.rol ?? '')) { <a routerLink="/admin/entregas-compras" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Entregar compras ? CU25</a> }
       @if (companies.hasPermission('postventa.consultar')) { <a routerLink="/admin/postventa" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Cambios y devoluciones · CU17</a> }
       @if (companies.canViewPromotions() && companies.active()?.rol !== 'CAJERO') { <a routerLink="/admin/promociones" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">{{ companies.canManagePromotions() ? 'Gestionar promociones' : 'Consultar promociones' }} · CU05</a> }
       @if (companies.canViewProcurement()) { <a routerLink="/admin/abastecimiento" routerLinkActive="rail__link--active" ariaCurrentWhenActive="page" class="rail__link">Abastecimiento · CU06</a> }

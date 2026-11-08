@@ -144,6 +144,26 @@
             }
           </div>
         }
+        @if (!inAdmin && shop.tienda()) {
+          <div class="vn-comparison-toolbar">
+            <button class="vn-button" type="button" [disabled]="source() !== 'network'" (click)="addToComparison()">Agregar a comparación</button>
+            <a class="vn-button" [routerLink]="inStorefront ? ['/tienda', shop.tienda(), 'comparar'] : ['/catalogo/acciones/comparar']"
+               [queryParams]="inStorefront ? null : { tienda: shop.tienda() }">Comparar ({{ comparison.count() }}/4)</a>
+            @if (comparisonMessage(); as message) { <span role="status">{{ message }}</span> }
+          </div>
+        }
+        @if (!inAdmin && shop.tienda()) {
+          @if (alertEligible()) {
+            <div class="vn-comparison-toolbar">
+              <button type="button" class="vn-button" [disabled]="alertLoading()" (click)="subscribeRestock()">
+                {{ alertLoading() ? 'Activando aviso…' : 'Avisarme cuando haya stock · CU26' }}
+              </button>
+              <a [routerLink]="['/tienda',shop.tienda(),'alertas']">Mis alertas</a>
+            </div>
+          }
+          @if (alertError(); as msg) { <p class="vn-alert vn-alert--error" role="alert">{{ msg }}</p> }
+          @if (alertNotice(); as msg) { <p role="status">{{ msg }}</p> }
+        }
         @if (inStorefront) {
           <div class="storefront-product-actions">
             <button type="button" class="vn-button vn-button--primary storefront-add-cart"

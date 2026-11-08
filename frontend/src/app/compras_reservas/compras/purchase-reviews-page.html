@@ -1,0 +1,74 @@
+<main class="customer-shell customer-page account-subpage">
+  <div class="customer-brand"><span aria-hidden="true">VN</span> VestiNova</div>
+  <nav class="customer-breadcrumb" aria-label="Ruta de navegación">
+    <a [routerLink]="['/tienda',slug,'cuenta']">Mi cuenta</a><span aria-hidden="true">/</span><span>Mis valoraciones</span>
+  </nav>
+  <section class="customer-card customer-card--wide vn-card account-section" aria-labelledby="review-title">
+    <header class="account-section__header">
+      <div><p class="account-eyebrow">TU OPINIÓN IMPORTA · CU25</p><h1 id="review-title">Mis valoraciones</h1>
+        <p>Comparte tu experiencia con prendas de compras confirmadas y entregadas. Puedes editar tu opinión cuando quieras.</p>
+      </div>
+      <a class="vn-button" [routerLink]="['/tienda',slug,'compras']">Ver mis compras</a>
+    </header>
+    <div class="account-info-banner"><strong>¿Cuándo puedo valorar?</strong>
+      <span>Cuando la sucursal confirma la entrega de tu compra. Las opiniones publicadas corresponden a compras verificadas.</span>
+    </div>
+    @if (loading()) { <p role="status" class="account-state">Consultando tus compras…</p> }
+    @if (error(); as msg) { <p role="alert" class="vn-alert vn-alert--error">{{ msg }}</p> }
+    @if (notice(); as msg) { <p role="status" class="account-feedback">{{ msg }}</p> }
+    @if (!loading() && purchases().length === 0 && !error()) {
+      <div class="account-empty"><span aria-hidden="true">☆</span><h2>Todavía no tienes compras para valorar</h2>
+        <p>Cuando hagas una compra digital confirmada, aparecerá aquí para consultar su entrega.</p>
+        <a class="vn-button vn-button--primary" [routerLink]="['/tienda',slug,'catalogo']">Explorar prendas</a>
+      </div>
+    }
+    @for (purchase of purchases(); track purchase.id) {
+      <article class="account-purchase" [attr.aria-label]="'Compra ' + purchase.id">
+        <div class="account-purchase__header">
+          <div><span class="account-eyebrow">COMPRA CONFIRMADA</span><h2>Compra del {{ purchase.creado_en | date:'dd/MM/yyyy':'-0400' }}</h2>
+            <small>Comprobante {{ purchase.id }}</small></div>
+          <span class="account-status" [class.account-status--pending]="purchase.seguimiento_entrega !== 'ENTREGADA'">
+            {{ purchase.seguimiento_entrega === 'ENTREGADA' ? 'Entrega confirmada' : 'Entrega pendiente' }}
+          </span>
+        </div>
+        @if (purchase.seguimiento_entrega !== 'ENTREGADA') {
+          <div class="account-pending"><strong>Aún no puedes valorar esta compra.</strong>
+            <p>La sucursal debe verificar la entrega antes de habilitar las opiniones.</p></div>
+        } @else {
+          <div class="account-review-grid">
+            @for (item of uniqueProductItems(purchase); track item.producto_id) {
+              <section class="account-review-item">
+                <div><h3>{{ item.nombre }}</h3>
+                  @if (reviewFor(purchase.id,item.producto_id); as review) {
+                    <p class="account-review-current">Tu valoración actual: <strong>{{ review.puntuacion }}/5</strong> · {{ review.comentario || 'Sin comentario' }}</p>
+                  } @else { <p class="account-review-current">Todavía no has valorado esta prenda.</p> }
+                </div>
+                <div class="account-review-fields">
+                  <label>Puntuación
+                    <select #stars [value]="reviewFor(purchase.id,item.producto_id)?.puntuacion || 5">
+                      <option value="5">5 ★ · Excelente</option><option value="4">4 ★ · Muy buena</option>
+                      <option value="3">3 ★ · Buena</option><option value="2">2 ★ · Regular</option>
+                      <option value="1">1 ★ · Mala</option>
+                    </select>
+                  </label>
+                  <label>Comentario <span>(opcional · máximo 1.000 caracteres)</span>
+                    <textarea #comment rows="3" maxlength="1000" [value]="reviewFor(purchase.id,item.producto_id)?.comentario || ''" placeholder="¿Qué te pareció la prenda?"></textarea>
+                  </label>
+                </div>
+                <button type="button" class="vn-button vn-button--primary" [disabled]="saving()"
+                        (click)="save(purchase.id,item.producto_id,+stars.value,comment.value)">
+                  {{ saving() ? 'Guardando…' : reviewFor(purchase.id,item.producto_id) ? 'Guardar cambios' : 'Publicar valoración' }}
+                </button>
+              </section>
+            }
+          </div>
+        }
+      </article>
+    }
+    @if (purchases().length < totalPurchases()) {
+      <button type="button" class="vn-button account-more" [disabled]="loadingMore()" (click)="loadMore()">
+        {{ loadingMore() ? 'Consultando…' : 'Mostrar compras anteriores' }}
+      </button>
+    }
+  </section>
+</main>

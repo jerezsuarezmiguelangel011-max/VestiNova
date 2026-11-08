@@ -14,6 +14,7 @@ from app.inventario.esquemas import (
 )
 from app.models import Existencia, MovimientoInventario, Producto, VarianteProducto, utc_now
 from app.compras_reservas.postventa.persistence import SolicitudPostventa
+from app.compras_reservas.alertas_push import queue_restock
 from app.catalogo_abastecimiento.categories import get_category
 from app.catalogo_abastecimiento.productos import get_product
 from app.catalogo_abastecimiento.variantes import get_variant
@@ -106,6 +107,7 @@ def _apply_movement(
             raise HTTPException(409, "Este reingreso de postventa ya fue registrado para la variante.")
 
     delta = payload.cantidad if payload.tipo == "ENTRADA" else -payload.cantidad
+    previous_free = balance.cantidad - balance.cantidad_comprometida
     resulting = balance.cantidad + delta
     if resulting < balance.cantidad_comprometida or resulting > 2_000_000_000:
         db.rollback()
@@ -123,6 +125,9 @@ def _apply_movement(
         delta=delta, saldo_resultante=resulting, motivo=payload.motivo,
     )
     db.add(movement)
+    queue_restock(db, empresa_id=context.empresa_id, sucursal_id=payload.sucursal_id,
+                  variante_id=payload.variante_id, previous_free=previous_free,
+                  current_free=resulting - balance.cantidad_comprometida, movement_id=str(payload.id))
     record_audit_event(
         db, context, accion=f"inventario.{clase.lower()}",
         entidad="inventario", entidad_id=str(payload.id),

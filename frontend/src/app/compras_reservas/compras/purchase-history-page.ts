@@ -15,11 +15,15 @@ import { type AfterSaleRequest, type AfterSaleType, type PurchaseHistoryItem } f
     <main class="customer-shell purchase-history" aria-labelledby="history-title" [attr.aria-busy]="loading()">
       <div class="customer-brand"><span aria-hidden="true">VN</span> VestiNova</div>
       <section class="customer-card vn-card">
-        <a class="purchase-history__back" [routerLink]="['/tienda', slug(), 'cuenta']">Volver a mi cuenta</a>
+        <a class="purchase-history__back" [routerLink]="['/tienda', slug(), 'cuenta']">← Volver a mi cuenta</a>
         @if (auth.customer(); as customer) {
           <p class="vn-eyebrow">{{ customer.empresa.nombre }}</p>
           <h1 id="history-title" class="vn-title">Mis compras</h1>
           <p class="purchase-history__intro">Consulta tus compras confirmadas, comprobantes y solicitudes de cambio o devolución.</p>
+          <div class="account-history-links">
+            <a class="vn-button" [routerLink]="['/tienda',slug(),'valoraciones']">Mis valoraciones · CU25</a>
+            <a class="vn-button" [routerLink]="['/tienda',slug(),'alertas']">Mis alertas · CU26</a>
+          </div>
         }
 
         @if (loading()) {
@@ -46,7 +50,7 @@ import { type AfterSaleRequest, type AfterSaleType, type PurchaseHistoryItem } f
                   <strong>Bs {{ purchase.importe_total }}</strong>
                 </header>
 
-                <p class="purchase-history__status" role="status">Compra confirmada · Entrega: sin seguimiento disponible en esta tienda.</p>
+                <p class="purchase-history__status" role="status">Compra confirmada · Entrega: {{ purchase.seguimiento_entrega === 'ENTREGADA' ? 'confirmada por la sucursal' : 'pendiente de verificación' }}.</p>
                 <details class="purchase-history__receipt">
                   <summary>Ver comprobante y prendas</summary>
                   <ul>

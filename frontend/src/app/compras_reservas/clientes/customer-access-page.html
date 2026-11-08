@@ -1,6 +1,11 @@
-﻿<main class="customer-shell">
+<main class="customer-shell customer-page customer-access-shell">
   <div class="customer-brand"><span aria-hidden="true">VN</span> VestiNova</div>
   <a class="customer-store-back" [routerLink]="['/tienda', currentShop()]">← Volver a la tienda</a>
+  <div class="customer-access-lead">
+    <p class="account-eyebrow">TU ESPACIO VESTINOVA</p>
+    <h2>Todo lo que necesitas, en tu cuenta.</h2>
+    <p>Consulta compras, guarda tus favoritas, publica valoraciones de prendas recibidas y gestiona alertas de reposición.</p>
+  </div>
   <section class="customer-card vn-card" aria-labelledby="customer-title" [attr.aria-busy]="loading() || sending()">
     <p class="vn-eyebrow">Tu cuenta en la tienda</p><h1 id="customer-title" class="vn-title">{{ store()?.nombre ?? 'Acceso de cliente' }}</h1>
     @if (loading()) { <p role="status"><span class="vn-spinner" aria-hidden="true"></span> Comprobando tienda y sesión…</p> }

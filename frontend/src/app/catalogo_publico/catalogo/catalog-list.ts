@@ -9,9 +9,10 @@ import { CatalogDataService } from './catalog-data.service';
 import { CatalogShopService } from './catalog-shop.service';
 import { CatalogApiService } from './catalog-api.service';
 import { CatalogImage } from './catalog-image';
+import { CatalogComparisonService } from './catalog-comparison.service';
 import { CatalogLocalError } from './catalog.models';
 import { StorefrontContextService } from './storefront-context.service';
-import type { CatalogList, CatalogQuery } from './catalog.models';
+import type { CatalogList, CatalogProduct, CatalogQuery } from './catalog.models';
 
 @Component({
   selector: 'app-catalog-list',
@@ -22,6 +23,8 @@ import type { CatalogList, CatalogQuery } from './catalog.models';
 export class CatalogListPage {
   readonly catalog = inject(CatalogDataService);
   readonly shop = inject(CatalogShopService);
+  readonly comparison = inject(CatalogComparisonService);
+  readonly comparisonMessage = signal<string | null>(null);
   private readonly currentRoute = inject(ActivatedRoute);
   readonly inAdmin = this.currentRoute.parent?.snapshot.routeConfig?.path === 'catalogo-consulta';
   readonly inStorefront = this.currentRoute.parent?.snapshot.routeConfig?.path === 'tienda/:tienda';
@@ -127,6 +130,14 @@ export class CatalogListPage {
         if (this.shop.tienda() === tienda) this.categories.set([]);
       },
     });
+  }
+
+  addToComparison(product: CatalogProduct): void {
+    if (this.source() !== 'network') {
+      this.comparisonMessage.set('Conéctate para comparar prendas con información actualizada.');
+      return;
+    }
+    this.comparisonMessage.set(this.comparison.add(product));
   }
 
   search(): void {

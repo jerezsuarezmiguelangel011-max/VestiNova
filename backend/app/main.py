@@ -36,9 +36,12 @@ from app.catalogo_abastecimiento.variantes import router as variantes_router
 # Inventario, catalogo publico, compras y operacion sin conexion.
 from app.inventario.api import router as inventario_router
 from app.catalogo_publico.catalogo import router as catalog_router, directory_router as public_directory_router
+from app.catalogo_publico.comparacion import router as comparacion_router
+from app.compras_reservas.alertas_push import router as alertas_router, dispatch_pending
 from app.compras_reservas.compras.router import router as compras_router
 from app.compras_reservas.compras.stripe_checkout import router as stripe_checkout_router, webhook_router as stripe_webhook_router
 from app.compras_reservas.compras.history import router as historial_compras_router
+from app.compras_reservas.compras.valoraciones import staff_router as entregas_router, customer_router as valoraciones_router, public_router as opiniones_router
 from app.compras_reservas.reservas.online import (
     customer_router as customer_reservations_router,
     staff_router as staff_reservations_router,
@@ -74,15 +77,29 @@ def create_app(settings: Settings | None = None, *, engine=None) -> FastAPI:
                     "CU10: no se pudo completar el vencimiento periódico; se reintentará."
                 )
 
+    async def periodic_push_delivery():
+        while True:
+            await asyncio.sleep(30)
+            try:
+                await asyncio.to_thread(dispatch_pending, session_factory, settings)
+            except Exception:
+                logging.getLogger(__name__).exception('CU26: fallo al procesar cola de notificaciones.')
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         expiry_task = asyncio.create_task(periodic_reservation_expiry())
+        push_task = asyncio.create_task(periodic_push_delivery())
         try:
             yield
         finally:
             expiry_task.cancel()
+            push_task.cancel()
             try:
                 await expiry_task
+            except asyncio.CancelledError:
+                pass
+            try:
+                await push_task
             except asyncio.CancelledError:
                 pass
             database_engine.dispose()
@@ -91,7 +108,7 @@ def create_app(settings: Settings | None = None, *, engine=None) -> FastAPI:
     app.state.settings = settings
     app.state.engine = database_engine
     app.state.session_factory = session_factory
-    app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_credentials=False, allow_methods=["GET", "POST", "PATCH", "PUT", "OPTIONS"], allow_headers=["Authorization", "Content-Type", "X-Empresa-Id", "ngsw-bypass"])
+    app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_credentials=False, allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"], allow_headers=["Authorization", "Content-Type", "X-Empresa-Id", "ngsw-bypass"])
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(_: Request, error: RequestValidationError):
@@ -137,10 +154,15 @@ def create_app(settings: Settings | None = None, *, engine=None) -> FastAPI:
     app.include_router(inventario_router)
     app.include_router(public_directory_router)
     app.include_router(catalog_router)
+    app.include_router(comparacion_router)
     app.include_router(compras_router)
     app.include_router(stripe_checkout_router)
     app.include_router(stripe_webhook_router)
     app.include_router(historial_compras_router)
+    app.include_router(entregas_router)
+    app.include_router(valoraciones_router)
+    app.include_router(opiniones_router)
+    app.include_router(alertas_router)
     app.include_router(customer_reservations_router)
     app.include_router(staff_reservations_router)
     app.include_router(attention_reservations_router)

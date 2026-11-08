@@ -24,7 +24,7 @@ function customerEmail(control: AbstractControl): ValidationErrors | null {
 
 @Component({
   selector: 'vn-customer-access', imports: [ReactiveFormsModule, RouterLink],
-  templateUrl: './customer-access-page.html', styleUrl: './customer.css',
+  templateUrl: './customer-access-page.html', styleUrls: ['./customer.css', './customer-enhancements.css'],
 })
 export class CustomerAccessPage {
   private readonly auth = inject(CustomerAuthService);

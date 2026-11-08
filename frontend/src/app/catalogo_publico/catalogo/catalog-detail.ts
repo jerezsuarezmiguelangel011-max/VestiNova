@@ -8,6 +8,8 @@ import { CatalogDataService } from './catalog-data.service';
 import { CatalogShopService } from './catalog-shop.service';
 import { CatalogApiService, type CatalogAvailability } from './catalog-api.service';
 import { CatalogImage } from './catalog-image';
+import { CatalogComparisonService } from './catalog-comparison.service';
+import { RestockAlertsService } from '../../compras_reservas/alertas_push/restock-alerts.service';
 import { CatalogLocalError, type CatalogProduct, type CatalogResult } from './catalog.models';
 import { StorefrontContextService } from './storefront-context.service';
 import { PurchaseSelectionService } from '../../compras_reservas/compras/purchase-selection.service';
@@ -24,6 +26,12 @@ import { CustomerRecommendationsService } from '../recomendaciones/customer-reco
 export class CatalogDetailPage {
   readonly catalog = inject(CatalogDataService);
   readonly shop = inject(CatalogShopService);
+  readonly comparison = inject(CatalogComparisonService);
+  readonly alerts = inject(RestockAlertsService);
+  readonly alertLoading = signal(false);
+  readonly alertNotice = signal<string | null>(null);
+  readonly alertError = signal<string | null>(null);
+  readonly comparisonMessage = signal<string | null>(null);
   readonly inAdmin = inject(ActivatedRoute).parent?.snapshot.routeConfig?.path === 'catalogo-consulta';
   readonly inStorefront = inject(ActivatedRoute).parent?.snapshot.routeConfig?.path === 'tienda/:tienda';
   readonly storefront = inject(StorefrontContextService);
@@ -63,6 +71,13 @@ export class CatalogDetailPage {
     const seen = new Map<number, string>();
     for (const item of this.availability()?.items ?? []) seen.set(item.sucursal_id, item.sucursal);
     return [...seen].map(([id, nombre]) => ({ id, nombre }));
+  });
+  readonly alertEligible = computed(() => {
+    const variant = this.selectedVariantId();
+    const branch = this.selectedBranchId();
+    return this.source() === 'network' && variant !== null && branch !== null
+      && this.availability()?.items.some(item => item.variante_id === variant && item.sucursal_id === branch
+        && item.saldo_registrado && item.hay_disponibilidad === false) === true;
   });
   private availabilityRevision = 0;
 
@@ -120,6 +135,34 @@ export class CatalogDetailPage {
     this.selectedVariantId.set(id !== null && this.variants().some(v => v.id === id) ? id : null);
     this.cartError.set(null);
     this.cartNotice.set(false);
+  }
+
+  addToComparison(): void {
+    const current = this.product();
+    if (!current || this.source() !== 'network') {
+      this.comparisonMessage.set('Conéctate para comparar con datos actuales.');
+      return;
+    }
+    this.comparisonMessage.set(this.comparison.add(current));
+  }
+
+  async subscribeRestock(): Promise<void> {
+    const slug = this.shop.tienda();
+    const variant = this.selectedVariantId();
+    const branch = this.selectedBranchId();
+    if (!slug || !variant || !branch || !this.alertEligible()) {
+      this.alertError.set('Selecciona una talla y sucursal agotadas con existencias verificadas.'); return;
+    }
+    if (!this.customerAuth.token(slug)) {
+      this.alertError.set('Inicia sesión como cliente de esta tienda para activar notificaciones.'); return;
+    }
+    this.alertError.set(null); this.alertNotice.set(null); this.alertLoading.set(true);
+    try {
+      await this.alerts.subscribe(slug, variant, branch);
+      this.alertNotice.set('Alerta activada. Recibirás un aviso si el stock se repone y el navegador lo permite.');
+    } catch (error: unknown) {
+      this.alertError.set(error instanceof Error ? error.message : 'No pudimos activar las notificaciones push.');
+    } finally { this.alertLoading.set(false); }
   }
 
   addToCart(): void {

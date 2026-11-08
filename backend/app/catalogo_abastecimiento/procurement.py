@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.organizacion_empresarial.audit import record_audit_event
+from app.compras_reservas.alertas_push import queue_restock
 from app.db import get_db
 from app.models import (
     AccesoSucursal, Existencia, LineaAbastecimiento, LineaRecepcionAbastecimiento, MovimientoInventario,
@@ -463,14 +464,19 @@ def receive_order(
             result = stock.cantidad + quantity
             if result > 2_000_000_000:
                 raise HTTPException(409, "La recepciÃ³n supera el lÃ­mite permitido de existencias.")
+            before_free = stock.cantidad - stock.cantidad_comprometida
             stock.cantidad = result
             stock.actualizado_en = utc_now()
             line.cantidad_recibida += quantity
+            move_id = str(uuid4())
             db.add(MovimientoInventario(
-                id=str(uuid4()), empresa_id=context.empresa_id, sucursal_id=order.sucursal_id,
+                id=move_id, empresa_id=context.empresa_id, sucursal_id=order.sucursal_id,
                 variante_id=variant.id, usuario_id=context.usuario.id, tipo="ENTRADA",
                 motivo=f"RecepciÃ³n de orden {order.id}", delta=quantity, saldo_resultante=result,
             ))
+            queue_restock(db, empresa_id=context.empresa_id, sucursal_id=order.sucursal_id,
+                          variante_id=variant.id, previous_free=before_free,
+                          current_free=result - stock.cantidad_comprometida, movement_id=move_id)
             db.add(LineaRecepcionAbastecimiento(
                 recepcion_id=receipt_id, linea_id=line.id, empresa_id=context.empresa_id,
                 orden_id=order.id, cantidad=quantity,
