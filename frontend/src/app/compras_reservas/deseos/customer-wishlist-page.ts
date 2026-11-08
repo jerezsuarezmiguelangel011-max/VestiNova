@@ -9,7 +9,7 @@ import { CustomerWishlistApi, type WishlistItem } from './customer-wishlist-api.
   imports: [RouterLink, DatePipe],
   template: `
   <main class="wish-page">
-    <a [routerLink]="['/tienda', tienda, 'catalogo']">← Volver a la tienda</a>
+    <a [routerLink]="['/tienda', tienda(), 'catalogo']">← Volver a la tienda</a>
     <p class="wish-tag">VestiNova · CU23</p>
     <h1>Mi lista de deseos</h1>
     <p>Estas variantes están guardadas en tu cuenta de esta tienda.
@@ -31,7 +31,7 @@ import { CustomerWishlistApi, type WishlistItem } from './customer-wishlist-api.
                 @case ('AGOTADA') { <p class="wish-inactive">Sin unidades disponibles según las sucursales consultadas.</p> }
                 @default { <p class="wish-stock">Disponibilidad no verificada.</p> }
               }
-              <a [routerLink]="['/tienda', tienda, 'prenda', item.slug]">Ver prenda</a>
+              <a [routerLink]="['/tienda', tienda(), 'prenda', item.slug]">Ver prenda</a>
             } @else {
               <p class="wish-inactive">Variante no disponible actualmente.</p>
             }
@@ -70,36 +70,57 @@ export class CustomerWishlistPage {
   private readonly api = inject(CustomerWishlistApi);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
-  readonly tienda = this.route.snapshot.paramMap.get('tienda') ?? '';
+  readonly tienda = signal('');
   readonly items = signal<WishlistItem[]>([]);
   readonly loading = signal(false);
   readonly busy = signal<number | null>(null);
   readonly error = signal<string | null>(null);
   readonly notice = signal<string | null>(null);
 
-  constructor() { this.load(); }
+  private revision = 0;
+
+  constructor() {
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
+      this.revision++;
+      this.tienda.set(params.get('tienda') ?? '');
+      this.items.set([]);
+      this.busy.set(null);
+      this.notice.set(null);
+      this.load();
+    });
+  }
 
   load(): void {
-    if (!this.tienda) return;
+    const tienda = this.tienda();
+    if (!tienda) return;
+    const revision = this.revision;
     this.loading.set(true);
     this.error.set(null);
-    this.api.list(this.tienda).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: result => { this.items.set(result.items); this.loading.set(false); },
-      error: () => { this.error.set('No pudimos recuperar tu lista. Inicia sesión y revisa la conexión.');
-        this.loading.set(false); },
+    this.api.list(tienda).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: result => { if (revision === this.revision) {
+        this.items.set(result.items); this.loading.set(false);
+      } },
+      error: () => { if (revision === this.revision) {
+        this.error.set('No pudimos recuperar tu lista. Inicia sesión y revisa la conexión.');
+        this.loading.set(false);
+      } },
     });
   }
 
   remove(item: WishlistItem): void {
     if (this.busy() !== null) return;
+    const revision = this.revision;
+    const tienda = this.tienda();
     this.busy.set(item.variante_id); this.error.set(null); this.notice.set(null);
-    this.api.remove(this.tienda, item.variante_id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: () => {
+    this.api.remove(tienda, item.variante_id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => { if (revision === this.revision) {
         this.items.update(items => items.filter(row => row.variante_id !== item.variante_id));
         this.busy.set(null); this.notice.set('Prenda retirada de tu lista.');
-      },
-      error: () => { this.busy.set(null);
-        this.error.set('No se pudo retirar esta prenda. Comprueba tu conexión e inténtalo nuevamente.'); },
+      } },
+      error: () => { if (revision === this.revision) {
+        this.busy.set(null);
+        this.error.set('No se pudo retirar esta prenda. Comprueba tu conexión e inténtalo nuevamente.');
+      } },
     });
   }
 }
