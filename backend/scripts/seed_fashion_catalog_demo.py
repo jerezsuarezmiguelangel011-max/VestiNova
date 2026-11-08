@@ -69,6 +69,53 @@ STYLES = (
     ("sombrero-flexible", "Sombrero de ala flexible", "Accesorios", "Sombrero", "Textil", "Verano", "89.00", "unica", ("Beige", "Negro"), 6),
 )
 
+# Fotografías de referencia para catálogo ficticio. Pexels (licencia gratuita).
+# No son fotografías de inventario real ni representan el color exacto de
+# todas las variantes. URLs HTTPS con compresión y ancho limitados para demo.
+PHOTO_IDS = {
+    "polera-manga-corta": 9775901,
+    "polera-oversize": 17583618,
+    "polera-deportiva": 9759713,
+    "polera-manga-larga": 28079564,
+    "camisa-formal": 5289086,
+    "camisa-lino": 18240957,
+    "camisa-cuadros": 36856701,
+    "camisa-manga-corta": 3927390,
+    "jean-wide-leg": 3944690,
+    "pantalon-cargo": 33516576,
+    "pantalon-sastre": 37691114,
+    "pantalon-jogger": 210143,
+    "pantalon-chino": 210144,
+    "chompa-tejida": 5499129,
+    "chaqueta-bomber": 6037957,
+    "blazer-casual": 5289086,
+    "parka-liviana": 10530089,
+    "zapatillas-urbanas": 11962269,
+    "botines-temporada": 8428528,
+    "zapatos-vestir": 7289741,
+    "sandalias-casuales": 7857494,
+    "gorra-lisa": 3927390,
+    "chalina-tejida": 8818150,
+    "bolso-cruzado": 8502477,
+    "cinturon-clasico": 27127406,
+    "sombrero-flexible": 11446623,
+}
+# Imágenes de los seis productos antiguos del primer seed.
+PHOTO_LEGACY = {
+    "polera-clasica": 9775901,
+    "jean-recto": 3944690,
+    "chaqueta-corta": 5499129,
+    "polera-oversize": 17583618,
+    "jean-slim": 33516576,
+    "chaqueta-denim": 6037957,
+}
+
+
+def photo_url(photo_id: int) -> str:
+    return (f"https://images.pexels.com/photos/{photo_id}/"
+            f"pexels-photo-{photo_id}.jpeg?auto=compress&cs=tinysrgb&w=640")
+
+
 SIZES = {
     "superior": ("S", "M", "L"),
     "pantalon": ("38", "40", "42"),
@@ -183,8 +230,17 @@ def seed_catalog(db: Session) -> list[dict]:
             for name, description in GROUPS.items()
         }
         relabeled = _reclassify_legacy(db, company.id, tag, categories)
+        # Los productos de la semilla original conservan sus datos salvo que
+        # no tengan fotografía asignada y se complete solo ese campo.
+        for code, photo_id in PHOTO_LEGACY.items():
+            original = db.scalar(select(Producto).where(
+                Producto.empresa_id == company.id,
+                Producto.slug == f"demo-{tag}-{code}",
+            ))
+            if original is not None and original.imagen_url is None:
+                original.imagen_url = photo_url(photo_id)
         inserted = {"productos": 0, "variantes": 0, "existencias": 0,
-                    "movimientos": 0}
+                    "movimientos": 0, "imagenes": 0}
         for index, (code, title, category, subtype, material, season, price,
                     sizing, colors, base_stock) in enumerate(STYLES):
             product_slug = f"demo-{tag}-catalogo-{code}"
@@ -199,13 +255,16 @@ def seed_catalog(db: Session) -> list[dict]:
                     material=material, temporada=season,
                     medidas="Tallas disponibles: " + ", ".join(SIZES[sizing]),
                     precio=Decimal(price) + price_extra, moneda="BOB",
-                    imagen_url=None, activo=True,
+                    imagen_url=photo_url(PHOTO_IDS[code]), activo=True,
                 )
                 db.add(product)
                 db.flush()
                 inserted["productos"] += 1
             elif product.empresa_id != company.id:
                 raise ValueError(f"Colisión de identificador de producto demo: {product_slug}.")
+            if product.imagen_url is None:
+                product.imagen_url = photo_url(PHOTO_IDS[code])
+                inserted["imagenes"] += 1
 
             for size_index, size in enumerate(SIZES[sizing]):
                 for color_index, color in enumerate(colors):
@@ -269,7 +328,8 @@ def main() -> None:
             print(f"    Nuevos: {result['productos']} productos, "
                   f"{result['variantes']} variantes, "
                   f"{result['existencias']} existencias, "
-                  f"{result['movimientos']} movimientos.")
+                  f"{result['movimientos']} movimientos, "
+                  f"{result['imagenes']} imágenes nuevas.")
             print(f"    Productos antiguos reclasificados: "
                   f"{result['productos_anteriores_reclasificados']}.")
         print("Ejecución repetible: las operaciones y existencias anteriores se conservan.")
