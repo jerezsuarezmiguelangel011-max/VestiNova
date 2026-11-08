@@ -73,6 +73,34 @@ STYLES = (
 # No son fotografías de inventario real ni representan el color exacto de
 # todas las variantes. URLs HTTPS con compresión y ancho limitados para demo.
 PHOTO_IDS = {
+    "polera-manga-corta": 8979899,
+    "polera-oversize": 28758240,
+    "polera-deportiva": 9759713,
+    "polera-manga-larga": 12738120,
+    "camisa-formal": 4061725,
+    "camisa-lino": 5191436,
+    "camisa-cuadros": 9929712,
+    "camisa-manga-corta": 7433128,
+    "jean-wide-leg": 16069737,
+    "pantalon-cargo": 19751093,
+    "pantalon-sastre": 33633245,
+    "pantalon-jogger": 19461557,
+    "pantalon-chino": 7433128,
+    "chompa-tejida": 16684688,
+    "chaqueta-bomber": 23363491,
+    "blazer-casual": 30875756,
+    "parka-liviana": 9929712,
+    "zapatillas-urbanas": 11757389,
+    "botines-temporada": 26851197,
+    "zapatos-vestir": 17286664,
+    "sandalias-casuales": 31517347,
+    "gorra-lisa": 3649521,
+    "chalina-tejida": 7870646,
+    "billetera-clasica": 4452390,
+    "cinturon-clasico": 26851197,
+    "sombrero-flexible": 19780087,
+}
+PRIOR_PHOTO_IDS = {
     "polera-manga-corta": 9775901,
     "polera-oversize": 17583618,
     "polera-deportiva": 9759713,
@@ -100,8 +128,15 @@ PHOTO_IDS = {
     "cinturon-clasico": 26851197,
     "sombrero-flexible": 11446623,
 }
-# Imágenes de los seis productos antiguos del primer seed.
 PHOTO_LEGACY = {
+    "polera-clasica": 8979899,
+    "jean-recto": 16069737,
+    "chaqueta-corta": 23363491,
+    "polera-oversize": 28758240,
+    "jean-slim": 16069737,
+    "chaqueta-denim": 16277449,
+}
+PRIOR_PHOTO_LEGACY = {
     "polera-clasica": 9775901,
     "jean-recto": 3944690,
     "chaqueta-corta": 5499129,
