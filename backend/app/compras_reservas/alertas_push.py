@@ -411,6 +411,13 @@ def dispatch_pending(session_factory, settings) -> None:
             if alert is None or channel is None or alert.estado != "ACTIVA" or not channel.activo:
                 job.estado = "CANCELADO"
                 continue
+            # No agotar los reintentos de un canal cuyo proveedor aún no
+            # está configurado. Conservar el aviso PENDIENTE para más tarde.
+            if channel.endpoint.startswith("fcm:"):
+                if _fcm_credentials() is None:
+                    continue
+            elif not push_enabled(settings):
+                continue
             variant = db.get(VarianteProducto, alert.variante_id)
             product = db.get(Producto, variant.producto_id) if variant else None
             branch = db.get(Sucursal, alert.sucursal_id)
