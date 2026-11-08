@@ -55,3 +55,41 @@
 @media(max-width:770px){.storefront-hero{grid-template-columns:1fr}.storefront-hero-copy{padding:55px 24px 50px}.storefront-hero-art{min-height:230px}.storefront-branch-bar{grid-template-columns:1fr}.storefront-nav{gap:12px}.storefront-nav nav{flex-basis:100%;justify-content:space-between}}
 @media(max-width:480px){.storefront-products-intro span{margin-top:12px}.storefront-nav{padding:16px 18px}.storefront-nav-divider{display:none}.storefront-shop-name{font-size:17px}.storefront-nav nav a{font-size:11px}.storefront-hero h1{font-size:48px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+
+/* Identidad editorial de las dos tiendas de moda masculina demo. */
+.storefront-hero--andina{background:#e7e5d8}
+.storefront-hero--urbana{background:#e9e9e3}
+.storefront-hero--urbana .storefront-hero-copy{background:#e6e6df}
+.storefront-hero--urbana .storefront-hero h1{color:#1e2e2b}
+.storefront-campaign-label{
+  margin-top:22px!important;color:#647b68!important;font-size:10px!important;
+  letter-spacing:.16em;font-weight:800
+}
+.storefront-hero-art{isolation:isolate;background:#1b4132}
+.storefront-hero--urbana .storefront-hero-art{background:#1c282a}
+.storefront-photo{
+  position:absolute;inset:0;background-image:
+    linear-gradient(90deg,#244b3b45,#192d2259),
+    url('https://images.pexels.com/photos/5191436/pexels-photo-5191436.jpeg?auto=compress&cs=tinysrgb&w=1100');
+  background-size:cover;background-position:center 44%;filter:saturate(.83);
+}
+.storefront-hero--urbana .storefront-photo{
+  background-image:linear-gradient(95deg,#0e252933,#13262a50),
+    url('https://images.pexels.com/photos/28758240/pexels-photo-28758240.jpeg?auto=compress&cs=tinysrgb&w=1100');
+  background-position:center 40%;filter:saturate(.92);
+}
+.storefront-hero-art .storefront-orbit{z-index:1;border-color:#fff7}
+.storefront-hero-art .storefront-fashion-front,
+.storefront-hero-art .storefront-fashion-back{display:none}
+.storefront-brand-emblem{
+  position:absolute;top:30px;right:30px;z-index:2;display:grid;place-items:center;
+  width:76px;height:76px;color:#f2f3e7;border:1px solid #ffffffaa;
+  background:#163a2ab5;font:italic 31px Georgia,serif;backdrop-filter:blur(6px);
+}
+.storefront-hero--urbana .storefront-brand-emblem{background:#192426c0}
+.storefront-hero-art>span{z-index:2;text-shadow:0 1px 8px #173126aa}
+@media(max-width:790px){
+  .storefront-hero-art{min-height:320px}
+  .storefront-brand-emblem{top:18px;right:18px;width:58px;height:58px;font-size:24px}
+}
