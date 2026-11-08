@@ -124,3 +124,59 @@ def test_semilla_contiene_variedad_de_tallas_colores_y_sin_stock(session_factory
             Existencia.empresa_id == andina.id,
             Existencia.cantidad == 0,
         )) > 0
+
+
+
+def test_semilla_masculina_despublica_bolso_demo_sin_borrar_existencia(session_factory):
+    with session_factory.begin() as db:
+        _prepare_demo_companies(db)
+        andina = db.scalar(select(Empresa).where(Empresa.slug == "demo-moda-andina"))
+        centro = db.scalar(select(Sucursal).where(
+            Sucursal.empresa_id == andina.id, Sucursal.codigo == "CENTRO",
+        ))
+        accesorios = CategoriaProducto(
+            empresa_id=andina.id, nombre="Accesorios",
+            nombre_clave="accesorios", descripcion="Accesorios",
+            activo=True,
+        )
+        db.add(accesorios)
+        db.flush()
+        old_bag = Producto(
+            empresa_id=andina.id, categoria_id=accesorios.id,
+            slug="demo-andina-catalogo-bolso-cruzado",
+            nombre="Bolso cruzado · Andina",
+            descripcion="Prenda demo anterior",
+            precio=139, moneda="BOB", activo=True,
+        )
+        db.add(old_bag)
+        db.flush()
+        variant = VarianteProducto(
+            empresa_id=andina.id, producto_id=old_bag.id,
+            talla="Única", color="Negro", activo=True,
+        )
+        db.add(variant)
+        db.flush()
+        db.add(Existencia(
+            empresa_id=andina.id, sucursal_id=centro.id,
+            variante_id=variant.id, cantidad=4, cantidad_comprometida=1,
+        ))
+        db.flush()
+
+        seed_catalog(db)
+        db.flush()
+
+        assert old_bag.activo is False
+        previous_stock = db.get(Existencia, (andina.id, centro.id, variant.id))
+        assert previous_stock.cantidad == 4
+        assert previous_stock.cantidad_comprometida == 1
+        billetera = db.scalar(select(Producto).where(
+            Producto.slug == "demo-andina-catalogo-billetera-clasica",
+            Producto.empresa_id == andina.id,
+        ))
+        assert billetera is not None and billetera.activo is True
+        assert "Billetera clásica de hombre" in billetera.nombre
+        # Repetir no reactiva la cartera ni reescribe existencias.
+        seed_catalog(db)
+        db.flush()
+        assert old_bag.activo is False
+        assert db.get(Existencia, (andina.id, centro.id, variant.id)).cantidad == 4
