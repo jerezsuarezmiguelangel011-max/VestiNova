@@ -79,19 +79,20 @@ function utcDate(daysBack: number): string {
                etiquetados DEMO son ficticios y solo sirven para una exposición.</p>
             <div class="report-scroll">
               <table>
-                <thead><tr><th>Prenda</th><th>Sucursal</th><th>Talla</th>
+                <thead><tr><th>Prenda</th><th>Categoría</th><th>Sucursal</th><th>Talla</th>
                   <th>Color</th><th>Unidades</th><th>Importe Bs</th><th>Origen</th></tr></thead>
                 <tbody>
                   @for (row of report.ventas_por_prenda; track $index) {
                     <tr>
                       <th scope="row">{{ row.producto }}</th>
+                      <td>{{ row.categoria }}</td>
                       <td>{{ branchName(row.sucursal_id) }}</td>
                       <td>{{ row.talla }}</td><td>{{ row.color }}</td>
                       <td>{{ row.unidades }}</td><td>{{ row.importe }}</td>
                       <td>{{ row.es_demo ? 'DEMO · ficticia' : 'Operación central' }}</td>
                     </tr>
                   } @empty {
-                    <tr><td colspan="7">No hay líneas de venta para este período.</td></tr>
+                    <tr><td colspan="8">No hay líneas de venta para este período.</td></tr>
                   }
                 </tbody>
               </table>
