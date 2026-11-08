@@ -38,6 +38,52 @@ void main() {
     expect(result['pago_verificado'], false);
   });
 
+  test('CU16/CU25 historial incluye compras pagadas sin entrega y entregadas',
+      () async {
+    final api = MobileCommerceApi(
+      ApiConfig('https://api.example.test/api'),
+      client: MockClient((request) async {
+        expect(request.method, 'GET');
+        expect(request.url.path,
+          '/api/tiendas/demo-moda-andina/cuenta/compras');
+        expect(request.url.queryParameters['limit'], '100');
+        expect(request.headers['Authorization'], 'Bearer cliente');
+        return http.Response(jsonEncode({
+          'items': [
+            {
+              'id': 'ddddeeee-1111-4111-8111-111111111111',
+              'estado': 'CONFIRMADA',
+              'seguimiento_entrega': 'PENDIENTE',
+              'importe_total': '69.00',
+              'items': [
+                {'producto_id': 1, 'nombre': 'Chalina tejida',
+                 'cantidad': 1, 'subtotal': '69.00'}
+              ],
+            },
+            {
+              'id': 'ddddeeee-2222-4222-8222-222222222222',
+              'estado': 'CONFIRMADA',
+              'seguimiento_entrega': 'ENTREGADA',
+              'importe_total': '79.00',
+              'items': [
+                {'producto_id': 2, 'nombre': 'Cinturón clásico',
+                 'cantidad': 1, 'subtotal': '79.00'}
+              ],
+            },
+          ],
+          'total': 2, 'limit': 100, 'offset': 0,
+        }), 200);
+      }),
+    );
+    addTearDown(api.close);
+    final result = await api.history('demo-moda-andina', 'cliente');
+    expect(result.length, 2);
+    expect(result.first['estado'], 'CONFIRMADA');
+    expect(result.first['seguimiento_entrega'], 'PENDIENTE');
+    expect(result.last['seguimiento_entrega'], 'ENTREGADA');
+    expect((result.first['items'] as List).first['nombre'], 'Chalina tejida');
+  });
+
   test('CU25 publicación incluye compra y producto verificables', () async {
     final api = MobileCommerceApi(
       ApiConfig('https://api.example.test/api'),
