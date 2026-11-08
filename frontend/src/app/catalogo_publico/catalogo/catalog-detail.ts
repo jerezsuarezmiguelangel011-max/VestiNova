@@ -11,6 +11,8 @@ import { CatalogImage } from './catalog-image';
 import { CatalogLocalError, type CatalogProduct, type CatalogResult } from './catalog.models';
 import { StorefrontContextService } from './storefront-context.service';
 import { PurchaseSelectionService } from '../../compras_reservas/compras/purchase-selection.service';
+import { CustomerAuthService } from '../../compras_reservas/clientes/customer-auth.service';
+import { CustomerWishlistApi } from '../../compras_reservas/deseos/customer-wishlist-api.service';
 
 @Component({
   selector: 'vn-catalog-detail',
@@ -25,6 +27,11 @@ export class CatalogDetailPage {
   readonly inStorefront = inject(ActivatedRoute).parent?.snapshot.routeConfig?.path === 'tienda/:tienda';
   readonly storefront = inject(StorefrontContextService);
   private readonly cart = inject(PurchaseSelectionService);
+  private readonly customerAuth = inject(CustomerAuthService);
+  private readonly wishlist = inject(CustomerWishlistApi);
+  readonly wishlistBusy = signal(false);
+  readonly wishlistError = signal<string | null>(null);
+  readonly wishlistNotice = signal<string | null>(null);
   readonly cartNotice = signal(false);
   readonly cartError = signal<string | null>(null);
   private readonly availabilityApi = inject(CatalogApiService);
@@ -127,6 +134,39 @@ export class CatalogDetailPage {
     this.cartNotice.set(true);
   }
 
+  addToWishlist(): void {
+    if (this.wishlistBusy()) return;
+    this.wishlistError.set(null);
+    this.wishlistNotice.set(null);
+    const tienda = this.shop.tienda();
+    const variant = this.selectedVariantId();
+    if (!tienda || this.source() !== 'network') {
+      this.wishlistError.set('Conéctate para guardar la variante publicada.');
+      return;
+    }
+    if (!variant || !this.variants().some(item => item.id === variant)) {
+      this.wishlistError.set('Selecciona primero una talla y un color.');
+      return;
+    }
+    if (!this.customerAuth.token(tienda)) {
+      this.wishlistError.set('Debes iniciar sesión como cliente en esta tienda para guardar prendas.');
+      return;
+    }
+    this.wishlistBusy.set(true);
+    this.wishlist.add(tienda, variant).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: response => {
+        this.wishlistBusy.set(false);
+        this.wishlistNotice.set(response.agregado
+          ? 'Variante guardada en tu lista de deseos.'
+          : 'Esta variante ya estaba en tu lista de deseos.');
+      },
+      error: () => {
+        this.wishlistBusy.set(false);
+        this.wishlistError.set('No se pudo guardar la variante. Revisa tu sesión o conexión.');
+      },
+    });
+  }
+
   private loadVariants(slug: string): void {
     this.variantsLoading.set(true);
     this.variantsError.set(null);
@@ -185,6 +225,9 @@ export class CatalogDetailPage {
     this.selectedBranchId.set(this.inStorefront ? this.storefront.branch() : null);
     this.cartNotice.set(false);
     this.cartError.set(null);
+    this.wishlistNotice.set(null);
+    this.wishlistError.set(null);
+    this.wishlistBusy.set(false);
     this.selectedVariantId.set(null);
     this.availabilityLoading.set(false);
     this.availabilityError.set(null);
