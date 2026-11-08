@@ -102,8 +102,9 @@ class ReservationSqlite {
     List<Map<String, Object?>> items,
     int hours,
   ) async {
-    if (store.isEmpty || items.length > 3000 || hours < 1 || hours > 720)
+    if (store.isEmpty || items.length > 3000 || hours < 1 || hours > 720) {
       throw const FormatException('Catálogo no válido.');
+    }
     final db = await database;
     await db.transaction((txn) async {
       await txn.delete(
@@ -112,8 +113,9 @@ class ReservationSqlite {
         whereArgs: [store],
       );
       for (final item in items) {
-        if (item['tienda'] != store)
+        if (item['tienda'] != store) {
           throw const FormatException('Tienda incorrecta.');
+        }
         await txn.insert(
           'variantes_conocidas',
           item,
@@ -241,8 +243,9 @@ class ReservationSqlite {
       'ERROR',
       'REQUIERE_ACCESO',
     };
-    if (!allowed.contains(state))
+    if (!allowed.contains(state)) {
       throw const FormatException('Estado inválido.');
+    }
     final db = await database;
     await db.update(
       'reservas_pendientes',

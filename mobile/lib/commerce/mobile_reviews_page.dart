@@ -44,11 +44,12 @@ class _MobileReviewsPageState extends State<MobileReviewsPage> {
     try {
       final history = await api.history(widget.tienda, token);
       final mine = await api.reviews(widget.tienda, token);
-      if (mounted)
+      if (mounted) {
         setState(() {
           purchases = history;
           reviews = mine;
         });
+      }
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
     } finally {
@@ -97,8 +98,9 @@ class _MobileReviewsPageState extends State<MobileReviewsPage> {
 
   Future<void> _submit() async {
     final token = widget.session.customerToken;
-    if (token == null || selectedPurchase == null || selectedProduct == null)
+    if (token == null || selectedPurchase == null || selectedProduct == null) {
       return;
+    }
     if (comment.text.length > 1000) {
       setState(() => error = 'El comentario supera 1000 caracteres.');
       return;

@@ -46,6 +46,8 @@ class NativePushService {
         permission.authorizationStatus != AuthorizationStatus.provisional) {
       throw StateError('El dispositivo no autorizó las notificaciones.');
     }
+    // El identificador legado funciona hasta activar el registro FID del proyecto.
+    // ignore: deprecated_member_use
     final fcm = await messaging.getToken();
     if (fcm == null || fcm.isEmpty) {
       throw StateError('El dispositivo todavía no obtuvo un token FCM.');

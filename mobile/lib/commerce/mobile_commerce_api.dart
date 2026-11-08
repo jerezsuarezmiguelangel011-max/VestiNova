@@ -38,8 +38,9 @@ class MobileCommerceApi {
       final Object? decoded = response.bodyBytes.isEmpty
           ? null
           : jsonDecode(utf8.decode(response.bodyBytes));
-      if (response.statusCode >= 200 && response.statusCode < 300)
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         return decoded;
+      }
       final detail = decoded is Map ? decoded['detail'] : null;
       throw StorefrontException(
         detail is String ? detail : 'Respuesta HTTP ${response.statusCode}',

@@ -24,15 +24,17 @@ class MobileReservationService {
     final response = await _client
         .get(uri, headers: {'Accept': 'application/json'})
         .timeout(const Duration(seconds: 15));
-    if (response.statusCode != 200)
+    if (response.statusCode != 200) {
       throw const FormatException('No se pudo descargar el catálogo.');
+    }
     return jsonDecode(utf8.decode(response.bodyBytes));
   }
 
   /// Descarga un subconjunto acotado; no reemplaza el catálogo anterior si falla.
   Future<int> download(String tienda) async {
-    if (ApiConfig.storeSlug(tienda) != tienda)
+    if (ApiConfig.storeSlug(tienda) != tienda) {
       throw const FormatException('Tienda inválida.');
+    }
     final productsData = await _get(
       _api('/catalogo/productos', {
         'tienda': tienda,
@@ -260,8 +262,9 @@ class MobileReservationService {
       );
     }
     final data = jsonDecode(utf8.decode(response.bodyBytes));
-    if (data is! List)
+    if (data is! List) {
       throw const FormatException('Reservas centrales inválidas.');
+    }
     return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 

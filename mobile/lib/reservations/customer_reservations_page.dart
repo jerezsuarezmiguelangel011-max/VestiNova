@@ -71,8 +71,9 @@ class _CustomerReservationsPageState extends State<CustomerReservationsPage>
       final hours = await _store.policy(store);
       if (!mounted ||
           _customer?.id != account.id ||
-          _customer?.store.slug != store)
+          _customer?.store.slug != store) {
         return;
+      }
       setState(() {
         _variants = variants;
         _queue = queue;
@@ -85,10 +86,11 @@ class _CustomerReservationsPageState extends State<CustomerReservationsPage>
         }
       });
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = 'No se pudo consultar SQLite. Las reservas existentes no fueron eliminadas.',
         );
+      }
     }
   }
 
@@ -154,16 +156,18 @@ class _CustomerReservationsPageState extends State<CustomerReservationsPage>
     try {
       final count = await _service.download(account.store.slug);
       await _refresh();
-      if (mounted)
+      if (mounted) {
         setState(
           () => _message =
               '$count opción(es) disponibles guardadas en SQLite. Los saldos son referenciales.',
         );
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = 'No se pudo descargar la información. Se conserva la copia anterior.',
         );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -191,16 +195,18 @@ class _CustomerReservationsPageState extends State<CustomerReservationsPage>
         quantity: _quantity,
       );
       await _refresh();
-      if (mounted)
+      if (mounted) {
         setState(
           () => _message =
               'Solicitud local ${saved.id} guardada. No compromete inventario hasta la confirmación central.',
         );
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = 'Error al guardar en SQLite. Verifica el almacenamiento del dispositivo.',
         );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -219,16 +225,18 @@ class _CustomerReservationsPageState extends State<CustomerReservationsPage>
       await _service.synchronize(account.store.slug, account.id, token);
       await _refresh();
       await _loadCentral();
-      if (mounted)
+      if (mounted) {
         setState(
           () => _message =
               'Sincronización revisada. Verifica el estado de cada solicitud.',
         );
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = 'No se completó la sincronización. Las operaciones siguen en SQLite.',
         );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -240,8 +248,9 @@ class _CustomerReservationsPageState extends State<CustomerReservationsPage>
       await _store.retry(row);
       await _sync();
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'No se pudo recuperar el reintento.');
+      }
     }
   }
 

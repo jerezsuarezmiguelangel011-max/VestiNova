@@ -139,8 +139,9 @@ class _MobileCheckoutPageState extends State<MobileCheckoutPage>
 
   Future<void> _prepareCard() async => _run(() async {
     final t = token;
-    if (t == null)
+    if (t == null) {
       throw const StorefrontException('Inicia sesión como Cliente.');
+    }
     final result = await api.prepareCard(widget.tienda, t);
     await _openStripe(result['checkout_url'] as String);
     if (mounted) {
@@ -153,8 +154,9 @@ class _MobileCheckoutPageState extends State<MobileCheckoutPage>
   Future<void> _checkCard() async => _run(() async {
     final t = token;
     final person = customer;
-    if (t == null || person == null)
+    if (t == null || person == null) {
       throw const StorefrontException('Inicia sesión.');
+    }
     final result = await api.cardStatus(widget.tienda, t);
     final ready = result['preparado'] == true;
     await store.setPrepared(widget.tienda, person.id, ready);
