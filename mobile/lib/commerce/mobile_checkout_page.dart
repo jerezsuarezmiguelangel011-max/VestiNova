@@ -173,6 +173,7 @@ class _MobileCheckoutPageState extends State<MobileCheckoutPage>
   Future<void> _online() async => _run(() async {
     _verifyInput();
     final payload = order;
+    payload['origen_movil'] = true;
     payload.remove('importe_aceptado_centavos');
     payload.remove('autoriza_cobro_diferido');
     payload.remove('creado_local_en');

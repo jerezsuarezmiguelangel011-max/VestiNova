@@ -170,6 +170,17 @@ def preparar_metodo(
             "detalle": "La tarjeta solo se considera preparada tras confirmación de Stripe."}
 
 
+@router.get("/retorno-pago", response_class=HTMLResponse)
+def retorno_pago(resultado: str = ""):
+    """La redirección por sí sola no certifica un cobro de Stripe."""
+    message = ("Vuelve a VestiNova y pulsa Verificar pago. Solo la API confirmará la compra."
+               if resultado == "retorno" else
+               "El pago no se confirmó. Vuelve a VestiNova para consultar su estado.")
+    return HTMLResponse("<!doctype html><html lang='es'><meta charset='utf-8'>"
+                        "<meta name='viewport' content='width=device-width'>"
+                        "<h2>VestiNova · Stripe TEST</h2><p>" + message + "</p></html>")
+
+
 @router.get("/retorno", response_class=HTMLResponse)
 def retorno(resultado: str = ""):
     """Página estática; nunca acredita pagos ni habilita tarjetas por una URL."""

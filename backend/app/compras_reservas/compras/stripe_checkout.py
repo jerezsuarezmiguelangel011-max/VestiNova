@@ -71,6 +71,7 @@ class CheckoutInput(BaseModel):
     id: UUID
     sucursal_id: StrictInt = Field(gt=0)
     entrega: Literal["RETIRO", "DOMICILIO"]
+    origen_movil: bool = False
     direccion: str = Field(default="", max_length=250)
     items: list[CheckoutLine] = Field(min_length=1, max_length=30)
 
@@ -145,7 +146,7 @@ def _lines(db: Session, company_id: int, branch_id: int, items: list[dict], *, s
 
 
 def _fingerprint(payload: CheckoutInput) -> str:
-    return sha256(payload.model_dump_json(exclude={"id"}).encode()).hexdigest()
+    return sha256(payload.model_dump_json(exclude={"id", "origen_movil"}).encode()).hexdigest()
 
 
 def _serialize(attempt: CheckoutAttempt, checkout_url: str | None = None) -> dict:
@@ -168,7 +169,7 @@ def capabilities(response: Response):
 
 @router.post("/checkout", status_code=201)
 def create_checkout(
-    payload: CheckoutInput, response: Response,
+    payload: CheckoutInput, response: Response, request: Request,
     current: tuple[Cliente, SesionCliente, Empresa] = Depends(current_customer_session),
     db: Session = Depends(get_db),
 ):
@@ -216,6 +217,12 @@ def create_checkout(
         return _serialize(attempt)
 
     base = "http://127.0.0.1:4201"
+    mobile_base = (str(request.base_url).rstrip("/") +
+        f"/api/tiendas/{company.slug}/compras/offline/retorno-pago")
+    success_url = (mobile_base + "?resultado=retorno" if payload.origen_movil else
+        f"{base}/catalogo/acciones/compra?tienda={company.slug}&checkout={attempt.id}&resultado=retorno")
+    cancel_url = (mobile_base + "?resultado=cancelado" if payload.origen_movil else
+        f"{base}/catalogo/acciones/compra?tienda={company.slug}&checkout={attempt.id}&resultado=cancelado")
     try:
         checkout = stripe.checkout.Session.create(
             api_key=config[0], idempotency_key=f"vestinova-cu09-v2-{attempt.id}",
@@ -225,8 +232,8 @@ def create_checkout(
                 "name": f"{line['nombre']} · {line['talla']} / {line['color']}"},
                 "unit_amount": line["precio_centavos"]}, "quantity": line["cantidad"]}
                 for line in attempt.datos["items"]],
-            success_url=f"{base}/catalogo/acciones/compra?tienda={company.slug}&checkout={attempt.id}&resultado=retorno",
-            cancel_url=f"{base}/catalogo/acciones/compra?tienda={company.slug}&checkout={attempt.id}&resultado=cancelado",
+            success_url=success_url,
+            cancel_url=cancel_url,
         )
     except stripe.StripeError:
         raise HTTPException(503, "Stripe no pudo iniciar el pago; el carrito permanece sin confirmar.") from None
