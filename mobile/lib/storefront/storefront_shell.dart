@@ -13,6 +13,9 @@ import 'storefront_recommendations.dart';
 import 'storefront_repository.dart';
 import 'storefront_widgets.dart';
 import 'storefront_wishlist.dart';
+import '../commerce/mobile_checkout_page.dart';
+import '../commerce/mobile_reviews_page.dart';
+import '../commerce/mobile_alerts_page.dart';
 
 /// Pantalla comercial CU08/CU19/CU23/CU24. La sesión, roles y CU10 continúan
 /// bajo los controladores y páginas originales de la aplicación.
@@ -83,7 +86,9 @@ class _StorefrontShellState extends State<StorefrontShell> {
           controller: widget.controller,
           onCompare: _addCompare,
           onRecommendations: _openRecommendations,
-          onLoginRequired: () {
+          onPurchase: _openPurchase,
+      onAlerts: _openAlert,
+      onLoginRequired: () {
             Navigator.of(context).popUntil((route) => route.isFirst);
             if (!widget.controller.signedIn) {
               setState(() => _tab = 4);
@@ -101,6 +106,30 @@ class _StorefrontShellState extends State<StorefrontShell> {
         ),
       ),
     );
+  }
+
+  void _openPurchase(
+    StoreProduct product, StoreVariant variant, List<StoreStock> stocks) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) =>
+      MobileCheckoutPage(tienda: widget.slug, product: product, variant: variant,
+        knownStocks: stocks, controller: widget.controller)));
+  }
+
+  void _openAlert(
+    StoreProduct product, StoreVariant variant, List<StoreStock> stocks) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) =>
+      MobileAlertsPage(tienda: widget.slug, session: widget.controller,
+        product: product, variant: variant, stock: stocks)));
+  }
+
+  void _openReviews() {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) =>
+      MobileReviewsPage(tienda: widget.slug, session: widget.controller)));
+  }
+
+  void _openAlertsList() {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) =>
+      MobileAlertsPage(tienda: widget.slug, session: widget.controller)));
   }
 
   void _openRecommendations([String? slug]) {
@@ -198,6 +227,22 @@ class _StorefrontShellState extends State<StorefrontShell> {
             tooltip: 'Recomendaciones',
             onPressed: () => _openRecommendations(),
             icon: const Icon(Icons.auto_awesome_outlined),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Compras, valoraciones y avisos',
+            onSelected: (action) {
+              if (action == 'reviews') _openReviews();
+              if (action == 'alerts') _openAlertsList();
+              if (action == 'reservations') setState(() => _tab = 4);
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'reviews',
+                child: Text('Mis compras y valoraciones · CU25')),
+              PopupMenuItem(value: 'alerts',
+                child: Text('Mis avisos · CU26')),
+              PopupMenuItem(value: 'reservations',
+                child: Text('Reservas offline · CU10')),
+            ],
           ),
           if (!widget.controller.signedIn)
             IconButton(

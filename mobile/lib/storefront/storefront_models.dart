@@ -124,10 +124,12 @@ class StoreStock {
     required this.branch,
     required this.variantId,
     required this.status,
+    this.branchId,
     this.updatedAt,
   });
   factory StoreStock.fromJson(Map<String, dynamic> json) => StoreStock(
     branch: (json['sucursal'] ?? '') as String,
+    branchId: json['sucursal_id'] as int?,
     variantId: json['variante_id'] as int,
     status: json['saldo_registrado'] != true
         ? 'NO_VERIFICADO'
@@ -137,6 +139,7 @@ class StoreStock {
     updatedAt: json['actualizado_en'] as String?,
   );
   final String branch;
+  final int? branchId;
   final int variantId;
   final String status;
   final String? updatedAt;
@@ -257,6 +260,7 @@ extension StoreVariantCache on StoreVariant {
 extension StoreStockCache on StoreStock {
   Map<String, dynamic> toJson() => {
     'sucursal': branch,
+    'sucursal_id': branchId,
     'variante_id': variantId,
     'saldo_registrado': status != 'NO_VERIFICADO',
     'hay_disponibilidad': status == 'DISPONIBLE',

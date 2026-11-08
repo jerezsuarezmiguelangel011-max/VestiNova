@@ -17,6 +17,8 @@ class StorefrontDetailPage extends StatefulWidget {
     required this.onCompare,
     required this.onRecommendations,
     required this.onLoginRequired,
+    required this.onPurchase,
+    required this.onAlerts,
   });
   final String tienda;
   final String slug;
@@ -26,6 +28,8 @@ class StorefrontDetailPage extends StatefulWidget {
   final ValueChanged<StoreProduct> onCompare;
   final ValueChanged<String> onRecommendations;
   final VoidCallback onLoginRequired;
+  final void Function(StoreProduct, StoreVariant, List<StoreStock>) onPurchase;
+  final void Function(StoreProduct, StoreVariant, List<StoreStock>) onAlerts;
   @override
   State<StorefrontDetailPage> createState() => _StorefrontDetailPageState();
 }
@@ -260,6 +264,26 @@ class _StorefrontDetailPageState extends State<StorefrontDetailPage> {
                       ),
                 ],
                 const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: _variantId == null || _busy ? null : () {
+                    final selected = _variants!.value.firstWhere(
+                      (v) => v.id == _variantId);
+                    widget.onPurchase(product, selected, _stock?.value ?? []);
+                  },
+                  icon: const Icon(Icons.shopping_bag_outlined),
+                  label: const Text('Comprar · CU09'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _variantId == null || _busy ? null : () {
+                    final selected = _variants!.value.firstWhere(
+                      (v) => v.id == _variantId);
+                    widget.onAlerts(product, selected, _stock?.value ?? []);
+                  },
+                  icon: const Icon(Icons.notifications_active_outlined),
+                  label: const Text('Avisarme si hay reposición · CU26'),
+                ),
+                const SizedBox(height: 8),
                 FilledButton.icon(
                   onPressed: _saving ? null : _saveWish,
                   icon: const Icon(Icons.favorite_border),

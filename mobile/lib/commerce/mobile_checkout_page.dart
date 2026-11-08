@@ -103,7 +103,7 @@ class _MobileCheckoutPageState extends State<MobileCheckoutPage>
   Future<void> _openStripe(String url) async {
     final uri = Uri.tryParse(url);
     if (uri == null || uri.scheme != 'https' ||
-        !uri.host.endsWith('stripe.com')) {
+        !(uri.host == 'checkout.stripe.com' || uri.host.endsWith('.stripe.com'))) {
       throw const StorefrontException('Stripe devolvió un enlace no autorizado.');
     }
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
