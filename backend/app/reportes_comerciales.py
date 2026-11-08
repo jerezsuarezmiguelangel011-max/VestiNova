@@ -10,12 +10,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.autenticacion_usuarios.permissions import effective_role
 from app.compras_reservas.compras.domain import identifier_token
 from app.compras_reservas.compras.persistence import PurchaseRecord
 from app.compras_reservas.reservas.online import ReservationRecord
 from app.db import get_db
 from app.models import Existencia, Sucursal
+from app.organizacion_empresarial.plans import current_subscription, subscription_state
 from app.operacion_sin_conexion.caja.online import CashSale
 from app.tenancy import TenantContext, authorized_branch, authorized_branches_statement, check_permission, require_tenant
 
@@ -48,6 +48,9 @@ def reports(
     if context.acceso is None or context.acceso.codigo_sistema not in {"ADMINISTRADOR", "ENCARGADO_SUCURSAL"}:
         raise HTTPException(403, "Solo Administrador o Encargado pueden consultar reportes.")
     check_permission(context, "reportes.consultar")
+    subscription = current_subscription(db, context.empresa_id)
+    if subscription is None or not subscription[1].activo or subscription_state(subscription[0]) != "ACTIVA":
+        raise HTTPException(403, "La suscripción de esta empresa no permite consultar reportes.")
     begin, finish, start_dt, end_dt = _date_range(desde, hasta)
     if sucursal_id is not None:
         authorized_branch(db, context, sucursal_id)
