@@ -41,6 +41,7 @@ from app.compras_reservas.alertas_push import router as alertas_router, dispatch
 from app.compras_reservas.compras.router import router as compras_router
 from app.compras_reservas.compras.stripe_checkout import router as stripe_checkout_router, webhook_router as stripe_webhook_router
 from app.compras_reservas.compras.history import router as historial_compras_router
+from app.compras_reservas.compras.deferred_mobile import router as deferred_mobile_router
 from app.compras_reservas.compras.valoraciones import staff_router as entregas_router, customer_router as valoraciones_router, public_router as opiniones_router
 from app.compras_reservas.reservas.online import (
     customer_router as customer_reservations_router,
@@ -157,6 +158,7 @@ def create_app(settings: Settings | None = None, *, engine=None) -> FastAPI:
     app.include_router(comparacion_router)
     app.include_router(compras_router)
     app.include_router(stripe_checkout_router)
+    app.include_router(deferred_mobile_router)
     app.include_router(stripe_webhook_router)
     app.include_router(historial_compras_router)
     app.include_router(entregas_router)
