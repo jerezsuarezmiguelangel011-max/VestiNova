@@ -75,6 +75,10 @@ void main() {
           if (request.url.path == '/api/tiendas/tienda-a') {
             return jsonResponse({'slug': 'tienda-a', 'nombre': 'Tienda A'});
           }
+          if (request.url.path == '/api/catalogo/categorias') return jsonResponse([]);
+          if (request.url.path == '/api/catalogo/productos') {
+            return jsonResponse({'items': [], 'total': 0, 'limit': 20, 'offset': 0});
+          }
           expect(request.url.path, '/api/tiendas/tienda-a/cuenta/registro');
           expect(jsonDecode(request.body), {
             'nombre': 'Cliente real',
@@ -86,6 +90,7 @@ void main() {
       );
       await tester.enterText(find.byType(TextFormField).first, 'tienda-a');
       await tapVisible(tester, find.text('Abrir mi tienda'));
+      await tapVisible(tester, find.text('Cuenta'));
       await tapVisible(tester, find.text('Crear cuenta de cliente'));
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Nombre completo'),
@@ -106,7 +111,7 @@ void main() {
       await tapVisible(tester, find.text('Crear mi cuenta'));
       expect(find.text(passwordPolicyMessage), findsNWidgets(2));
       expect(find.text('Las contraseñas no coinciden.'), findsOneWidget);
-      expect(requests.length, 1);
+      expect(requests.where((r) => r.url.path.endsWith('/cuenta/registro')), isEmpty);
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Contraseña'),
         'Abcdef1!',
@@ -116,6 +121,7 @@ void main() {
         'Abcdef1!',
       );
       await tapVisible(tester, find.text('Crear mi cuenta'));
+      await tapVisible(tester, find.text('Cuenta'));
       expect(find.text('Tu cuenta'), findsOneWidget);
       expect(find.text('Cliente · Tienda A'), findsOneWidget);
       // CU10 incorpora un selector de cantidad para clientes, que no debe
@@ -144,6 +150,10 @@ void main() {
               companyData(2),
             ]);
           }
+          if (request.url.path == '/api/catalogo/categorias') return jsonResponse([]);
+          if (request.url.path == '/api/catalogo/productos') {
+            return jsonResponse({'items': [], 'total': 0, 'limit': 20, 'offset': 0});
+          }
           expect(request.headers['X-Empresa-Id'], '2');
           return jsonResponse(contextData(2));
         }),
@@ -163,6 +173,7 @@ void main() {
       expect(controller.context, isNull);
       await tapVisible(tester, find.byType(DropdownButtonFormField<int>));
       await tapVisible(tester, find.text('Empresa 2').last);
+      await tapVisible(tester, find.text('Cuenta'));
       expect(find.text('Cajero'), findsOneWidget);
       expect(find.text('Sucursal 2'), findsOneWidget);
       expect(controller.context!.company.id, 2);
@@ -191,6 +202,7 @@ void main() {
           storeSlug: 'tienda-a',
         ),
       );
+      await tapVisible(tester, find.text('Cuenta'));
       expect(find.text('Cliente · Tienda A'), findsOneWidget);
       await tapVisible(tester, find.text('Cerrar sesión'));
       expect(find.text('Cierre no confirmado.'), findsOneWidget);
