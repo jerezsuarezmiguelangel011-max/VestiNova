@@ -56,8 +56,8 @@ function utcDate(daysBack: number): string {
           @if (report.tipo === 'resumen' || report.tipo === 'ventas') {
             <article><span>Ventas confirmadas</span><strong>{{ report.totales.ventas_confirmadas }}</strong>
               <small>Digitales {{ report.totales.ventas_digitales }} · Efectivo {{ report.totales.ventas_efectivo }}</small></article>
-            <article><span>Importe vendido (BOB)</span><strong>Bs {{ report.totales.ingresos_confirmados }}</strong>
-              <small>Operaciones centrales confirmadas</small></article>
+            <article><span>Importe registrado (BOB)</span><strong>Bs {{ report.totales.ingresos_confirmados }}</strong>
+              <small>Incluye {{ report.totales.ventas_demo }} venta(s) ficticia(s) identificada(s) como DEMO, si existen.</small></article>
           }
           @if (report.tipo === 'resumen' || report.tipo === 'reservas') {
             <article><span>Reservas confirmadas</span><strong>{{ report.totales.reservas_confirmadas }}</strong>
@@ -72,6 +72,32 @@ function utcDate(daysBack: number): string {
               <small>Comprometidas {{ report.totales.stock_comprometido_actual }}</small></article>
           }
         </div>
+        @if (report.tipo === 'resumen' || report.tipo === 'ventas') {
+          <section class="report-table">
+            <h2>Prendas vendidas por color y talla</h2>
+            <p>Desglose de unidades y valores de operaciones aceptadas. Los datos
+               etiquetados DEMO son ficticios y solo sirven para una exposición.</p>
+            <div class="report-scroll">
+              <table>
+                <thead><tr><th>Prenda</th><th>Sucursal</th><th>Talla</th>
+                  <th>Color</th><th>Unidades</th><th>Importe Bs</th><th>Origen</th></tr></thead>
+                <tbody>
+                  @for (row of report.ventas_por_prenda; track $index) {
+                    <tr>
+                      <th scope="row">{{ row.producto }}</th>
+                      <td>{{ branchName(row.sucursal_id) }}</td>
+                      <td>{{ row.talla }}</td><td>{{ row.color }}</td>
+                      <td>{{ row.unidades }}</td><td>{{ row.importe }}</td>
+                      <td>{{ row.es_demo ? 'DEMO · ficticia' : 'Operación central' }}</td>
+                    </tr>
+                  } @empty {
+                    <tr><td colspan="7">No hay líneas de venta para este período.</td></tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </section>
+        }
         <section class="report-table">
           <h2>Detalle por sucursal</h2>
           <div class="report-scroll">
@@ -164,6 +190,10 @@ export class ReportsPage {
     });
     this.load();
   }
+  branchName(id: number): string {
+    return this.branches().find(branch => branch.id === id)?.nombre ?? ('Sucursal #' + id);
+  }
+
   load(): void {
     if (!this.company.active()) return;
     const filters = this.filters.getRawValue();
