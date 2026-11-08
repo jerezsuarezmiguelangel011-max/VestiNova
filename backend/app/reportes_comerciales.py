@@ -27,7 +27,7 @@ def _date_range(start: date | None, end: date | None) -> tuple[date, date, datet
     today = datetime.now(timezone.utc).date()
     finish = end or today
     begin = start or finish - timedelta(days=29)
-    if begin > finish or (finish - begin).days > 366:
+    if begin > finish or finish > today or (finish - begin).days > 366:
         raise HTTPException(422, "El período debe ser válido y no superar 367 días.")
     return (begin, finish,
             datetime.combine(begin, time.min, tzinfo=timezone.utc),
