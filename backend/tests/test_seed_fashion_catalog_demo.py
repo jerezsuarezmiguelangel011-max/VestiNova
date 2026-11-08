@@ -71,6 +71,12 @@ def test_catalogo_ampliado_por_empresa_es_repetible_y_conserva_stock(session_fac
             Existencia.cantidad > 2,
         ).order_by(Existencia.empresa_id, Existencia.sucursal_id))
         assert stock is not None
+        example = db.scalar(select(Producto).where(
+            Producto.slug == "demo-andina-catalogo-polera-manga-corta",
+        ))
+        assert example.imagen_url is not None
+        assert example.imagen_url.startswith("https://images.pexels.com/photos/")
+        assert "w=640" in example.imagen_url
         stock_key = (stock.empresa_id, stock.sucursal_id, stock.variante_id)
         stock.cantidad = 2
         stock.cantidad_comprometida = 1
@@ -103,6 +109,9 @@ def test_semilla_contiene_variedad_de_tallas_colores_y_sin_stock(session_factory
         assert any(variant.talla == "40" for _, variant in rows)
         assert any(variant.talla == "39" for _, variant in rows)
         assert any(variant.color == "Azul" for _, variant in rows)
+        assert all(product.imagen_url is not None
+                   for product, _ in rows
+                   if "catalogo-" in product.slug)
         assert db.scalar(select(func.count()).select_from(Existencia).where(
             Existencia.empresa_id == andina.id,
             Existencia.cantidad == 0,
