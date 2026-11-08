@@ -1,6 +1,5 @@
 """CU23: lista de deseos personal por cliente y empresa; no reserva stock."""
 from datetime import datetime
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
@@ -11,7 +10,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 from app.autenticacion_usuarios.customer_auth import current_customer_session
 from app.catalogo_abastecimiento.promotions import active_promotions_for_products, promotional_price
 from app.db import Base, get_db
-from app.models import Cliente, Empresa, Producto, SesionCliente, VarianteProducto, utc_now
+from app.models import Cliente, Empresa, Existencia, Producto, SesionCliente, Sucursal, VarianteProducto, utc_now
 
 
 router = APIRouter(prefix="/api/tiendas/{slug}/cuenta/deseos",
@@ -50,6 +49,17 @@ def _serialize(db: Session, customer: Cliente, company: Empresa, rows: list[Dese
     )).all()
     by_id = {v.id: (v, p) for v, p in variants}
     promotions = active_promotions_for_products(db, list({p.id: p for _, p in variants}.values()))
+    balances = db.scalars(select(Existencia).join(
+        Sucursal, (Sucursal.id == Existencia.sucursal_id)
+        & (Sucursal.empresa_id == Existencia.empresa_id),
+    ).where(
+        Existencia.empresa_id == company.id,
+        Existencia.variante_id.in_(ids),
+        Sucursal.activo.is_(True),
+    )).all()
+    availability: dict[int, list[Existencia]] = {}
+    for balance in balances:
+        availability.setdefault(balance.variante_id, []).append(balance)
     result = []
     for item in rows:
         entry = by_id.get(item.variante_id)
@@ -59,6 +69,12 @@ def _serialize(db: Session, customer: Cliente, company: Empresa, rows: list[Dese
         visible = variant.activo and product.activo
         promo = promotions.get(product.id) if visible else None
         price = promotional_price(product.precio, promo) if promo else product.precio
+        known = availability.get(variant.id, [])
+        stock_status = ("DESPUBLICADA" if not visible else
+                        "NO_VERIFICADA" if not known else
+                        "DISPONIBLE_REFERENCIAL" if any(
+                            r.cantidad > r.cantidad_comprometida for r in known
+                        ) else "AGOTADA")
         result.append({
             "variante_id": variant.id,
             "producto_id": product.id,
@@ -70,6 +86,7 @@ def _serialize(db: Session, customer: Cliente, company: Empresa, rows: list[Dese
             "precio_vigente": f"{price:.2f}" if visible else None,
             "moneda": "BOB",
             "publicada": bool(visible),
+            "disponibilidad": stock_status,
             "creado_en": item.creado_en.isoformat(),
         })
     return result
