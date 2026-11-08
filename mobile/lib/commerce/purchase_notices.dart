@@ -85,6 +85,8 @@ class PurchaseNotices {
   static Future<void> _show(int id, String title, String body) async {
     if (!Platform.isAndroid) return;
     await initialize();
-    await _plugin.show(id, title, body, _details);
+    await _plugin.show(
+      id: id, title: title, body: body, notificationDetails: _details,
+    );
   }
 }
