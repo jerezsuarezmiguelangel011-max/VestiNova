@@ -27,7 +27,7 @@ android {
         // La APK de pruebas construida en GitHub se instala al lado de la
         // aplicación local: no reemplaza ni elimina su base SQLite.
         if (System.getenv("VESTINOVA_CI_TEST_APK") == "1") {
-            applicationIdSuffix = ".demo"
+            applicationIdSuffix = ".bloque3"
         }
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.

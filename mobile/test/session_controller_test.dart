@@ -176,6 +176,32 @@ void main() {
     },
   );
 
+  test('personal de caja previamente autorizado reabre sesión offline de forma local', () async {
+    var online = true;
+    final memory = MemorySessionStore();
+    final fake = MockClient((request) async {
+      if (!online) throw http.ClientException('Wi-Fi apagado');
+      if (request.url.path.endsWith('/login')) return jsonResponse(staffAccess());
+      if (request.url.path.endsWith('/empresas')) return jsonResponse([companyData(1)]);
+      return jsonResponse(contextData(1));
+    });
+    final first = controller(memory, fake);
+    await first.loginStaff('personal@example.test', 'fixture');
+    expect(first.context!.company.role, 'CAJERO');
+    expect(memory.value!.cachedStaffContext, isNotNull);
+    first.dispose();
+
+    online = false;
+    final second = controller(memory, fake);
+    addTearDown(second.dispose);
+    await second.restore();
+    expect(second.offlineMode, isTrue);
+    expect(second.context!.company.id, 1);
+    expect(second.staffToken, 'staff-fixture');
+    expect(second.restoring, isFalse);
+    expect(second.notice, contains('Sin conexión'));
+  });
+
   test('superadministrador sin pertenencia no obtiene empresas o sucursales ficticias', () async {
     final memory = MemorySessionStore();
     final session = controller(

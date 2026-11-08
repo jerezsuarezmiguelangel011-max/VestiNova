@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../auth/auth_models.dart';
 import '../auth/session_controller.dart';
 import '../reservations/customer_reservations_page.dart';
+import '../staff/cash_sale_page.dart';
+import '../staff/reconciliation_page.dart';
 
 class AccountPage extends StatelessWidget {
   const AccountPage({super.key, required this.controller});
@@ -80,7 +82,7 @@ class AccountPage extends StatelessWidget {
                     ),
                   )
                   .toList(growable: false),
-              onChanged: controller.busy
+              onChanged: controller.busy || controller.offlineMode
                   ? null
                   : (id) {
                       if (id != null) controller.selectCompany(id);
@@ -111,6 +113,30 @@ class AccountPage extends StatelessWidget {
                   subtitle: Text(branch.code),
                 ),
               ),
+          if (const {'CAJERO', 'ENCARGADO_SUCURSAL'}.contains(access.company.role)) ...[
+            const SizedBox(height: 18),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => StaffCashSalePage(session: controller, staffContext: access),
+                ),
+              ),
+              icon: const Icon(Icons.point_of_sale),
+              label: const Text('CU15 · Registrar ventas en caja'),
+            ),
+          ],
+          if (access.company.role == 'ENCARGADO_SUCURSAL') ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: controller.offlineMode ? null : () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ReconciliationPage(session: controller, staffContext: access),
+                ),
+              ),
+              icon: const Icon(Icons.fact_check_outlined),
+              label: const Text('CU13 · Conciliar conflictos offline'),
+            ),
+          ],
           ],
         ],
         if (customer) CustomerReservationsPage(controller: controller),

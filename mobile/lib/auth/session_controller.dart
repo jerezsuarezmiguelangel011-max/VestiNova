@@ -27,6 +27,9 @@ class SessionController extends ChangeNotifier {
   bool get isCustomer => account is CustomerAccount;
   /// Token en memoria: nunca se copia a SQLite ni a la cola offline.
   String? get customerToken => isCustomer && _session?.customer == true ? _session?.token : null;
+  /// JWT de personal: solo en memoria, no en SQLite de ventas offline.
+  String? get staffToken => account is StaffAccount && _session?.customer == false
+      ? _session?.token : null;
   bool get isSuperadministrator =>
       account is StaffAccount && (account as StaffAccount).superadministrator;
 
@@ -103,6 +106,31 @@ class SessionController extends ChangeNotifier {
         } on Object {
           error = failure.message;
         }
+      } else if (saved != null && !saved.customer &&
+          saved.cachedStaff != null && saved.cachedStaffContext != null &&
+          _current(revision)) {
+        // Sólo la captura local usa la identidad autorizada anteriormente.
+        // El servidor valida de nuevo roles, stock, importe y precio al sincronizar.
+        try {
+          final staff = StaffAccount.fromJson(saved.cachedStaff!);
+          final access = StaffContext.fromJson(saved.cachedStaffContext!);
+          if (access.company.id != saved.companyId ||
+              !const {'CAJERO', 'ENCARGADO_SUCURSAL'}.contains(access.company.role) ||
+              access.branches.isEmpty) {
+            throw const FormatException('Contexto offline inválido.');
+          }
+          _session = saved;
+          account = staff;
+          context = access;
+          companies = [access.company];
+          offlineMode = true;
+          restoring = false;
+          notice = 'Sin conexión: acceso local de caja previamente verificado. '
+              'Ventas y efectivo pendientes hasta sincronizar. '
+              'Los permisos, el precio y el stock se comprobarán con el servidor.';
+        } on Object {
+          error = failure.message;
+        }
       } else {
         error = failure.message;
       }
@@ -148,7 +176,7 @@ class SessionController extends ChangeNotifier {
         apiBase: api.config.base,
         token: result.token,
         customer: false,
-      );
+      ).withStaff(result.account);
       await _persist(revision, saved);
       if (!_current(revision)) return;
       _session = saved;
@@ -227,7 +255,7 @@ class SessionController extends ChangeNotifier {
     _emit();
     final access = await api.context(saved.token, companyId);
     if (!_current(revision)) return;
-    final selected = saved.withCompany(companyId);
+    final selected = saved.withCompany(companyId).withStaffContext(access);
     await _persist(revision, selected);
     if (!_current(revision)) return;
     _session = selected;
@@ -262,6 +290,7 @@ class SessionController extends ChangeNotifier {
         account = current;
         context = null;
         companies = const [];
+        _session = saved.withStaff(current);
         await _loadAccess(revision, saved.companyId);
       }
     }, authenticated: true);
