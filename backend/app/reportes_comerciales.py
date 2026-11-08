@@ -8,13 +8,13 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.compras_reservas.compras.domain import identifier_token
 from app.compras_reservas.compras.persistence import PurchaseRecord
 from app.compras_reservas.reservas.online import ReservationRecord
 from app.db import get_db
-from app.models import Existencia, Sucursal
+from app.models import Existencia, Sucursal, VarianteProducto
 from app.organizacion_empresarial.plans import current_subscription, subscription_state
 from app.operacion_sin_conexion.caja.online import CashSale
 from app.tenancy import TenantContext, authorized_branch, authorized_branches_statement, check_permission, require_tenant
@@ -65,9 +65,10 @@ def reports(
         "zona_horaria": "UTC",
         "nota": "Solo datos centrales confirmados. Ventas locales pendientes no incluidas. Inventario es un corte actual.",
         "por_sucursal": [],
+        "ventas_por_prenda": [],
         "totales": {
             "ventas_confirmadas": 0, "ingresos_confirmados": "0.00",
-            "ventas_digitales": 0, "ventas_efectivo": 0,
+            "ventas_digitales": 0, "ventas_efectivo": 0, "ventas_demo": 0,
             "reservas_confirmadas": 0, "reservas_atendidas": 0,
             "reservas_canceladas": 0, "reservas_vencidas": 0,
             "stock_fisico_actual": 0, "stock_comprometido_actual": 0,
@@ -77,7 +78,7 @@ def reports(
     aggregates = {row.id: {
         "sucursal_id": row.id, "sucursal": row.nombre,
         "ventas_confirmadas": 0, "ingresos_confirmados": "0.00",
-        "ventas_digitales": 0, "ventas_efectivo": 0,
+        "ventas_digitales": 0, "ventas_efectivo": 0, "ventas_demo": 0,
         "reservas_confirmadas": 0, "reservas_atendidas": 0,
         "reservas_canceladas": 0, "reservas_vencidas": 0,
         "stock_fisico_actual": 0, "stock_comprometido_actual": 0,
@@ -117,6 +118,80 @@ def reports(
             row["ventas_efectivo"] = int(count)
             row["ventas_confirmadas"] += int(count)
             row["ingresos_confirmados"] = f"{Decimal(row['ingresos_confirmados']) + Decimal(str(amount or 0)):.2f}"
+        # Desglose verificable por prenda, variante y color, incluidas las
+        # líneas de compras digitales asentadas y de ventas de contado.
+        sales = db.scalars(select(CashSale).where(
+            CashSale.empresa_id == context.empresa_id,
+            CashSale.sucursal_id.in_(branch_ids),
+            CashSale.confirmada_en >= start_dt,
+            CashSale.confirmada_en < end_dt,
+        )).all()
+        purchases = db.scalars(select(PurchaseRecord).options(
+            selectinload(PurchaseRecord.line_records)
+        ).where(
+            PurchaseRecord.empresa_clave == identifier_token(context.empresa_id),
+            PurchaseRecord.sucursal_clave.in_([
+                identifier_token(branch_id) for branch_id in branch_ids
+            ]),
+            PurchaseRecord.creado_en >= start_dt,
+            PurchaseRecord.creado_en < end_dt,
+        )).all()
+        detail_lines = []
+        for sale in sales:
+            if sale.codigo.startswith("VN-DEMO-CU20-"):
+                aggregates[sale.sucursal_id]["ventas_demo"] += 1
+            for line in sale.lineas:
+                if not isinstance(line, dict):
+                    continue
+                if not isinstance(line.get("variante_id"), int) or not isinstance(line.get("cantidad"), int):
+                    continue
+                try:
+                    amount = Decimal(str(line["subtotal"]))
+                except (ValueError, TypeError, ArithmeticError):
+                    continue
+                detail_lines.append((
+                    sale.sucursal_id, line["variante_id"],
+                    str(line.get("nombre") or "Prenda"),
+                    line["cantidad"], amount,
+                    sale.codigo.startswith("VN-DEMO-CU20-"),
+                ))
+        for purchase in purchases:
+            try:
+                branch_id = next(branch_id for branch_id in branch_ids
+                                 if identifier_token(branch_id) == purchase.sucursal_clave)
+            except StopIteration:
+                continue
+            for line in purchase.line_records:
+                if type(line.variante_ref) is not int:
+                    continue
+                detail_lines.append((
+                    branch_id, line.variante_ref, line.nombre,
+                    line.cantidad, line.precio_unitario * line.cantidad, False,
+                ))
+        variant_ids = {entry[1] for entry in detail_lines}
+        variants = {
+            variant.id: variant for variant in db.scalars(select(VarianteProducto).where(
+                VarianteProducto.empresa_id == context.empresa_id,
+                VarianteProducto.id.in_(variant_ids),
+            )).all()
+        } if variant_ids else {}
+        grouped = {}
+        for branch_id, variant_id, name, qty, amount, synthetic in detail_lines:
+            v = variants.get(variant_id)
+            key = (branch_id, variant_id, name, v.talla if v else "—", v.color if v else "—", synthetic)
+            if key not in grouped:
+                grouped[key] = {"sucursal_id": branch_id, "producto": name,
+                                "talla": key[3], "color": key[4],
+                                "unidades": 0, "importe": Decimal("0.00"),
+                                "es_demo": synthetic}
+            grouped[key]["unidades"] += qty
+            grouped[key]["importe"] += amount
+        result["ventas_por_prenda"] = [
+            {**entry, "importe": f"{entry['importe']:.2f}"}
+            for entry in sorted(grouped.values(), key=lambda row:
+                                (-row["unidades"], row["producto"], row["color"]))[:100]
+        ]
+
 
     if tipo in {"resumen", "reservas"}:
         reservations = db.execute(select(
@@ -153,6 +228,8 @@ def reports(
             row["stock_comprometido_actual"] = int(committed or 0)
             row["stock_disponible_actual"] = int(physical or 0) - int(committed or 0)
 
+    if result["ventas_por_prenda"] and any(row["es_demo"] for row in result["ventas_por_prenda"]):
+        result["nota"] += " Los comprobantes identificados como DEMO son ficticios y no representan dinero cobrado."
     result["por_sucursal"] = list(aggregates.values())
     totals = result["totales"]
     for row in result["por_sucursal"]:
