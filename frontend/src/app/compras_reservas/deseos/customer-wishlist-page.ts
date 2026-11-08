@@ -3,10 +3,11 @@ import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CustomerWishlistApi, type WishlistItem } from './customer-wishlist-api.service';
+import { CatalogImage } from '../../catalogo_publico/catalogo/catalog-image';
 
 @Component({
   selector: 'vn-customer-wishlist',
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, CatalogImage],
   template: `
   <main class="wish-page">
     <a [routerLink]="['/tienda', tienda(), 'catalogo']">← Volver a la tienda</a>
@@ -20,7 +21,7 @@ import { CustomerWishlistApi, type WishlistItem } from './customer-wishlist-api.
     <div class="wish-grid">
       @for (item of items(); track item.variante_id) {
         <article class="wish-item">
-          @if (item.imagen_url) { <img [src]="item.imagen_url" [alt]="item.nombre" loading="lazy" /> }
+          <vn-catalog-image [url]="item.imagen_url" [name]="item.nombre" />
           <div class="wish-body">
             <h2>{{ item.nombre }}</h2>
             <p>Talla {{ item.talla }} · {{ item.color }}</p>
@@ -56,7 +57,7 @@ import { CustomerWishlistApi, type WishlistItem } from './customer-wishlist-api.
     .wish-tag{font-weight:700;color:#116a4d;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
     .wish-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px;margin-top:24px}
     .wish-item{border:1px solid #d9e4d9;background:#fff;border-radius:12px;overflow:hidden}
-    .wish-item img{width:100%;height:180px;object-fit:cover}
+    .wish-item vn-catalog-image{display:block;height:180px;background:#e8eee4}
     .wish-body{padding:20px}.wish-body h2{font:400 25px Georgia,serif;margin:0 0 10px}
     .wish-body p{font-size:14px}.wish-body a{color:#176b4b;display:inline-block;margin:10px 0}
     .wish-body button{display:block;border-radius:7px;border:1px solid #b6d0bd;background:#edf6ef;color:#245b3f;cursor:pointer;min-height:42px;padding:10px}
