@@ -10,6 +10,7 @@ from app.compras_reservas.compras import stripe_checkout  # noqa: F401, registra
 from app.compras_reservas.reservas import online  # noqa: F401, registra reservas CU10.
 from app.operacion_sin_conexion.caja import online as cash_online  # noqa: F401, registra CU15/CU13.
 from app.compras_reservas.postventa import persistence as postventa_persistence  # noqa: F401, registra las tablas de CU17.
+from app.compras_reservas import deseos as deseos_cu23  # noqa: F401, registra CU23.
 
 
 config = context.config
