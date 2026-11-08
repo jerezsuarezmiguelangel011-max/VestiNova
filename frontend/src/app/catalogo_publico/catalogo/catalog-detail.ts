@@ -13,6 +13,7 @@ import { StorefrontContextService } from './storefront-context.service';
 import { PurchaseSelectionService } from '../../compras_reservas/compras/purchase-selection.service';
 import { CustomerAuthService } from '../../compras_reservas/clientes/customer-auth.service';
 import { CustomerWishlistApi } from '../../compras_reservas/deseos/customer-wishlist-api.service';
+import { CustomerRecommendationsService } from '../recomendaciones/customer-recommendations.service';
 
 @Component({
   selector: 'vn-catalog-detail',
@@ -29,6 +30,7 @@ export class CatalogDetailPage {
   private readonly cart = inject(PurchaseSelectionService);
   private readonly customerAuth = inject(CustomerAuthService);
   private readonly wishlist = inject(CustomerWishlistApi);
+  private readonly personal = inject(CustomerRecommendationsService);
   readonly wishlistBusy = signal(false);
   readonly wishlistError = signal<string | null>(null);
   readonly wishlistNotice = signal<string | null>(null);
@@ -80,6 +82,9 @@ export class CatalogDetailPage {
       if (response) {
         this.product.set(response.data);
         this.source.set(response.source);
+        if (response.source === 'network' && this.inStorefront) {
+          this.registerConsentedView(response.data.slug);
+        }
         this.downloadedAt.set(response.downloadedAt);
         if (this.shop.tienda()) this.loadVariants(response.data.slug);
         if (this.inStorefront && response.source === 'network' && this.selectedBranchId() !== null) this.consultAvailability();
@@ -164,6 +169,22 @@ export class CatalogDetailPage {
         this.wishlistBusy.set(false);
         this.wishlistError.set('No se pudo guardar la variante. Revisa tu sesión o conexión.');
       },
+    });
+  }
+
+  private registerConsentedView(slug: string): void {
+    const tienda = this.shop.tienda();
+    if (!tienda || !this.personal.activeSession(tienda)) return;
+    this.personal.preferences(tienda).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: state => {
+        if (!state.habilitado || this.product()?.slug !== slug || this.shop.tienda() !== tienda) return;
+        this.personal.registerView(tienda, slug)
+          .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => {},
+            error: () => {}, // La navegación funciona aunque falle el registro opcional.
+          });
+      },
+      error: () => {},
     });
   }
 
