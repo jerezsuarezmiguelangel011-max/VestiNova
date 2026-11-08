@@ -20,6 +20,8 @@ class _CustomerReservationsPageState extends State<CustomerReservationsPage>
   late final MobileReservationService _service;
   List<LocalCatalogVariant> _variants = const [];
   List<LocalReservation> _queue = const [];
+  List<Map<String,dynamic>> _central = const [];
+  String? _centralError;
   String? _selectedVariant;
   int _quantity = 1;
   int? _policyHours;
@@ -39,6 +41,7 @@ class _CustomerReservationsPageState extends State<CustomerReservationsPage>
     _store = ReservationSqlite();
     _service = MobileReservationService(widget.controller.api.config, _store);
     _refresh();
+    _loadCentral();
   }
 
   @override
@@ -75,6 +78,39 @@ class _CustomerReservationsPageState extends State<CustomerReservationsPage>
       });
     } catch (_) {
       if (mounted) setState(() => _error = 'No se pudo consultar SQLite. Las reservas existentes no fueron eliminadas.');
+    }
+  }
+
+  Future<void> _loadCentral() async {
+    final account = _customer;
+    final token = widget.controller.customerToken;
+    if (account == null || token == null) return;
+    try {
+      final entries = await _service.listCentral(account.store.slug, token);
+      if (mounted && _customer?.id == account.id) {
+        setState(() { _central = entries; _centralError = null; });
+      }
+    } catch (_) {
+      if (mounted) setState(() =>
+        _centralError = 'Sin conexión: las reservas centrales no están actualizadas.');
+    }
+  }
+
+  Future<void> _cancelCentral(String id) async {
+    final account = _customer;
+    final token = widget.controller.customerToken;
+    if (_busy || account == null || token == null) return;
+    setState(() { _busy = true; _error = null; _message = null; });
+    try {
+      await _service.cancelCentral(account.store.slug, token, id);
+      await _loadCentral();
+      if (mounted) setState(() => _message =
+        'Cancelación confirmada por el servidor. El compromiso de stock se liberó.');
+    } catch (_) {
+      if (mounted) setState(() => _error =
+        'No se confirmó la cancelación. Verifica el estado central.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -123,6 +159,7 @@ class _CustomerReservationsPageState extends State<CustomerReservationsPage>
     try {
       await _service.synchronize(account.store.slug, account.id, token);
       await _refresh();
+      await _loadCentral();
       if (mounted) setState(() => _message = 'Sincronización revisada. Verifica el estado de cada solicitud.');
     } catch (_) {
       if (mounted) setState(() => _error = 'No se completó la sincronización. Las operaciones siguen en SQLite.');
@@ -209,6 +246,32 @@ class _CustomerReservationsPageState extends State<CustomerReservationsPage>
         onPressed: _busy || widget.controller.customerToken == null ? null : _sync,
         icon: const Icon(Icons.sync),
         label: const Text('Sincronizar con servidor'),
+      ),
+      const SizedBox(height: 24),
+      Text('Reservas confirmadas en el servidor',
+        style: Theme.of(context).textTheme.titleLarge),
+      OutlinedButton(
+        onPressed: _busy ? null : _loadCentral,
+        child: const Text('Actualizar reservas centrales'),
+      ),
+      if (_centralError != null) Text(_centralError!,
+        style: const TextStyle(color: Colors.deepOrange)),
+      if (_central.isEmpty)
+        const Text('No hay reservas centrales verificadas en esta sesión.'),
+      for (final row in _central) Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Código: ' + (row['codigo']?.toString() ?? '')),
+            Text('Estado: ' + (row['estado']?.toString() ?? 'SIN VERIFICAR')),
+            Text('Vence: ' + (row['vence_en']?.toString() ?? '')),
+            if (row['estado'] == 'CONFIRMADA')
+              TextButton(
+                onPressed: _busy ? null : () => _cancelCentral(row['id'] as String),
+                child: const Text('Cancelar reserva central'),
+              ),
+          ]),
+        ),
       ),
       const SizedBox(height: 24),
       Text('Reservas guardadas en este dispositivo',

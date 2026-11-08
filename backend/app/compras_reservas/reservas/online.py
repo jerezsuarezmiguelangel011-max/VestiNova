@@ -339,7 +339,7 @@ def customer_create(payload: ReservationInput, response: Response,
     except HTTPException as exc:
         # CU13: solo el fallo de stock de una solicitud realmente offline genera
         # una incidencia central, y siempre bajo identidad de cliente autenticada.
-        if (payload.origen != "WEB_OFFLINE" or exc.status_code != 409 or
+        if (payload.origen not in ("WEB_OFFLINE", "MOVIL_OFFLINE") or exc.status_code != 409 or
                 not isinstance(exc.detail, dict) or
                 "disponibilidades" not in exc.detail):
             raise

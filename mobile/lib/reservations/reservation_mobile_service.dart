@@ -147,5 +147,28 @@ class MobileReservationService {
     }
   }
 
+  Future<List<Map<String,dynamic>>> listCentral(String tienda, String token) async {
+    final uri = config.endpoint('/tiendas/$tienda/reservas');
+    final response = await _client.get(uri, headers: {
+      'Authorization': 'Bearer $token', 'Accept': 'application/json',
+    }).timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) {
+      throw const FormatException('No se pudo consultar la lista central de reservas.');
+    }
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+    if (data is! List) throw const FormatException('Reservas centrales inválidas.');
+    return data.map((e) => Map<String,dynamic>.from(e as Map)).toList();
+  }
+
+  Future<void> cancelCentral(String tienda, String token, String id) async {
+    final uri = config.endpoint('/tiendas/$tienda/reservas/$id/cancelar');
+    final response = await _client.post(uri, headers: {
+      'Authorization': 'Bearer $token', 'Accept': 'application/json',
+    }).timeout(const Duration(seconds: 15));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw const FormatException('No se confirmó la cancelación; actualiza la lista.');
+    }
+  }
+
   void close() => _client.close();
 }
