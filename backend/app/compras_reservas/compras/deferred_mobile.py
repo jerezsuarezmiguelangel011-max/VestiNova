@@ -155,7 +155,7 @@ def preparar_metodo(
     route = f"{origin}/api/tiendas/{company.slug}/compras/offline/retorno"
     try:
         setup = stripe.checkout.Session.create(
-            api_key=key, mode="setup", customer=row.stripe_customer_id,
+            api_key=key, mode="setup", currency="bob", customer=row.stripe_customer_id,
             success_url=route + "?resultado=preparado",
             cancel_url=route + "?resultado=cancelado",
             metadata={"empresa_id": str(company.id), "cliente_id": str(customer.id)},
