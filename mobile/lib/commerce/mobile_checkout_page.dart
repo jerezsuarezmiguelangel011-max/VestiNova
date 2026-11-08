@@ -10,6 +10,9 @@ import '../storefront/storefront_models.dart';
 import '../storefront/storefront_widgets.dart';
 import 'mobile_commerce_api.dart';
 import 'mobile_order_store.dart';
+import 'purchase_background.dart';
+import 'purchase_notices.dart';
+import 'purchase_sync.dart';
 
 /// CU09: compra inmediata o solicitud offline; ambas se validan en FastAPI.
 class MobileCheckoutPage extends StatefulWidget {
@@ -238,7 +241,21 @@ class _MobileCheckoutPageState extends State<MobileCheckoutPage>
         'Debes autorizar expresamente el cargo diferido.',
       );
     }
-    await store.enqueue(widget.tienda, customer!.id, order);
+    final saved = order;
+    await store.enqueue(widget.tienda, customer!.id, saved);
+    // El permiso se solicita al iniciar explícitamente la operación offline.
+    // Una denegación nunca elimina ni invalida la solicitud guardada.
+    try {
+      await PurchaseNotices.initialize(askPermission: true);
+      await PurchaseNotices.saved(saved['id'] as String);
+    } catch (_) {
+      // Mostrar el mensaje de estado igualmente en pantalla.
+    }
+    try {
+      await PurchaseBackground.schedule(widget.tienda, customer!.id);
+    } catch (_) {
+      // Se conserva el botón manual y la sincronización al reconectar.
+    }
     await _load();
     if (mounted) {
       setState(
@@ -255,44 +272,17 @@ class _MobileCheckoutPageState extends State<MobileCheckoutPage>
         'Necesitas una sesión de Cliente válida.',
       );
     }
-    final queue = await store.list(widget.tienda, person.id);
-    for (final item in queue.where(
-      (x) => x.state == 'PENDIENTE' || x.state == 'PAGO_PENDIENTE',
-    )) {
-      try {
-        final result = await api.deferredCheckout(
-          widget.tienda,
-          t,
-          item.payload,
-        );
-        final state = result['estado']?.toString() ?? 'PAGO_PENDIENTE';
-        await store.update(
-          item.id,
-          state,
-          result['detalle']?.toString() ?? 'Consulta el estado: no se presume cobro por una respuesta ambigua.',
-        );
-      } on StorefrontException catch (e) {
-        if (e.network || e.status == 503) {
-          await store.update(
-            item.id,
-            'PENDIENTE',
-            'Resultado no confirmado. Conservar el UUID y volver a consultar.',
-          );
-          break;
-        }
-        await store.update(
-          item.id,
-          e.status == 409 ? 'CONFLICTO' : 'ERROR',
-          e.message,
-        );
-      }
-    }
+    await const PurchaseSyncService().synchronize(
+      tienda: widget.tienda,
+      customerId: person.id,
+      token: t,
+      store: store,
+      api: api,
+    );
     await _load();
     if (mounted) {
-      setState(
-        () => message =
-            'Sincronización revisada. Solo CONFIRMADA acredita la compra.',
-      );
+      setState(() => message =
+        'Sincronización revisada. Solo CONFIRMADA acredita la compra.');
     }
   });
 

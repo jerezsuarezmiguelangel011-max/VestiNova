@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 
 import '../auth/session_controller.dart';
@@ -16,6 +19,9 @@ import 'storefront_wishlist.dart';
 import '../commerce/mobile_checkout_page.dart';
 import '../commerce/mobile_reviews_page.dart';
 import '../commerce/mobile_alerts_page.dart';
+import '../commerce/mobile_commerce_api.dart';
+import '../commerce/mobile_order_store.dart';
+import '../commerce/purchase_sync.dart';
 
 /// Pantalla comercial CU08/CU19/CU23/CU24. La sesión, roles y CU10 continúan
 /// bajo los controladores y páginas originales de la aplicación.
@@ -33,12 +39,15 @@ class StorefrontShell extends StatefulWidget {
   State<StorefrontShell> createState() => _StorefrontShellState();
 }
 
-class _StorefrontShellState extends State<StorefrontShell> {
+class _StorefrontShellState extends State<StorefrontShell>
+    with WidgetsBindingObserver {
   late final StorefrontApi _api;
   late final StorefrontCache _cache;
   late final StorefrontRepository _repository;
   final List<StoreProduct> _compare = [];
   int _tab = 0;
+  StreamSubscription<List<ConnectivityResult>>? _networkSubscription;
+  bool _noNetwork = false;
 
   @override
   void initState() {
@@ -46,10 +55,50 @@ class _StorefrontShellState extends State<StorefrontShell> {
     _api = StorefrontApi(widget.controller.api.config);
     _cache = StorefrontCache();
     _repository = StorefrontRepository(_api, _cache);
+    WidgetsBinding.instance.addObserver(this);
+    _networkSubscription = Connectivity().onConnectivityChanged.listen(
+      (results) {
+        final hasNetwork = !results.contains(ConnectivityResult.none);
+        if (_noNetwork && hasNetwork) _syncPending();
+        _noNetwork = !hasNetwork;
+      },
+      onError: (Object _) {},
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncPending();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _syncPending();
+  }
+
+  Future<void> _syncPending() async {
+    final account = widget.controller.account;
+    final token = widget.controller.customerToken;
+    if (!widget.controller.isCustomer || token == null || account == null) {
+      return;
+    }
+    final store = MobileOrderStore();
+    final api = MobileCommerceApi(widget.controller.api.config);
+    try {
+      await const PurchaseSyncService().synchronize(
+        tienda: widget.slug, customerId: account.id,
+        token: token, store: store, api: api,
+      );
+    } catch (_) {
+      // Sin Internet se conserva la cola; el trabajador Android reintentará.
+    } finally {
+      api.close();
+      await store.close();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _networkSubscription?.cancel();
     _api.close();
     _cache.close();
     super.dispose();

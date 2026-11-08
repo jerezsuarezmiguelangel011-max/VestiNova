@@ -4,6 +4,7 @@ import 'auth/auth_api.dart';
 import 'auth/session_controller.dart';
 import 'auth/session_store.dart';
 import 'config/api_config.dart';
+import 'commerce/purchase_background.dart';
 import 'screens/access_page.dart';
 import 'screens/account_page.dart';
 import 'storefront/storefront_shell.dart';
@@ -12,8 +13,13 @@ const ivory = Color(0xFFF7F4EC);
 const charcoal = Color(0xFF202C27);
 const emerald = Color(0xFF12644E);
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await PurchaseBackground.initialize();
+  } catch (_) {
+    // El catálogo puede usarse aunque Android no registre trabajos en segundo plano.
+  }
   try {
     final api = AuthApi(ApiConfig(ApiConfig.defaultBase));
     runApp(
