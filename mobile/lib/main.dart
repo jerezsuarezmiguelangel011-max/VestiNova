@@ -6,6 +6,7 @@ import 'auth/session_store.dart';
 import 'config/api_config.dart';
 import 'screens/access_page.dart';
 import 'screens/account_page.dart';
+import 'storefront/storefront_shell.dart';
 
 const ivory = Color(0xFFF7F4EC);
 const charcoal = Color(0xFF202C27);
@@ -110,7 +111,25 @@ class _VestiNovaAppState extends State<VestiNovaApp> {
     ),
     home: AnimatedBuilder(
       animation: widget.controller,
-      builder: (context, _) => Scaffold(
+      builder: (context, _) {
+        final session = widget.controller;
+        final store = session.customerStore;
+        final company = session.context?.company;
+        if (!session.restoring) {
+          if (store != null && (!session.signedIn || session.isCustomer)) {
+            return StorefrontShell(
+              key: ValueKey('cliente:${store.slug}:${session.account?.id ?? 0}'),
+              controller: session, slug: store.slug, storeName: store.name,
+            );
+          }
+          if (company != null && session.signedIn && !session.isCustomer) {
+            return StorefrontShell(
+              key: ValueKey('personal:${company.slug}:${session.account?.id ?? 0}'),
+              controller: session, slug: company.slug, storeName: company.name,
+            );
+          }
+        }
+        return Scaffold(
         appBar: AppBar(
           title: const Text(
             'VestiNova',
@@ -175,7 +194,8 @@ class _VestiNovaAppState extends State<VestiNovaApp> {
             ),
           ),
         ),
-      ),
+        );
+      },
     ),
   );
 }
