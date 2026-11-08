@@ -9,7 +9,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import Boolean, DateTime, ForeignKeyConstraint, Integer, delete, select
+from sqlalchemy import Boolean, DateTime, ForeignKey, ForeignKeyConstraint, Integer, delete, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from app.autenticacion_usuarios.customer_auth import current_customer_session
@@ -24,11 +24,9 @@ router = APIRouter(prefix="/api/tiendas/{slug}/cuenta/recomendaciones",
 class ConsentimientoCU19(Base):
     __tablename__ = "consentimientos_cu19"
     __table_args__ = (
-        ForeignKeyConstraint(["cliente_id", "empresa_id"], ["clientes.id", "clientes.empresa_id"],
-                             name="fk_cu19_consentimiento_cliente_empresa"),
     )
-    empresa_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    cliente_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    empresa_id: Mapped[int] = mapped_column(ForeignKey("empresas.id"), primary_key=True)
+    cliente_id: Mapped[int] = mapped_column(ForeignKey("clientes.id", ondelete="CASCADE"), primary_key=True)
     habilitado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     actualizado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
 
@@ -36,13 +34,11 @@ class ConsentimientoCU19(Base):
 class VistaCU19(Base):
     __tablename__ = "visitas_prendas_cu19"
     __table_args__ = (
-        ForeignKeyConstraint(["cliente_id", "empresa_id"], ["clientes.id", "clientes.empresa_id"],
-                             name="fk_cu19_visita_cliente_empresa"),
         ForeignKeyConstraint(["producto_id", "empresa_id"], ["productos.id", "productos.empresa_id"],
                              name="fk_cu19_visita_producto_empresa"),
     )
-    empresa_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    cliente_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    empresa_id: Mapped[int] = mapped_column(ForeignKey("empresas.id"), primary_key=True)
+    cliente_id: Mapped[int] = mapped_column(ForeignKey("clientes.id", ondelete="CASCADE"), primary_key=True)
     producto_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     vistas: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     vista_reciente_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
