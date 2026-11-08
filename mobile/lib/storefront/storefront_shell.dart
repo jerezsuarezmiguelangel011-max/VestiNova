@@ -87,8 +87,8 @@ class _StorefrontShellState extends State<StorefrontShell> {
           onCompare: _addCompare,
           onRecommendations: _openRecommendations,
           onPurchase: _openPurchase,
-      onAlerts: _openAlert,
-      onLoginRequired: () {
+          onAlerts: _openAlert,
+          onLoginRequired: () {
             Navigator.of(context).popUntil((route) => route.isFirst);
             if (!widget.controller.signedIn) {
               setState(() => _tab = 4);
@@ -109,27 +109,57 @@ class _StorefrontShellState extends State<StorefrontShell> {
   }
 
   void _openPurchase(
-    StoreProduct product, StoreVariant variant, List<StoreStock> stocks) {
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) =>
-      MobileCheckoutPage(tienda: widget.slug, product: product, variant: variant,
-        knownStocks: stocks, controller: widget.controller)));
+    StoreProduct product,
+    StoreVariant variant,
+    List<StoreStock> stocks,
+  ) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MobileCheckoutPage(
+          tienda: widget.slug,
+          product: product,
+          variant: variant,
+          knownStocks: stocks,
+          controller: widget.controller,
+        ),
+      ),
+    );
   }
 
   void _openAlert(
-    StoreProduct product, StoreVariant variant, List<StoreStock> stocks) {
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) =>
-      MobileAlertsPage(tienda: widget.slug, session: widget.controller,
-        product: product, variant: variant, stock: stocks)));
+    StoreProduct product,
+    StoreVariant variant,
+    List<StoreStock> stocks,
+  ) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MobileAlertsPage(
+          tienda: widget.slug,
+          session: widget.controller,
+          product: product,
+          variant: variant,
+          stock: stocks,
+        ),
+      ),
+    );
   }
 
   void _openReviews() {
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) =>
-      MobileReviewsPage(tienda: widget.slug, session: widget.controller)));
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            MobileReviewsPage(tienda: widget.slug, session: widget.controller),
+      ),
+    );
   }
 
   void _openAlertsList() {
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) =>
-      MobileAlertsPage(tienda: widget.slug, session: widget.controller)));
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            MobileAlertsPage(tienda: widget.slug, session: widget.controller),
+      ),
+    );
   }
 
   void _openRecommendations([String? slug]) {
@@ -236,12 +266,15 @@ class _StorefrontShellState extends State<StorefrontShell> {
               if (action == 'reservations') setState(() => _tab = 4);
             },
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'reviews',
-                child: Text('Mis compras y valoraciones · CU25')),
-              PopupMenuItem(value: 'alerts',
-                child: Text('Mis avisos · CU26')),
-              PopupMenuItem(value: 'reservations',
-                child: Text('Reservas offline · CU10')),
+              PopupMenuItem(
+                value: 'reviews',
+                child: Text('Mis compras y valoraciones · CU25'),
+              ),
+              PopupMenuItem(value: 'alerts', child: Text('Mis avisos · CU26')),
+              PopupMenuItem(
+                value: 'reservations',
+                child: Text('Reservas offline · CU10'),
+              ),
             ],
           ),
           if (!widget.controller.signedIn)

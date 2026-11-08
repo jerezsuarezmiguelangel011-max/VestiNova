@@ -11,25 +11,36 @@ class NativePushService {
   static const project = String.fromEnvironment('FIREBASE_PROJECT_ID');
 
   static bool get configured =>
-    appId.isNotEmpty && apiKey.isNotEmpty &&
-    sender.isNotEmpty && project.isNotEmpty;
+      appId.isNotEmpty &&
+      apiKey.isNotEmpty &&
+      sender.isNotEmpty &&
+      project.isNotEmpty;
 
   static Future<void> register({
-    required MobileCommerceApi api, required String tienda,
+    required MobileCommerceApi api,
+    required String tienda,
     required String token,
   }) async {
     if (!configured) {
-      throw StateError('Configura Firebase Cloud Messaging para Android antes de registrar el canal.');
+      throw StateError(
+        'Configura Firebase Cloud Messaging para Android antes de registrar el canal.',
+      );
     }
     if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(options: const FirebaseOptions(
-        apiKey: apiKey, appId: appId, messagingSenderId: sender,
-        projectId: project,
-      ));
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: apiKey,
+          appId: appId,
+          messagingSenderId: sender,
+          projectId: project,
+        ),
+      );
     }
     final messaging = FirebaseMessaging.instance;
     final permission = await messaging.requestPermission(
-      alert: true, sound: true, badge: true,
+      alert: true,
+      sound: true,
+      badge: true,
     );
     if (permission.authorizationStatus != AuthorizationStatus.authorized &&
         permission.authorizationStatus != AuthorizationStatus.provisional) {
@@ -39,8 +50,11 @@ class NativePushService {
     if (fcm == null || fcm.isEmpty) {
       throw StateError('El dispositivo todavía no obtuvo un token FCM.');
     }
-    await api.call('POST',
+    await api.call(
+      'POST',
       '/tiendas/$tienda/cuenta/alertas-push/canales-movil',
-      token: token, body: {'token': fcm});
+      token: token,
+      body: {'token': fcm},
+    );
   }
 }

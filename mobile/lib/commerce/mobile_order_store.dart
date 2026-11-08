@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:path/path.dart' as path;
 import 'package:sqflite/sqflite.dart';
 
@@ -33,42 +34,61 @@ class MobileOrderStore {
   Future<void> setPrepared(String tienda, int customerId, bool ready) async {
     final connection = await db;
     await connection.insert('metodos_cu09', {
-      'tienda': tienda, 'cliente_id': customerId, 'preparado': ready ? 1 : 0,
+      'tienda': tienda,
+      'cliente_id': customerId,
+      'preparado': ready ? 1 : 0,
       'actualizado_en': DateTime.now().toUtc().toIso8601String(),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<bool> wasPrepared(String tienda, int customerId) async {
     final connection = await db;
-    final rows = await connection.query('metodos_cu09',
-      columns: ['preparado'], where: 'tienda = ? AND cliente_id = ?',
-      whereArgs: [tienda, customerId], limit: 1);
+    final rows = await connection.query(
+      'metodos_cu09',
+      columns: ['preparado'],
+      where: 'tienda = ? AND cliente_id = ?',
+      whereArgs: [tienda, customerId],
+      limit: 1,
+    );
     return rows.isNotEmpty && rows.single['preparado'] == 1;
   }
 
-  Future<void> enqueue(String tienda, int customerId, Map<String,dynamic> order) async {
+  Future<void> enqueue(
+    String tienda,
+    int customerId,
+    Map<String, dynamic> order,
+  ) async {
     final connection = await db;
     await connection.insert('solicitudes_cu09', {
-      'id': order['id'], 'tienda': tienda, 'cliente_id': customerId,
-      'json': jsonEncode(order), 'estado': 'PENDIENTE', 'mensaje':
-        'Sin Internet: no hay cobro, pedido ni reserva confirmados.',
+      'id': order['id'],
+      'tienda': tienda,
+      'cliente_id': customerId,
+      'json': jsonEncode(order),
+      'estado': 'PENDIENTE',
+      'mensaje': 'Sin Internet: no hay cobro, pedido ni reserva confirmados.',
       'creado_en': DateTime.now().toUtc().toIso8601String(),
     }, conflictAlgorithm: ConflictAlgorithm.abort);
   }
 
   Future<List<MobilePendingOrder>> list(String tienda, int customerId) async {
     final connection = await db;
-    final rows = await connection.query('solicitudes_cu09',
+    final rows = await connection.query(
+      'solicitudes_cu09',
       where: 'tienda = ? AND cliente_id = ?',
-      whereArgs: [tienda, customerId], orderBy: 'creado_en DESC');
+      whereArgs: [tienda, customerId],
+      orderBy: 'creado_en DESC',
+    );
     return rows.map(MobilePendingOrder.fromRow).toList();
   }
 
   Future<void> update(String id, String state, String message) async {
     final connection = await db;
-    await connection.update('solicitudes_cu09',
+    await connection.update(
+      'solicitudes_cu09',
       {'estado': state, 'mensaje': message},
-      where: 'id = ?', whereArgs: [id]);
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<void> close() async {
@@ -80,15 +100,16 @@ class MobileOrderStore {
 
 class MobilePendingOrder {
   MobilePendingOrder(this.id, this.payload, this.state, this.message);
-  factory MobilePendingOrder.fromRow(Map<String,Object?> row) {
+  factory MobilePendingOrder.fromRow(Map<String, Object?> row) {
     return MobilePendingOrder(
       row['id'] as String,
-      Map<String,dynamic>.from(jsonDecode(row['json'] as String) as Map),
-      row['estado'] as String, row['mensaje'] as String,
+      Map<String, dynamic>.from(jsonDecode(row['json'] as String) as Map),
+      row['estado'] as String,
+      row['mensaje'] as String,
     );
   }
   final String id;
-  final Map<String,dynamic> payload;
+  final Map<String, dynamic> payload;
   final String state;
   final String message;
 }

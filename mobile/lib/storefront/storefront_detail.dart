@@ -265,21 +265,35 @@ class _StorefrontDetailPageState extends State<StorefrontDetailPage> {
                 ],
                 const SizedBox(height: 16),
                 FilledButton.icon(
-                  onPressed: _variantId == null || _busy ? null : () {
-                    final selected = _variants!.value.firstWhere(
-                      (v) => v.id == _variantId);
-                    widget.onPurchase(product, selected, _stock?.value ?? []);
-                  },
+                  onPressed: _variantId == null || _busy
+                      ? null
+                      : () {
+                          final selected = _variants!.value.firstWhere(
+                            (v) => v.id == _variantId,
+                          );
+                          widget.onPurchase(
+                            product,
+                            selected,
+                            _stock?.value ?? [],
+                          );
+                        },
                   icon: const Icon(Icons.shopping_bag_outlined),
                   label: const Text('Comprar · CU09'),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: _variantId == null || _busy ? null : () {
-                    final selected = _variants!.value.firstWhere(
-                      (v) => v.id == _variantId);
-                    widget.onAlerts(product, selected, _stock?.value ?? []);
-                  },
+                  onPressed: _variantId == null || _busy
+                      ? null
+                      : () {
+                          final selected = _variants!.value.firstWhere(
+                            (v) => v.id == _variantId,
+                          );
+                          widget.onAlerts(
+                            product,
+                            selected,
+                            _stock?.value ?? [],
+                          );
+                        },
                   icon: const Icon(Icons.notifications_active_outlined),
                   label: const Text('Avisarme si hay reposición · CU26'),
                 ),
