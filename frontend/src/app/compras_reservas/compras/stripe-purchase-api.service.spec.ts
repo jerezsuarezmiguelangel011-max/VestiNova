@@ -45,6 +45,16 @@ describe('CU09: cliente Stripe Checkout por empresa', () => {
       total: '200.00', checkout_url: null, detalle: null });
   });
 
+  it('reconcilia por POST con token del cliente y sin iniciar otro cobro', () => {
+    const id = '123e4567-e89b-42d3-a456-426614174000';
+    api.reconcile('demo-moda-andina', id).subscribe();
+    const req = http.expectOne('/api/tiendas/demo-moda-andina/compras/' + id + '/reconciliar');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toBeNull();
+    expect(req.request.headers.get('Authorization')).toBe('Bearer token-del-cliente');
+    req.flush({ id, estado: 'CONFIRMADA', moneda: 'BOB', total: '200.00', checkout_url: null, detalle: null });
+  });
+
   it('sin sesión de otra empresa no reutiliza tokens ni habilita un cobro ajeno', () => {
     api.capabilities('demo-moda-urbana').subscribe();
     const request = http.expectOne('/api/tiendas/demo-moda-urbana/compras/capacidades');

@@ -237,6 +237,44 @@ def create_checkout(
     return _serialize(attempt, str(checkout.url))
 
 
+def _reconcile_paid_session(db: Session, attempt: CheckoutAttempt) -> None:
+    """Concilia un pago de prueba sin depender de la entrega del webhook.
+
+    Nunca confirma basándose en lo que diga el navegador. La fila del intento
+    queda bloqueada por la ruta POST durante la verificación remota y el commit.
+    """
+    if attempt.estado != "PAGO_PENDIENTE" or not attempt.stripe_session_id:
+        return
+    config = _configuration()
+    if config is None:
+        return
+    try:
+        checkout = stripe.checkout.Session.retrieve(
+            attempt.stripe_session_id, api_key=config[0]
+        )
+    except stripe.StripeError:
+        # Stripe no disponible: deja la compra pendiente para reintentar.
+        return
+
+    # Compatible con StripeObject (sin .get) y con dobles de prueba.
+    def field(obj, name):
+        return obj.get(name) if isinstance(obj, dict) else getattr(obj, name, None)
+
+    metadata = field(checkout, "metadata")
+    if not (
+        field(checkout, "id") == attempt.stripe_session_id
+        and field(checkout, "mode") == "payment"
+        and field(checkout, "status") == "complete"
+        and field(checkout, "payment_status") == "paid"
+        and field(checkout, "client_reference_id") == attempt.id
+        and field(checkout, "currency") == "bob"
+        and field(checkout, "amount_total") == attempt.monto_centavos
+        and field(metadata, "compra_id") == attempt.id
+    ):
+        return
+    _finish_paid(db, attempt, str(field(checkout, "payment_intent") or ""))
+
+
 @router.get("/{purchase_id}/estado")
 def checkout_status(
     purchase_id: UUID, response: Response,
@@ -263,6 +301,29 @@ def checkout_status(
                           for line in purchase.lines],
             }
     return result
+
+
+@router.post("/{purchase_id}/reconciliar")
+def reconcile_purchase(
+    purchase_id: UUID, response: Response,
+    current: tuple[Cliente, SesionCliente, Empresa] = Depends(current_customer_session),
+    db: Session = Depends(get_db),
+):
+    """Solo la confirmación auténtica de Stripe puede generar la compra.
+
+    POST, no GET, porque la conciliación puede modificar compra e inventario.
+    """
+    response.headers["Cache-Control"] = "no-store"
+    customer, _, company = current
+    attempt = db.scalar(select(CheckoutAttempt).where(
+        CheckoutAttempt.id == str(purchase_id),
+        CheckoutAttempt.cliente_id == customer.id,
+        CheckoutAttempt.empresa_id == company.id,
+    ).with_for_update())
+    if attempt is None:
+        raise HTTPException(404, "No existe esta compra en la cuenta.")
+    _reconcile_paid_session(db, attempt)
+    return checkout_status(purchase_id, response, current, db)
 
 
 def _finish_paid(db: Session, attempt: CheckoutAttempt, payment_intent: str | None) -> None:

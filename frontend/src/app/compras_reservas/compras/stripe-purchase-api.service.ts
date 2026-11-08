@@ -57,6 +57,12 @@ export class StripePurchaseApiService {
   checkout(slug: string, payload: StripeCheckoutInput): Observable<StripeCheckoutState> {
     return this.http.post<StripeCheckoutState>(this.url(slug) + '/checkout', payload, { headers: this.headers(slug) });
   }
+  reconcile(slug: string, id: string): Observable<StripeCheckoutState> {
+    return this.http.post<StripeCheckoutState>(
+      this.url(slug) + '/' + encodeURIComponent(id) + '/reconciliar', null,
+      { headers: this.headers(slug) },
+    );
+  }
   status(slug: string, id: string): Observable<StripeCheckoutState> {
     return this.http.get<StripeCheckoutState>(
       this.url(slug) + '/' + encodeURIComponent(id) + '/estado', { headers: this.headers(slug) },

@@ -306,7 +306,7 @@ export class StripePurchasePage {
     if (!slug || !id || !this.customers.token(slug)) return;
     this.submitting.set(true);
     this.error.set(null);
-    this.api.status(slug, id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.api.reconcile(slug, id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: value => {
         this.status.set(value);
         if (value.estado === 'CONFIRMADA') {

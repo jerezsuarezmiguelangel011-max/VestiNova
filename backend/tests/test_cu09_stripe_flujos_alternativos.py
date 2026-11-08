@@ -327,3 +327,49 @@ def test_cu09_no_permita_checkout_anonimo(caso_cu09):
     respuesta, payload = pedir_pago(c)
     assert respuesta.status_code == 401
     assert estado_db(c, payload["id"])["estado"] is None
+
+
+def test_cu09_conciliacion_pago_confirmado_sin_webhook(caso_cu09):
+    """Reconciliar no crea un nuevo cobro ni descuenta dos veces."""
+    c = caso_cu09
+    respuesta, payload = pedir_pago(c)
+    assert respuesta.status_code == 201
+    sesion = next(iter(c.sesiones.values()))
+    sesion.mode = "payment"
+    sesion.status = "complete"
+    sesion.payment_status = "paid"
+    sesion.client_reference_id = payload["id"]
+    sesion.currency = "bob"
+    sesion.amount_total = 8010
+    sesion.metadata = {"compra_id": payload["id"]}
+    sesion.payment_intent = "pi_test_solo_fixture"
+
+    url = c.url + "/" + payload["id"]
+    # El GET no debe producir movimientos aunque Stripe indique pagado.
+    assert c.client.get(url + "/estado").json()["estado"] == "PAGO_PENDIENTE"
+    assert c.client.post(url + "/reconciliar").json()["estado"] == "CONFIRMADA"
+    assert estado_db(c, payload["id"])["stock"] == 11
+    assert c.client.post(url + "/reconciliar").json()["estado"] == "CONFIRMADA"
+    assert estado_db(c, payload["id"])["movimientos"] == [("SALIDA", -1, 11)]
+
+
+def test_cu09_conciliacion_rechaza_pago_no_verificado(caso_cu09):
+    """Nunca confirma un pago unpaid o con metadatos de otro pedido."""
+    c = caso_cu09
+    respuesta, payload = pedir_pago(c)
+    assert respuesta.status_code == 201
+    sesion = next(iter(c.sesiones.values()))
+    sesion.mode = "payment"
+    sesion.status = "complete"
+    sesion.payment_status = "unpaid"
+    sesion.client_reference_id = payload["id"]
+    sesion.currency = "bob"
+    sesion.amount_total = 8010
+    sesion.metadata = {"compra_id": payload["id"]}
+    url = c.url + "/" + payload["id"] + "/reconciliar"
+    assert c.client.post(url).json()["estado"] == "PAGO_PENDIENTE"
+    sesion.payment_status = "paid"
+    sesion.metadata = {"compra_id": str(uuid4())}
+    assert c.client.post(url).json()["estado"] == "PAGO_PENDIENTE"
+    assert estado_db(c, payload["id"])["stock"] == 12
+    assert estado_db(c, payload["id"])["movimientos"] == []
