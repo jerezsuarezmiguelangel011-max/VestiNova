@@ -4,7 +4,10 @@ from hashlib import sha256
 import json
 import logging
 import re
+import os
 from urllib.parse import urlsplit
+from dotenv import dotenv_values
+from app.config import BACKEND_ROOT
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
@@ -104,6 +107,42 @@ class ChannelInput(BaseModel):
         return value
 
 
+class NativeChannelInput(BaseModel):
+    """Un token FCM debe ser enviado por una app cliente autenticada."""
+    model_config = ConfigDict(extra="forbid")
+    token: str = Field(min_length=30, max_length=1700,
+                       pattern=r"^[A-Za-z0-9_:~.\-]+$")
+
+
+def _fcm_credentials() -> str | None:
+    values = dotenv_values(BACKEND_ROOT / ".env", interpolate=False)
+    path = (os.environ.get("FIREBASE_SERVICE_ACCOUNT_FILE") or
+            values.get("FIREBASE_SERVICE_ACCOUNT_FILE") or "").strip()
+    return path if path and os.path.isfile(path) else None
+
+
+def _send_fcm(channel, payload):
+    """Nunca incluir el token privado en logs, errores o respuestas HTTP."""
+    import firebase_admin
+    from firebase_admin import credentials, messaging
+    config = _fcm_credentials()
+    if not config:
+        raise RuntimeError("FCM sin credenciales")
+    try:
+        app = firebase_admin.get_app()
+    except ValueError:
+        app = firebase_admin.initialize_app(credentials.Certificate(config))
+    notification = payload["notification"]
+    path = notification.get("data", {}).get("onActionClick", {}).get(
+        "default", {}).get("url", "")
+    messaging.send(messaging.Message(
+        token=channel.endpoint[4:],
+        notification=messaging.Notification(
+            title=notification["title"], body=notification["body"]),
+        data={"ruta": path},
+        android=messaging.AndroidConfig(priority="high")), app=app)
+
+
 class AlertInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     variante_id: StrictInt = Field(gt=0)
@@ -128,7 +167,8 @@ def push_config(request: Request, response: Response,
     response.headers["Cache-Control"] = "no-store"
     settings = request.app.state.settings
     enabled = push_enabled(settings)
-    return {"habilitado": enabled, "vapid_public_key": settings.vapid_public_key if enabled else None}
+    return {"habilitado": enabled, "vapid_public_key": settings.vapid_public_key if enabled else None,
+            "movil_habilitado": _fcm_credentials() is not None}
 
 
 @router.post("/canales", status_code=201)
@@ -161,6 +201,42 @@ def register_channel(
         db.rollback()
         raise HTTPException(409, "Canal de notificación registrado concurrentemente.") from None
     return {"id": record.id, "activo": True}
+
+
+@router.post("/canales-movil", status_code=201)
+def register_native_channel(
+    payload: NativeChannelInput, response: Response,
+    current: tuple[Cliente, SesionCliente, Empresa] = Depends(current_customer_session),
+    db: Session = Depends(get_db),
+):
+    """Registra un canal Android FCM. Nunca crea una suscripción sin permiso."""
+    response.headers["Cache-Control"] = "no-store"
+    if _fcm_credentials() is None:
+        raise HTTPException(503, "FCM móvil todavía no está configurado en este servidor.")
+    customer, _, company = current
+    endpoint = "fcm:" + payload.token
+    digest = sha256(endpoint.encode("utf-8")).hexdigest()
+    record = db.scalar(select(PushChannel).where(
+        PushChannel.empresa_id == company.id,
+        PushChannel.cliente_id == customer.id,
+        PushChannel.endpoint_sha == digest,
+    ))
+    if record:
+        record.activo = True
+        response.status_code = 200
+    else:
+        record = PushChannel(
+            empresa_id=company.id, cliente_id=customer.id,
+            endpoint_sha=digest, endpoint=endpoint,
+            clave_publica="FCM_NATIVE", clave_auth="FCM_NATIVE",
+        )
+        db.add(record)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "El canal ya fue registrado.") from None
+    return {"id": record.id, "activo": True, "tipo": "FCM"}
 
 
 @router.get("/avisos")
@@ -307,6 +383,9 @@ def queue_restock(db: Session, *, empresa_id: int, sucursal_id: int, variante_id
 
 
 def _send_webpush(channel: PushChannel, payload: dict, settings) -> None:
+    if channel.endpoint.startswith("fcm:"):
+        _send_fcm(channel, payload)
+        return
     from pywebpush import webpush
     webpush(
         subscription_info={"endpoint": channel.endpoint,
@@ -320,7 +399,7 @@ def _send_webpush(channel: PushChannel, payload: dict, settings) -> None:
 
 def dispatch_pending(session_factory, settings) -> None:
     """Lote reintentable. Error de red jamás revierte el inventario ni revela secretos."""
-    if not push_enabled(settings):
+    if not push_enabled(settings) and _fcm_credentials() is None:
         return
     with session_factory() as db:
         jobs = db.scalars(select(PushOutbox).where(
