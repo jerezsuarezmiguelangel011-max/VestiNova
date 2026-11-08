@@ -124,7 +124,7 @@ class _StorefrontDetailPageState extends State<StorefrontDetailPage> {
           if (_variants?.value.isEmpty == true) const Text('No hay variantes publicadas.'),
           if (_variants case final result?)
             if (result.value.isNotEmpty) DropdownButtonFormField<int>(
-              key: ValueKey(_variantId), value: _variantId,
+              key: ValueKey(_variantId), initialValue: _variantId,
               decoration: const InputDecoration(labelText: 'Selecciona una variante'),
               items: result.value.map((v) => DropdownMenuItem<int>(value: v.id,
                 child: Text(v.label))).toList(),

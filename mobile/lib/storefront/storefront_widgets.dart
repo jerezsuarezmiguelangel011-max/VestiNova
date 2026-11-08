@@ -17,7 +17,7 @@ class ProductPhoto extends StatelessWidget {
     }
     return ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(
       uri.toString(), height: height, width: height, fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => _placeholder(),
+      errorBuilder: (_, _, _) => _placeholder(),
     ));
   }
   Widget _placeholder() => Container(

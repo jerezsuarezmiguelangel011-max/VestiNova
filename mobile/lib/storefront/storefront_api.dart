@@ -101,7 +101,7 @@ class StorefrontApi {
       {String? reference, String? size, String? color, int? branchId}) async {
     final payload = _obj(await _call('GET', '/catalogo/recomendaciones', query: {
       'tienda': tienda, 'limit': '12',
-      if (reference != null) 'producto_slug': reference,
+      'producto_slug': ?reference,
       if (size != null && size.isNotEmpty) 'talla': size,
       if (color != null && color.isNotEmpty) 'color': color,
       if (branchId != null) 'sucursal_id': '$branchId',

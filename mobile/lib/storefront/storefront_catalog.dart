@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'storefront_api.dart';
 import 'storefront_models.dart';
 import 'storefront_repository.dart';
 import 'storefront_widgets.dart';

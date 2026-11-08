@@ -72,7 +72,9 @@ class StorefrontRepository {
       final variants = _localVariants[item.slug] ?? const <StoreVariant>[];
       if (!variants.any((v) =>
         (filters.size.isEmpty || v.size.toLowerCase() == filters.size.trim().toLowerCase()) &&
-        (filters.color.isEmpty || v.color.toLowerCase() == filters.color.trim().toLowerCase()))) return false;
+        (filters.color.isEmpty || v.color.toLowerCase() == filters.color.trim().toLowerCase()))) {
+        return false;
+      }
     }
     return true;
   }
@@ -140,9 +142,11 @@ class StorefrontRepository {
     } on StorefrontException catch (e) {
       if (!e.network) rethrow;
       final saved = await _read(tienda, 'variants/$slug');
-      if (saved != null) return StorefrontResult(
-        (saved.value as List).map((v) => StoreVariant.fromJson(Map<String,dynamic>.from(v as Map))).toList(),
-        fromCache: true, savedAt: saved.savedAt);
+      if (saved != null) {
+        return StorefrontResult(
+          (saved.value as List).map((v) => StoreVariant.fromJson(Map<String,dynamic>.from(v as Map))).toList(),
+          fromCache: true, savedAt: saved.savedAt);
+      }
       await warmVariants(tienda);
       final known = _localVariants[slug];
       if (known != null) return StorefrontResult(known, fromCache: true, partial: true);

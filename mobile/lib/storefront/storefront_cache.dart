@@ -6,7 +6,7 @@ import 'package:sqflite/sqflite.dart';
 /// Caché exclusivamente público y aislado por tienda. Nunca guarda JWT, deseos,
 /// datos privados del cliente, ni cambia la BD SQLite de CU10.
 class StorefrontCache {
-  StorefrontCache({String name = 'vestinova_catalogo_publico_v1.sqlite'}) : _name = name;
+  StorefrontCache({this._name = 'vestinova_catalogo_publico_v1.sqlite'});
   final String _name;
   Future<Database>? _pending;
   Future<Database> get _db => _pending ??= _open();
