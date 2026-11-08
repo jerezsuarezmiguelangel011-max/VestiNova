@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
@@ -75,6 +76,7 @@ class _StorefrontShellState extends State<StorefrontShell>
   }
 
   Future<void> _syncPending() async {
+    if (!Platform.isAndroid) return;
     final account = widget.controller.account;
     final token = widget.controller.customerToken;
     if (!widget.controller.isCustomer || token == null || account == null) {
