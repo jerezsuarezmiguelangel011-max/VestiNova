@@ -106,6 +106,7 @@ def test_cu23_wishlist_es_privada_e_idempotente(client, first_group):
     assert item["variante_id"] == s["similar"]
     assert item["precio_vigente"] == "105.00"
     assert item["publicada"] is True
+    assert item["disponibilidad"] == "DISPONIBLE_REFERENCIAL"
     assert client.delete(route + "/" + str(s["similar"]),
                          headers=s["customer_headers"]).status_code == 204
     assert client.get(route, headers=s["customer_headers"]).json()["items"] == []
@@ -128,6 +129,8 @@ def test_cu20_informa_corte_actual_y_respeta_roles(client, first_group):
         "desde": "2026-11-30", "hasta": "2026-11-01",
     }, headers=s["admin_headers"]).status_code == 422
     assert client.get("/api/admin/reportes-comerciales").status_code == 401
+    assert client.get("/api/admin/reportes-comerciales",
+                      headers=s["customer_headers"]).status_code in (401, 403)
 
 
 def test_cu20_cuenta_solo_ventas_centrales_confirmadas(
