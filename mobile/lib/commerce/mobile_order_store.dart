@@ -91,6 +91,27 @@ class MobileOrderStore {
     );
   }
 
+  /// Emite un único aviso terminal por UUID, incluso si dos tareas intentan
+  /// sincronizar el mismo pedido tras recuperar Internet.
+  /// Migración aditiva: conserva íntegro el SQLite v1 del teléfono.
+  Future<bool> claimFinalNotice(String uuid, String state) async {
+    final connection = await db;
+    await connection.execute('''
+      CREATE TABLE IF NOT EXISTS avisos_finales_cu09 (
+        id TEXT PRIMARY KEY,
+        estado TEXT NOT NULL,
+        creado_en TEXT NOT NULL
+      )
+    ''');
+    return connection.transaction((txn) async {
+      final count = await txn.rawInsert('''
+        INSERT OR IGNORE INTO avisos_finales_cu09(id, estado, creado_en)
+        VALUES (?, ?, ?)
+      ''', [uuid, state, DateTime.now().toUtc().toIso8601String()]);
+      return count == 1;
+    });
+  }
+
   Future<void> close() async {
     final pending = _opening;
     _opening = null;
