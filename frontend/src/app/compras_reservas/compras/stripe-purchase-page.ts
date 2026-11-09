@@ -1,5 +1,4 @@
 import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -16,7 +15,7 @@ interface BranchChoice { id: number; nombre: string; }
 
 @Component({
   selector: 'vn-stripe-purchase-page',
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink],
   templateUrl: './stripe-purchase-page.html',
   styleUrl: './stripe-purchase-page.css',
 })

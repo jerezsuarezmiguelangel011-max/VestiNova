@@ -69,7 +69,10 @@ def main() -> int:
             env['MVP_MOBILE_HTTP_CHECK'] = '1'
             env['MVP_FLUTTER_BIN'] = str(args.flutter_bin.resolve())
         print('Pruebas sobre PostgreSQL temporal. No se usa .env ni la base operativa.', flush=True)
-        result = run([sys.executable, '-m', 'pytest', 'tests_postgres', '-q', '--tb=short'],
+        # Cada ejecución tiene también temporales pytest propios dentro del
+        # workspace: no reutilizar carpetas de Temp creadas por otra identidad Windows.
+        result = run([sys.executable, '-m', 'pytest', 'tests_postgres', '-q', '--tb=short',
+                      '--basetemp', str(work / 'pytest-tmp')],
                      env=env, capture_output=True, text=True, encoding='utf-8', timeout=300 if args.mobile_http else 180)
         (work / 'tests.log').write_text(result.stdout + result.stderr, encoding='utf-8')
         print(result.stdout, end='', flush=True)

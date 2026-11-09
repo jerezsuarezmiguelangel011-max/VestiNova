@@ -1,0 +1,42 @@
+<section aria-labelledby="ai-title">
+  <header class="ai-heading"><p class="vn-eyebrow">CU21 · Información de tu empresa</p><h1 id="ai-title" class="vn-title">Reportes con IA</h1><p>Pregunta con tus palabras. Revisa los filtros y obtén resultados de registros autorizados.</p></header>
+  @if (error(); as text) { <p class="vn-alert vn-alert--error" role="alert">{{ text }}</p><button class="vn-button" type="button" (click)="load()" [disabled]="loading()">Actualizar módulo</button> }
+  @if (message(); as text) { <p class="vn-alert" role="status">{{ text }}</p> }
+  @if (options(); as data) {
+    @if (!data.profesional_vigente) { <p class="vn-alert" role="status">Esta función requiere una suscripción Profesional vigente. Consulta «Mi plan».</p> }
+    @if (!data.ia_configurada) { <p class="vn-alert" role="status">El servicio de IA está pendiente de configuración. La administración debe completar la conexión al proveedor.</p> }
+    <form class="vn-card ai-form" [formGroup]="form" (ngSubmit)="generate()">
+      <label class="vn-field ai-full" for="ai-prompt">¿Qué necesitas consultar?<textarea id="ai-prompt" rows="3" maxlength="800" formControlName="consulta" aria-describedby="ai-help"></textarea><small id="ai-help">La IA interpreta tu consulta; el servidor calcula los resultados. No incluyas datos personales. El dictado se revisa antes de enviarlo.</small></label>
+      <div class="ai-actions ai-full">
+        <button id="ai-dictation" type="button" class="vn-button ai-microphone" [class.ai-microphone--active]="audioActive() && !finishingVoice()" (click)="dictation()" [disabled]="loading() || finishingVoice()" [attr.aria-pressed]="audioActive() && !finishingVoice()" aria-controls="ai-prompt" aria-describedby="ai-voice-help">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4M8 22h8"/></svg>
+          {{ finishingVoice() ? 'Finalizando dictado…' : listening() ? 'Detener dictado' : 'Dictar consulta' }}
+        </button>
+        @for (example of examples; track example) { <button type="button" class="ai-example" (click)="chooseExample(example)" [disabled]="loading() || listening()">{{ example }}</button> }
+      </div>
+      <p id="ai-voice-help" class="ai-full ai-note">Puedes pedir un reporte con tus propias palabras y especificar fechas, sucursal, categoría o prenda. Los ejemplos son sugerencias; revisa el texto reconocido antes de generar.</p>
+      @if (listening()) { <p class="ai-full ai-voice-status" role="status">{{ finishingVoice() ? 'Finalizando el reconocimiento. Espera el texto antes de generar.' : !audioActive() ? 'Esperando que el navegador active el micrófono. Autoriza el permiso si aparece.' : soundDetected() ? 'Se detecta sonido. Escuchando tu consulta…' : 'Micrófono activado por el navegador. Habla y pulsa «Detener dictado» al terminar.' }}</p> }
+      <label class="vn-field" for="ai-from">Desde<input id="ai-from" type="date" formControlName="desde"></label><label class="vn-field" for="ai-to">Hasta<input id="ai-to" type="date" formControlName="hasta"></label>
+      <label class="vn-field" for="ai-branch">Sucursal<select id="ai-branch" formControlName="sucursal_id"><option value="">Todas las autorizadas</option>@for (item of data.sucursales; track item.id) { <option [value]="item.id">{{ item.nombre }}</option> }</select></label>
+      <label class="vn-field" for="ai-category">Categoría<select id="ai-category" formControlName="categoria_id"><option value="">Todas</option>@for (item of data.categorias; track item.id) { <option [value]="item.id">{{ item.nombre }}</option> }</select></label>
+      <label class="vn-field ai-full" for="ai-product">Prenda<select id="ai-product" formControlName="producto_id"><option value="">Todas</option>@for (item of data.productos; track item.id) { <option [value]="item.id">{{ item.nombre }}</option> }</select></label>
+      <p class="ai-full">Para inventario usa fechas vacías: representa existencias actuales.</p><button class="vn-button vn-button--primary" type="submit" [disabled]="loading() || listening() || !data.profesional_vigente || !data.ia_configurada">{{ loading() ? 'Interpretando y consultando…' : 'Generar reporte' }}</button>
+    </form>
+  }
+  @if (loading()) { <p role="status" class="ai-loading"><span class="vn-spinner" aria-hidden="true"></span> Consultando información autorizada…</p> }
+  @if (report(); as result) {
+    <section class="vn-card ai-result" aria-labelledby="ai-result-title"><p class="vn-eyebrow">{{ result.empresa.nombre }} · Registros centrales</p><h2 id="ai-result-title">{{ result.titulo }}</h2><p>Consulta: {{ result.generado_en | date:'dd/MM/yyyy HH:mm' }}. Importes expresados en BOB.</p>
+      @if (result.origen_datos?.demostracion) { <p class="vn-alert" role="status"><strong>Historial de demostración.</strong> Esta consulta incluye {{ result.origen_datos.compras_demo }} compras simuladas; no representan ventas reales.</p> }
+      <dl class="ai-filters">@for (item of result.filtros | keyvalue; track item.key) { @if (item.value) { <div><dt>{{ item.key }}</dt><dd>{{ item.value }}</dd></div> } }</dl>
+      @if (result.sin_datos) { <p class="vn-alert" role="status">No se encontraron registros para estos criterios. No se han generado cifras ficticias.</p> }
+      <dl class="ai-metrics">@for (item of result.totales | keyvalue; track item.key) { <div><dt>{{ item.key.replaceAll('_', ' ') }}</dt><dd>{{ item.value }}</dd></div> }</dl>
+      @if (!result.sin_datos) {
+        <figure class="ai-bars" aria-label="Comparación de unidades; primeras veinte filas"><figcaption>Unidades por resultado · Primeras 20 filas</figcaption>@for (row of result.filas.slice(0,20); track $index) { <div class="ai-bar-row"><span>{{ label(row) }}</span><div><span class="ai-bar" [style.width.%]="width(row)"></span></div><strong>{{ metric(row) | number:'1.0-2' }}</strong></div> }</figure>
+        <div class="ai-table"><table><thead><tr>@for (column of result.columnas; track column) { <th scope="col">{{ column.replaceAll('_', ' ') }}</th> }</tr></thead><tbody>@for (row of result.filas; track $index) { <tr>@for (column of result.columnas; track column) { <td>{{ row[column] }}</td> }</tr> }</tbody></table></div>
+      }
+      @if (result.truncado) { <p class="vn-alert">Se muestran y exportan 200 de {{ result.total_filas }} filas. Afina los filtros. Los totales consideran todas las filas consultadas.</p> }
+      @for (note of result.notas; track note) { <p class="ai-note">{{ note }}</p> }
+      <p>Al exportar se vuelven a validar tus accesos y consultar los registros actuales.</p><div class="ai-actions">@for (format of ['html','pdf','xlsx']; track format) { <button class="vn-button" type="button" (click)="export(format)" [disabled]="exporting() || loading()">Exportar {{ format.toUpperCase() }}</button> }</div>
+    </section>
+  }
+</section>

@@ -5,6 +5,7 @@ from alembic import context
 from app.config import Settings, validate_local_database_url
 from app.db import Base, build_engine
 from app import models  # noqa: F401, registra todos los modelos del MVP.
+from app.vestidor_virtual import models as tryon_models  # noqa: F401
 from app.compras_reservas.compras import persistence  # noqa: F401, registra únicamente las tablas propias de CU10.
 from app.compras_reservas.compras import stripe_checkout  # noqa: F401, registra intentos Stripe CU09.
 from app.compras_reservas.reservas import online  # noqa: F401, registra reservas CU10.

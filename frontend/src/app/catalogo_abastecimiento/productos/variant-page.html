@@ -35,11 +35,12 @@
         } @else {
           <div class="products-table-region" role="region" tabindex="0" aria-label="Variantes de la prenda; desplaza horizontalmente si es necesario">
             <table class="products-table"><caption class="products-sr-only">Talla, color y estado de las variantes de {{ parent.nombre }}</caption><thead><tr><th scope="col">Talla</th><th scope="col">Color</th><th scope="col">Estado</th>@if (companies.canManage()) { <th scope="col">Acciones</th> }</tr></thead>
-              <tbody>@for (variant of variants(); track variant.id) { <tr [class.variant-selected]="editing()?.id === variant.id"><td>{{ variant.talla }}</td><td>{{ variant.color }}</td><td><span class="products-badge" [class.products-badge--muted]="!variant.activo">{{ variant.activo ? 'Activa' : 'Inactiva' }}</span></td>@if (companies.canManage()) { <td><button type="button" class="vn-button variant-edit" (click)="edit(variant)" [disabled]="saving()" [attr.aria-label]="'Editar variante ' + variant.talla + ' ' + variant.color">Editar variante</button></td> }</tr> }</tbody>
+              <tbody>@for (variant of variants(); track variant.id) { <tr [class.variant-selected]="editing()?.id === variant.id"><td>{{ variant.talla }}</td><td>{{ variant.color }}</td><td><span class="products-badge" [class.products-badge--muted]="!variant.activo">{{ variant.activo ? 'Activa' : 'Inactiva' }}</span></td>@if (companies.canManage()) { <td><button type="button" class="vn-button variant-edit" (click)="edit(variant)" [disabled]="saving()" [attr.aria-label]="'Editar variante ' + variant.talla + ' ' + variant.color">Editar variante</button> <button type="button" class="vn-button" (click)="openTryon(variant)" [disabled]="saving() || (tryonEditor?.busy() ?? false)" [attr.aria-label]="'Configurar vestidor ' + variant.talla + ' ' + variant.color">Vestidor</button></td> }</tr> }</tbody>
             </table>
           </div>
         }
       </div>
     </div>
+    @if (companies.canManage() && tryonVariant(); as selected) { <vn-tryon-config-form [productId]="parent.id" [variant]="selected" /> }
   }
 </section>

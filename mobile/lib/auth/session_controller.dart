@@ -24,6 +24,10 @@ class SessionController extends ChangeNotifier {
   Future<void> _storageQueue = Future.value();
 
   bool get signedIn => account != null;
+  String? get staffAccessToken =>
+      account is StaffAccount && _session?.customer == false
+      ? _session?.token
+      : null;
   bool get isCustomer => account is CustomerAccount;
   /// Token en memoria: nunca se copia a SQLite ni a la cola offline.
   String? get customerToken => isCustomer && _session?.customer == true ? _session?.token : null;

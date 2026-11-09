@@ -172,8 +172,8 @@ import { ReservationAttentionApi, type AttentionFilter, type AttentionResult } f
                 }
                 @if (reservation.eventos?.length) {
                   <details class="attention-events">
-                    <summary>Ver historial de eventos ({{ reservation.eventos?.length }})</summary>
-                    @for (event of reservation.eventos ?? []; track $index) {
+                    <summary>Ver historial de eventos ({{ reservation.eventos.length }})</summary>
+                    @for (event of reservation.eventos; track $index) {
                       <p>{{ event.en | date:'medium' }} · {{ statusLabel(event.estado) }} · {{ event.actor }}
                         @if (event.motivo) { · Motivo: {{ event.motivo }} }
                         @if (event.comprobacion) { · Verificación: {{ event.comprobacion }} }

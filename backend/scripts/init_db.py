@@ -5,11 +5,14 @@ import psycopg
 from psycopg import sql
 from sqlalchemy.engine import make_url
 
-from app.config import BACKEND_ROOT, Settings
+from app.config import BACKEND_ROOT, Settings, validate_local_database_url
 
 
 def main() -> None:
-    settings = Settings.from_env()  # Rechaza otras bases o servidores remotos.
+    settings = Settings.from_env()
+    # La API admite producción, pero este comando crea una base local con nombre
+    # fijo. Nunca usarlo como migrador de Supabase/Render ni sobre la base heredada.
+    validate_local_database_url(settings.database_url)
     url = make_url(settings.database_url)
     with psycopg.connect(host=url.host, port=url.port or 5432, user=url.username, password=url.password, dbname="postgres", autocommit=True) as connection:
         exists = connection.execute("SELECT 1 FROM pg_database WHERE datname = %s", ("vestinova_mvp",)).fetchone()

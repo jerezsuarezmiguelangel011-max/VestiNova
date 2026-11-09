@@ -75,6 +75,8 @@ export const routes: Routes = [
       { path: 'roles', canActivate: [staffPermissionGuard], canDeactivate: [staffLeaveGuard], data: { permission: 'roles.consultar' }, loadComponent: () => import('./autenticacion_usuarios/personal/staff-roles-page').then(m => m.StaffRolesPage) },
       { path: 'auditoria', canActivate: [staffPermissionGuard], data: { permission: 'auditoria.consultar' }, loadComponent: () => import('./organizacion_empresarial/auditoria/audit-page').then(m => m.AuditPage) },
       { path: 'reservas', canActivate: [companyGuard], loadComponent: () => import('./compras_reservas/reservas/reservation-staff-page').then(m => m.ReservationStaffPage) },
+      { path: 'reportes-ia', canActivate: [staffPermissionGuard], data: { permission: 'reportes.ia.consultar' }, loadComponent: () => import('./analitica_ia/reports-page').then(m => m.ReportsPage) },
+      { path: 'dashboard-predictivo', canActivate: [staffPermissionGuard], data: { permission: 'analitica.consultar' }, loadComponent: () => import('./analitica_ia/dashboard-page').then(m => m.DashboardPage) },
       { path: 'postventa', canActivate: [staffPermissionGuard], data: { permission: 'postventa.consultar' }, loadComponent: () => import('./compras_reservas/postventa/postventa-page').then(m => m.PostventaPage) },
       { path: 'entregas-compras', canActivate: [companyGuard], loadComponent: () => import('./compras_reservas/compras/purchase-deliveries-page').then(m => m.PurchaseDeliveriesPage) },
       { path: 'promociones', canActivate: [staffPermissionGuard], data: { permission: 'promociones.consultar' }, loadComponent: () => import('./catalogo_abastecimiento/promociones/promotions-page').then(m => m.PromotionsPage) },

@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ViewChild, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -9,6 +9,7 @@ import { Product } from './product.model';
 import { ProductService } from './product.service';
 import { Variant, VariantInput } from './variant.model';
 import { VariantService } from './variant.service';
+import { TryOnConfigForm } from './tryon-config-form';
 
 export function normalizeVariantText(value: string): string { return value.trim().toUpperCase(); }
 
@@ -38,11 +39,13 @@ export function variantError(error: unknown): string {
 
 @Component({
   selector: 'vn-variant-page',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, TryOnConfigForm],
   templateUrl: './variant-page.html',
   styleUrls: ['./products.css', './variant-page.css'],
 })
 export class VariantPage {
+  @ViewChild(TryOnConfigForm) tryonEditor?: TryOnConfigForm;
+  readonly tryonVariant = signal<Variant | null>(null);
   readonly companies = inject(CompanyService);
   private readonly products = inject(ProductService);
   private readonly api = inject(VariantService);
@@ -84,11 +87,13 @@ export class VariantPage {
     this.companies.changes$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(revision => {
       if (revision === this.initialRevision) return;
       this.contextChanged.set(true); this.product.set(null); this.variants.set([]);
+      this.tryonVariant.set(null);
       this.editing.set(null); this.notice.set(null); this.error.set(null);
       this.form.reset(); this.form.disable();
     });
     this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
       this.productRevision++;
+      this.tryonVariant.set(null);
       this.productChanged.next();
       const rawId = params.get('id') ?? '';
       const id = Number(rawId);
@@ -104,8 +109,10 @@ export class VariantPage {
 
   load(): void {
     if (this.productId === null || this.contextChanged() || this.saving()) return;
+    if (this.tryonEditor && !this.tryonEditor.canLeave()) return;
     if (this.form.dirty && !window.confirm('Tienes cambios sin guardar. ¿Quieres descartarlos y volver a consultar?')) return;
     this.notice.set(null); this.error.set(null); this.resetEditor();
+    this.tryonVariant.set(null);
     this.requests.next(this.productId);
   }
 
@@ -133,7 +140,12 @@ export class VariantPage {
   canLeave(): boolean {
     if (this.contextChanged() || !this.companies.active()) return true;
     if (this.saving()) return false;
+    if (this.tryonEditor && !this.tryonEditor.canLeave()) return false;
     return !this.form.dirty || window.confirm('Tienes cambios sin guardar. ¿Quieres salir y descartarlos?');
+  }
+
+  openTryon(variant: Variant): void {
+    if (this.companies.canManage() && !this.contextChanged() && this.canLeave()) this.tryonVariant.set(variant);
   }
 
   fieldError(field: 'talla' | 'color'): string | null {
