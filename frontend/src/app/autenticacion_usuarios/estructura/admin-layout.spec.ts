@@ -111,12 +111,18 @@ describe('Menú administrativo por rol efectivo de empresa', () => {
   });
 
   it('no muestra CU21 ni CU22 a un administrador sin los permisos correspondientes', async () => {
-    const { fixture, active, links } = await setup();
+    const { fixture, active, links, root } = await setup();
     active.set({ ...active(), rol: 'ADMINISTRADOR', permisos: ['reportes.consultar'] });
     fixture.detectChanges();
     const urls = links().map(item => item.href);
     expect(urls).toContain('/admin/reportes-comerciales');
     expect(urls).not.toContain('/admin/reportes-ia');
     expect(urls).not.toContain('/admin/dashboard-predictivo');
+    const disabled = [...root.querySelectorAll<HTMLElement>('.rail__link--disabled')];
+    expect(disabled.map(item => item.textContent?.trim())).toEqual([
+      'Reportes con IA · CU21 (sin permiso)',
+      'Dashboard predictivo · CU22 (sin permiso)',
+    ]);
+    expect(disabled.every(item => item.getAttribute('aria-disabled') === 'true')).toBe(true);
   });
 });
