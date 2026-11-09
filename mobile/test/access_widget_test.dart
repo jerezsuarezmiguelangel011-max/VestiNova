@@ -75,9 +75,15 @@ void main() {
           if (request.url.path == '/api/tiendas/tienda-a') {
             return jsonResponse({'slug': 'tienda-a', 'nombre': 'Tienda A'});
           }
-          if (request.url.path == '/api/catalogo/categorias') return jsonResponse([]);
+          if (request.url.path == '/api/catalogo/categorias')
+            return jsonResponse([]);
           if (request.url.path == '/api/catalogo/productos') {
-            return jsonResponse({'items': [], 'total': 0, 'limit': 20, 'offset': 0});
+            return jsonResponse({
+              'items': [],
+              'total': 0,
+              'limit': 20,
+              'offset': 0,
+            });
           }
           expect(request.url.path, '/api/tiendas/tienda-a/cuenta/registro');
           expect(jsonDecode(request.body), {
@@ -111,7 +117,10 @@ void main() {
       await tapVisible(tester, find.text('Crear mi cuenta'));
       expect(find.text(passwordPolicyMessage), findsNWidgets(2));
       expect(find.text('Las contraseñas no coinciden.'), findsOneWidget);
-      expect(requests.where((r) => r.url.path.endsWith('/cuenta/registro')), isEmpty);
+      expect(
+        requests.where((r) => r.url.path.endsWith('/cuenta/registro')),
+        isEmpty,
+      );
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Contraseña'),
         'Abcdef1!',
@@ -150,9 +159,15 @@ void main() {
               companyData(2),
             ]);
           }
-          if (request.url.path == '/api/catalogo/categorias') return jsonResponse([]);
+          if (request.url.path == '/api/catalogo/categorias')
+            return jsonResponse([]);
           if (request.url.path == '/api/catalogo/productos') {
-            return jsonResponse({'items': [], 'total': 0, 'limit': 20, 'offset': 0});
+            return jsonResponse({
+              'items': [],
+              'total': 0,
+              'limit': 20,
+              'offset': 0,
+            });
           }
           expect(request.headers['X-Empresa-Id'], '2');
           return jsonResponse(contextData(2));
@@ -212,6 +227,67 @@ void main() {
       expect(find.text('Tu cuenta'), findsNothing);
       expect(find.text('Sesión cerrada.'), findsOneWidget);
       expect(find.text('Tu tienda. Tu cuenta.'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'desde una tienda se abre el login administrativo sin salir del catalogo',
+    (tester) async {
+      final session = await mount(
+        tester,
+        MockClient((request) async {
+          if (request.url.path == '/api/tiendas/tienda-a') {
+            return jsonResponse({'slug': 'tienda-a', 'nombre': 'Tienda A'});
+          }
+          if (request.url.path == '/api/catalogo/sucursales') {
+            expect(request.url.queryParameters['tienda'], 'tienda-a');
+            return jsonResponse([
+              {'id': 4, 'nombre': 'Sucursal Centro'},
+            ]);
+          }
+          if (request.url.path == '/api/catalogo/categorias') {
+            return jsonResponse([]);
+          }
+          if (request.url.path == '/api/catalogo/productos') {
+            return jsonResponse({
+              'items': [],
+              'total': 0,
+              'limit': 20,
+              'offset': 0,
+            });
+          }
+          if (request.url.path == '/api/catalogo/variantes') {
+            return jsonResponse({
+              'items': [],
+              'total': 0,
+              'limit': 100,
+              'offset': 0,
+            });
+          }
+          throw StateError('Solicitud inesperada: ${request.url}');
+        }),
+      );
+      await tester.enterText(find.byType(TextFormField).first, 'tienda-a');
+      await tapVisible(tester, find.text('Abrir mi tienda'));
+      expect(session.customerStore?.slug, 'tienda-a');
+      expect(find.text('Consulta por sucursal'), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: find.text('Consulta por sucursal'),
+          matching: find.byType(ListView),
+        ),
+        findsOneWidget,
+      );
+      await tester.drag(find.byType(ListView).first, const Offset(0, -700));
+      await tester.pumpAndSettle();
+      expect(find.text('Consulta por sucursal').hitTestable(), findsNothing);
+      await tapVisible(tester, find.text('Cuenta'));
+      expect(find.text('Acceso administrativo'), findsOneWidget);
+      await tapVisible(tester, find.text('Acceso administrativo'));
+      expect(find.text('VESTINOVA · PERSONAL'), findsOneWidget);
+      expect(find.text('Iniciar sesión'), findsOneWidget);
+      expect(session.signedIn, isFalse);
+      expect(tester.takeException(), isNull);
     },
   );
 }

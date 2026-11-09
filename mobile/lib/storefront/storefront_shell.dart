@@ -47,6 +47,7 @@ class _StorefrontShellState extends State<StorefrontShell>
   late final StorefrontRepository _repository;
   final List<StoreProduct> _compare = [];
   int _tab = 0;
+  bool _showStaffLogin = false;
   List<StoreBranch> _branches = const [];
   int _selectedBranchId = 0;
   bool _branchesLoading = true;
@@ -134,7 +135,7 @@ class _StorefrontShellState extends State<StorefrontShell>
   }
 
   Widget _branchSelector() => Container(
-    margin: const EdgeInsets.fromLTRB(15, 10, 15, 4),
+    margin: const EdgeInsets.only(bottom: 2),
     padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
     decoration: BoxDecoration(
       color: const Color(0xFFF0F4EC),
@@ -355,11 +356,40 @@ class _StorefrontShellState extends State<StorefrontShell>
     );
   }
 
+  void _openStaffLogin() {
+    if (widget.controller.busy || widget.controller.signedIn) return;
+    setState(() {
+      _showStaffLogin = true;
+      _tab = 4;
+    });
+  }
+
   Widget _account() => SingleChildScrollView(
     padding: const EdgeInsets.all(16),
     child: widget.controller.signedIn
         ? AccountPage(controller: widget.controller)
-        : AccessPage(controller: widget.controller),
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!_showStaffLogin) ...[
+                OutlinedButton.icon(
+                  key: const ValueKey('storefront-administrative-access'),
+                  onPressed: widget.controller.busy ? null : _openStaffLogin,
+                  icon: const Icon(Icons.admin_panel_settings_outlined),
+                  label: const Text('Acceso administrativo'),
+                ),
+                const SizedBox(height: 12),
+              ],
+              AccessPage(
+                key: ValueKey(
+                  'access-${_showStaffLogin ? 'staff' : 'customer'}',
+                ),
+                controller: widget.controller,
+                startWithStaff: _showStaffLogin,
+                onLeaveStaff: () => setState(() => _showStaffLogin = false),
+              ),
+            ],
+          ),
   );
 
   @override
@@ -382,6 +412,7 @@ class _StorefrontShellState extends State<StorefrontShell>
           onCompare: _addCompare,
           isSelected: _selected,
           home: _tab == 0,
+          scrollHeader: _branchSelector(),
         );
         break;
       case 2:
@@ -438,17 +469,26 @@ class _StorefrontShellState extends State<StorefrontShell>
               if (action == 'reviews') _openReviews();
               if (action == 'alerts') _openAlertsList();
               if (action == 'reservations') setState(() => _tab = 4);
+              if (action == 'staff') _openStaffLogin();
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(
+            itemBuilder: (_) => [
+              const PopupMenuItem(
                 value: 'reviews',
                 child: Text('Mis compras y valoraciones · CU25'),
               ),
-              PopupMenuItem(value: 'alerts', child: Text('Mis avisos · CU26')),
-              PopupMenuItem(
+              const PopupMenuItem(
+                value: 'alerts',
+                child: Text('Mis avisos · CU26'),
+              ),
+              const PopupMenuItem(
                 value: 'reservations',
                 child: Text('Reservas offline · CU10'),
               ),
+              if (!widget.controller.signedIn)
+                const PopupMenuItem(
+                  value: 'staff',
+                  child: Text('Acceso administrativo'),
+                ),
             ],
           ),
           if (!widget.controller.signedIn)
@@ -479,7 +519,6 @@ class _StorefrontShellState extends State<StorefrontShell>
                   child: Text(widget.controller.notice!),
                 ),
               ),
-            if (_tab == 0 || _tab == 1) _branchSelector(),
             Expanded(child: body),
           ],
         ),

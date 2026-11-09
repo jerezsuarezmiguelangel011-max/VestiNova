@@ -6,14 +6,30 @@ import '../auth/session_controller.dart';
 import '../config/api_config.dart';
 
 class AccessPage extends StatefulWidget {
-  const AccessPage({super.key, required this.controller});
+  const AccessPage({
+    super.key,
+    required this.controller,
+    this.startWithStaff = false,
+    this.onLeaveStaff,
+  });
   final SessionController controller;
+
+  /// Permite abrir directamente el login del personal desde una tienda pública.
+  final bool startWithStaff;
+  final VoidCallback? onLeaveStaff;
   @override
   State<AccessPage> createState() => _AccessPageState();
 }
 
 class _AccessPageState extends State<AccessPage> {
   bool _staff = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _staff = widget.startWithStaff;
+  }
+
   bool _shopsLoading = false;
   bool _shopsLoaded = false;
   String? _shopsError;
@@ -42,7 +58,12 @@ class _AccessPageState extends State<AccessPage> {
       return CredentialsForm(
         key: const ValueKey('staff'),
         controller: session,
-        onBack: session.busy ? null : () => setState(() => _staff = false),
+        onBack: session.busy
+            ? null
+            : () {
+                setState(() => _staff = false);
+                widget.onLeaveStaff?.call();
+              },
       );
     }
     return Column(
@@ -462,7 +483,7 @@ class _CredentialsFormState extends State<CredentialsForm> {
                     ? (_register
                           ? 'Crea tu cuenta para disfrutar esta colección.'
                           : 'Inicia sesión para continuar con tus compras y deseos.')
-                    : 'Ingresa con tu cuenta de administrador, encargado o cajero. '
+                    : 'Ingresa como superadministrador SaaS, administrador, encargado o cajero. '
                           'Tus permisos se validarán en el servidor.',
                 style: const TextStyle(color: Color(0xFFE2ECE4), height: 1.5),
               ),

@@ -13,6 +13,7 @@ class StorefrontCatalogPage extends StatefulWidget {
     required this.onCompare,
     required this.isSelected,
     this.home = false,
+    this.scrollHeader,
   });
   final String tienda;
   final StorefrontRepository repository;
@@ -20,6 +21,9 @@ class StorefrontCatalogPage extends StatefulWidget {
   final ValueChanged<StoreProduct> onCompare;
   final bool Function(int productId) isSelected;
   final bool home;
+
+  /// Encabezado opcional que pertenece al scroll, nunca al área fija.
+  final Widget? scrollHeader;
   @override
   State<StorefrontCatalogPage> createState() => _StorefrontCatalogPageState();
 }
@@ -191,6 +195,10 @@ class _StorefrontCatalogPageState extends State<StorefrontCatalogPage> {
           ),
           const SizedBox(height: 18),
         ],
+        if (widget.scrollHeader case final header?) ...[
+          header,
+          const SizedBox(height: 14),
+        ],
         Text(
           widget.home ? 'Explorar prendas' : 'Catálogo de prendas',
           style: Theme.of(context).textTheme.headlineSmall,
@@ -264,9 +272,18 @@ class _StorefrontCatalogPageState extends State<StorefrontCatalogPage> {
                 border: OutlineInputBorder(),
               ),
               items: const [
-                DropdownMenuItem(value: 'TODAS', child: Text('Todas las prendas')),
-                DropdownMenuItem(value: 'DISPONIBLE', child: Text('Solo disponibles')),
-                DropdownMenuItem(value: 'AGOTADO', child: Text('Solo agotadas')),
+                DropdownMenuItem(
+                  value: 'TODAS',
+                  child: Text('Todas las prendas'),
+                ),
+                DropdownMenuItem(
+                  value: 'DISPONIBLE',
+                  child: Text('Solo disponibles'),
+                ),
+                DropdownMenuItem(
+                  value: 'AGOTADO',
+                  child: Text('Solo agotadas'),
+                ),
               ],
               onChanged: (value) {
                 if (value != null) {
