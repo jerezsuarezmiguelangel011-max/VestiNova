@@ -1,8 +1,9 @@
-﻿name: VestiNova - Integracion Android
+﻿name: VestiNova - Android conectado a Render
 
 on:
   push:
     branches:
+      - miguel
       - "integracion/**"
   workflow_dispatch:
 
@@ -35,11 +36,11 @@ jobs:
       - name: Compilar APK integrado
         env:
           VESTINOVA_CI_TEST_APK: "1"
-        run: flutter build apk --debug --no-pub --dart-define=API_BASE_URL=http://192.168.0.9:8001/api
+        run: flutter build apk --debug --no-pub --dart-define=API_BASE_URL=https://vestinova-api.onrender.com/api
 
       - uses: actions/upload-artifact@v4
         with:
-          name: VestiNova-Integrado-Miguel-Salet
+          name: VestiNova-Android-Render-Debug
           path: mobile/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 7

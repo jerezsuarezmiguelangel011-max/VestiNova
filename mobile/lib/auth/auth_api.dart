@@ -26,6 +26,17 @@ class AuthApi {
   Future<Store> store(String slug) async =>
       Store.fromJson(await _request('GET', _store(slug)));
 
+  /// Directorio público, sin token ni datos administrativos.
+  Future<List<Store>> publicStores() async {
+    final data = await _send('GET', '/catalogo/tiendas');
+    if (data is! List) {
+      throw const AccessException('Listado de tiendas no válido.');
+    }
+    return data
+        .map((item) => Store.fromJson(Map<String, dynamic>.from(item as Map)))
+        .toList(growable: false);
+  }
+
   Future<AccessResult<StaffAccount>> staffLogin(
     String email,
     String password,

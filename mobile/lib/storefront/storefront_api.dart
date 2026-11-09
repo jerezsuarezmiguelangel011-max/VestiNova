@@ -122,6 +122,18 @@ class StorefrontApi {
     return StorePage.fromJson(_obj(data));
   }
 
+  /// Mismo endpoint público que usa la web; nunca solicita permisos.
+  Future<List<StoreBranch>> publicBranches(String tienda) async =>
+      _array(
+            await _call(
+              'GET',
+              '/catalogo/sucursales',
+              query: {'tienda': tienda},
+            ),
+          )
+          .map((e) => StoreBranch.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList(growable: false);
+
   Future<List<StoreCategory>> categories(String tienda) async =>
       _array(
             await _call(

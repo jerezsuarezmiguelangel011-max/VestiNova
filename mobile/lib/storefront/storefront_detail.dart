@@ -19,12 +19,14 @@ class StorefrontDetailPage extends StatefulWidget {
     required this.onLoginRequired,
     required this.onPurchase,
     required this.onAlerts,
+    this.selectedBranchId,
   });
   final String tienda;
   final String slug;
   final StorefrontRepository repository;
   final StorefrontApi api;
   final SessionController controller;
+  final int? selectedBranchId;
   final ValueChanged<StoreProduct> onCompare;
   final ValueChanged<String> onRecommendations;
   final VoidCallback onLoginRequired;
@@ -239,7 +241,9 @@ class _StorefrontDetailPageState extends State<StorefrontDetailPage> {
                     ),
                 const SizedBox(height: 12),
                 Text(
-                  'Disponibilidad conocida por sucursal',
+                  widget.selectedBranchId == null
+                      ? 'Disponibilidad conocida por sucursal'
+                      : 'Disponibilidad en la sucursal elegida',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 if (_stock?.fromCache == true)
@@ -250,7 +254,10 @@ class _StorefrontDetailPageState extends State<StorefrontDetailPage> {
                   ...known.value
                       .where(
                         (stock) =>
-                            _variantId == null || stock.variantId == _variantId,
+                            (_variantId == null ||
+                                stock.variantId == _variantId) &&
+                            (widget.selectedBranchId == null ||
+                                stock.branchId == widget.selectedBranchId),
                       )
                       .map(
                         (stock) => ListTile(

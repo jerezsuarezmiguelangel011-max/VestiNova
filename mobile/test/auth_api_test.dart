@@ -42,6 +42,23 @@ void main() {
     expect(ApiConfig.storeSlug('TIENDA A'), isNull);
   });
 
+  test('directorio público de tiendas nunca solicita token', () async {
+    final api = AuthApi(
+      ApiConfig('https://api.example.test/api'),
+      client: MockClient((request) async {
+        expect(request.url.path, '/api/catalogo/tiendas');
+        expect(request.headers.containsKey('Authorization'), false);
+        return jsonResponse([
+          {'slug': 'tienda-a', 'nombre': 'Tienda A'},
+        ]);
+      }),
+    );
+    addTearDown(api.close);
+    final shops = await api.publicStores();
+    expect(shops.single.slug, 'tienda-a');
+    expect(shops.single.name, 'Tienda A');
+  });
+
   test('registro normaliza correo/nombre sin recortar contraseña ni enviar rol o contexto administrativo', () async {
     final api = AuthApi(
       ApiConfig('https://api.example.test/api'),

@@ -47,6 +47,10 @@ class _StorefrontShellState extends State<StorefrontShell>
   late final StorefrontRepository _repository;
   final List<StoreProduct> _compare = [];
   int _tab = 0;
+  List<StoreBranch> _branches = const [];
+  int _selectedBranchId = 0;
+  bool _branchesLoading = true;
+  bool _branchesError = false;
   StreamSubscription<List<ConnectivityResult>>? _networkSubscription;
   bool _noNetwork = false;
 
@@ -56,15 +60,15 @@ class _StorefrontShellState extends State<StorefrontShell>
     _api = StorefrontApi(widget.controller.api.config);
     _cache = StorefrontCache();
     _repository = StorefrontRepository(_api, _cache);
+    _loadPublicBranches();
     WidgetsBinding.instance.addObserver(this);
-    _networkSubscription = Connectivity().onConnectivityChanged.listen(
-      (results) {
-        final hasNetwork = !results.contains(ConnectivityResult.none);
-        if (_noNetwork && hasNetwork) _syncPending();
-        _noNetwork = !hasNetwork;
-      },
-      onError: (Object _) {},
-    );
+    _networkSubscription = Connectivity().onConnectivityChanged.listen((
+      results,
+    ) {
+      final hasNetwork = !results.contains(ConnectivityResult.none);
+      if (_noNetwork && hasNetwork) _syncPending();
+      _noNetwork = !hasNetwork;
+    }, onError: (Object _) {});
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _syncPending();
     });
@@ -86,8 +90,11 @@ class _StorefrontShellState extends State<StorefrontShell>
     final api = MobileCommerceApi(widget.controller.api.config);
     try {
       await const PurchaseSyncService().synchronize(
-        tienda: widget.slug, customerId: account.id,
-        token: token, store: store, api: api,
+        tienda: widget.slug,
+        customerId: account.id,
+        token: token,
+        store: store,
+        api: api,
       );
     } catch (_) {
       // Sin Internet se conserva la cola; el trabajador Android reintentará.
@@ -105,6 +112,120 @@ class _StorefrontShellState extends State<StorefrontShell>
     _cache.close();
     super.dispose();
   }
+
+  Future<void> _loadPublicBranches() async {
+    if (mounted)
+      setState(() {
+        _branchesLoading = true;
+        _branchesError = false;
+      });
+    try {
+      final branches = await _api.publicBranches(widget.slug);
+      if (!mounted) return;
+      setState(() {
+        _branches = branches;
+        _selectedBranchId = 0;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _branchesError = true);
+    } finally {
+      if (mounted) setState(() => _branchesLoading = false);
+    }
+  }
+
+  Widget _branchSelector() => Container(
+    margin: const EdgeInsets.fromLTRB(15, 10, 15, 4),
+    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF0F4EC),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFFD0DECE)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Wrap(
+          spacing: 8,
+          runSpacing: 7,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Icon(
+              Icons.location_on_outlined,
+              size: 20,
+              color: Color(0xFF1B573E),
+            ),
+            SizedBox(width: 7),
+            Text(
+              'Consulta por sucursal',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1A4533),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 5),
+        const Text(
+          'Puedes explorar todas las prendas sin elegir sucursal.',
+          style: TextStyle(fontSize: 11, color: Color(0xFF5A715F)),
+        ),
+        const SizedBox(height: 10),
+        if (_branchesLoading) const LinearProgressIndicator(),
+        DropdownButtonFormField<int>(
+          key: ValueKey('branch-${widget.slug}-$_selectedBranchId'),
+          initialValue: _selectedBranchId,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'Sucursal',
+            prefixIcon: Icon(Icons.store_mall_directory_outlined),
+          ),
+          items: [
+            const DropdownMenuItem(
+              value: 0,
+              child: Text('Todas las sucursales'),
+            ),
+            ..._branches.map(
+              (b) => DropdownMenuItem<int>(
+                value: b.id,
+                child: Text(b.name, overflow: TextOverflow.ellipsis),
+              ),
+            ),
+          ],
+          onChanged: _branchesLoading
+              ? null
+              : (id) {
+                  if (id == null) return;
+                  setState(() => _selectedBranchId = id);
+                },
+        ),
+        if (_selectedBranchId != 0) ...[
+          const SizedBox(height: 7),
+          const Text(
+            'La disponibilidad se consultará para esta sucursal. '
+            'La compra se valida en el servidor.',
+            style: TextStyle(fontSize: 11, color: Color(0xFF527359)),
+          ),
+        ],
+        if (_branchesError) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'No se pudieron cargar las sucursales.',
+                  style: TextStyle(fontSize: 11),
+                ),
+              ),
+              TextButton(
+                onPressed: _loadPublicBranches,
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ],
+      ],
+    ),
+  );
 
   bool _selected(int id) => _compare.any((p) => p.id == id);
 
@@ -135,6 +256,7 @@ class _StorefrontShellState extends State<StorefrontShell>
           repository: _repository,
           api: _api,
           controller: widget.controller,
+          selectedBranchId: _selectedBranchId == 0 ? null : _selectedBranchId,
           onCompare: _addCompare,
           onRecommendations: _openRecommendations,
           onPurchase: _openPurchase,
@@ -171,6 +293,7 @@ class _StorefrontShellState extends State<StorefrontShell>
           product: product,
           variant: variant,
           knownStocks: stocks,
+          preferredBranchId: _selectedBranchId == 0 ? null : _selectedBranchId,
           controller: widget.controller,
         ),
       ),
@@ -356,6 +479,7 @@ class _StorefrontShellState extends State<StorefrontShell>
                   child: Text(widget.controller.notice!),
                 ),
               ),
+            if (_tab == 0 || _tab == 1) _branchSelector(),
             Expanded(child: body),
           ],
         ),

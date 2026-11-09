@@ -176,6 +176,15 @@ class StoreWish {
   final String stockStatus;
 }
 
+/// Sucursal pública para filtrar visualmente existencias; no autoriza compras.
+class StoreBranch {
+  const StoreBranch({required this.id, required this.name});
+  factory StoreBranch.fromJson(Map<String, dynamic> json) =>
+      StoreBranch(id: json['id'] as int, name: json['nombre'] as String);
+  final int id;
+  final String name;
+}
+
 class StoreCategory {
   const StoreCategory({required this.id, required this.name});
   factory StoreCategory.fromJson(Map<String, dynamic> json) =>
@@ -223,6 +232,7 @@ class StoreFilters {
   final String season;
   final String minPrice;
   final String maxPrice;
+
   /// Valores del filtro de stock vigente: DISPONIBLE, AGOTADO o vacío.
   final String availability;
   Map<String, String> toQuery() => {

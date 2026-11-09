@@ -22,12 +22,14 @@ class MobileCheckoutPage extends StatefulWidget {
     required this.product,
     required this.variant,
     required this.knownStocks,
+    this.preferredBranchId,
     required this.controller,
   });
   final String tienda;
   final StoreProduct product;
   final StoreVariant variant;
   final List<StoreStock> knownStocks;
+  final int? preferredBranchId;
   final SessionController controller;
   @override
   State<MobileCheckoutPage> createState() => _MobileCheckoutPageState();
@@ -83,7 +85,9 @@ class _MobileCheckoutPageState extends State<MobileCheckoutPage>
         setState(() {
           branches = response;
           if (branchId == null && response.isNotEmpty) {
-            branchId = response.first['id'] as int;
+            branchId = response.any((b) => b['id'] == widget.preferredBranchId)
+                ? widget.preferredBranchId
+                : response.first['id'] as int;
           }
         });
       }
@@ -99,7 +103,9 @@ class _MobileCheckoutPageState extends State<MobileCheckoutPage>
               .map((e) => <String, dynamic>{'id': e.key, 'nombre': e.value})
               .toList();
           if (branchId == null && branches.isNotEmpty) {
-            branchId = branches.first['id'] as int;
+            branchId = branches.any((b) => b['id'] == widget.preferredBranchId)
+                ? widget.preferredBranchId
+                : branches.first['id'] as int;
           }
         });
       }
@@ -281,8 +287,10 @@ class _MobileCheckoutPageState extends State<MobileCheckoutPage>
     );
     await _load();
     if (mounted) {
-      setState(() => message =
-        'Sincronización revisada. Solo CONFIRMADA acredita la compra.');
+      setState(
+        () => message =
+            'Sincronización revisada. Solo CONFIRMADA acredita la compra.',
+      );
     }
   });
 

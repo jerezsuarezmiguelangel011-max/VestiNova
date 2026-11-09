@@ -18,6 +18,7 @@ interface PublicShop { slug: string; nombre: string; }
         <nav aria-label="Navegación principal">
           <a href="#como-funciona" (click)="jumpTo($event, 'como-funciona')">Cómo funciona</a>
           <a href="#tiendas" (click)="jumpTo($event, 'tiendas')">Explorar tiendas</a>
+          <a class="public-staff" routerLink="/admin/login" aria-label="Acceder al panel administrativo">Administración</a>
         </nav>
       </header>
 
