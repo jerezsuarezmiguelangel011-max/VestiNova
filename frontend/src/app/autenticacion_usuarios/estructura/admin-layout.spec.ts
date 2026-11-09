@@ -67,6 +67,8 @@ describe('Menú administrativo por rol efectivo de empresa', () => {
     expect(urls).not.toContain('/admin/conciliacion');
     expect(urls).not.toContain('/admin/abastecimiento');
     expect(urls).not.toContain('/admin/usuarios');
+    expect(urls).not.toContain('/admin/reportes-ia');
+    expect(urls).not.toContain('/admin/dashboard-predictivo');
     expect(root.textContent).toContain('Consultar catálogo · solo lectura');
     expect(root.textContent).toContain('Operaciones de caja');
     expect(root.querySelector('.rail__brand')?.getAttribute('href')).toBe('/admin');
@@ -78,6 +80,7 @@ describe('Menú administrativo por rol efectivo de empresa', () => {
       'catalogo.consultar', 'inventario.consultar', 'inventario.ajustar',
       'postventa.consultar', 'postventa.gestionar', 'promociones.consultar',
       'abastecimiento.consultar', 'abastecimiento.gestionar',
+      'reportes.consultar', 'reportes.ia.consultar',
     ] });
     fixture.detectChanges();
     const urls = links().map(item => item.href);
@@ -85,8 +88,35 @@ describe('Menú administrativo por rol efectivo de empresa', () => {
     expect(urls).toContain('/admin/inventario');
     expect(urls).toContain('/admin/abastecimiento');
     expect(urls).toContain('/admin/promociones');
+    expect(urls).toContain('/admin/reportes-comerciales');
+    expect(urls).toContain('/admin/reportes-ia');
+    expect(urls).not.toContain('/admin/dashboard-predictivo');
+    expect(urls.indexOf('/admin/reportes-comerciales')).toBeLessThan(urls.indexOf('/admin/reportes-ia'));
     expect(urls).not.toContain('/admin/productos');
     expect(links().find(link => link.href === '/admin/promociones')?.text).toContain('Consultar promociones');
     expect(links().find(link => link.href === '/admin/inventario')?.text).toContain('Gestionar inventario');
+  });
+  it('Administrador encuentra CU20, CU21 y CU22 juntos en la navegación', async () => {
+    const { fixture, active, links } = await setup();
+    active.set({ ...active(), rol: 'ADMINISTRADOR', permisos: [
+      'reportes.consultar', 'reportes.ia.consultar', 'analitica.consultar',
+    ] });
+    fixture.detectChanges();
+    const urls = links().map(item => item.href);
+    expect(urls).toContain('/admin/reportes-comerciales');
+    expect(urls).toContain('/admin/reportes-ia');
+    expect(urls).toContain('/admin/dashboard-predictivo');
+    expect(urls.indexOf('/admin/reportes-comerciales')).toBeLessThan(urls.indexOf('/admin/reportes-ia'));
+    expect(urls.indexOf('/admin/reportes-ia')).toBeLessThan(urls.indexOf('/admin/dashboard-predictivo'));
+  });
+
+  it('no muestra CU21 ni CU22 a un administrador sin los permisos correspondientes', async () => {
+    const { fixture, active, links } = await setup();
+    active.set({ ...active(), rol: 'ADMINISTRADOR', permisos: ['reportes.consultar'] });
+    fixture.detectChanges();
+    const urls = links().map(item => item.href);
+    expect(urls).toContain('/admin/reportes-comerciales');
+    expect(urls).not.toContain('/admin/reportes-ia');
+    expect(urls).not.toContain('/admin/dashboard-predictivo');
   });
 });
