@@ -294,7 +294,7 @@ class _StorefrontDetailPageState extends State<StorefrontDetailPage> {
                   onPressed: _variantId == null || _busy
                       ? null
                       : () => widget.onTryOn(_variantId!),
-                  icon: const Icon(Icons.checkroom_outlined),
+                  icon: const Icon(Icons.view_in_ar),
                   label: const Text('Probar en vestidor virtual · CU18'),
                 ),
                 const SizedBox(height: 8),

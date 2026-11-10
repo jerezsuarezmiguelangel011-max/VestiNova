@@ -180,11 +180,19 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byType(DropdownButtonFormField<int>),
+        200,
+      );
       expect(
         tester.widget<DropdownButtonFormField<int>>(
           find.byType(DropdownButtonFormField<int>),
         ).initialValue,
         8,
+      );
+      await tester.scrollUntilVisible(
+        find.text('Probar en vestidor virtual'),
+        200,
       );
       expect(find.text('Probar en vestidor virtual'), findsOneWidget);
     },
