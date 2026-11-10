@@ -208,10 +208,12 @@ class GarmentPage extends StatefulWidget {
     required this.store,
     required this.slug,
     required this.api,
+    this.initialVariantId,
   });
   final Store store;
   final String slug;
   final CatalogApi api;
+  final int? initialVariantId;
   @override
   State<GarmentPage> createState() => _GarmentPageState();
 }
@@ -249,8 +251,9 @@ class _GarmentPageState extends State<GarmentPage> {
         product = results[0] as Garment;
         fitting = data;
         variants = rows;
-        selected =
-            rows.where((r) => r.compatible).firstOrNull ?? rows.firstOrNull;
+        selected = rows.where((r) => r.id == widget.initialVariantId).firstOrNull
+            ?? rows.where((r) => r.compatible).firstOrNull
+            ?? rows.firstOrNull;
       });
     } on Object catch (e) {
       if (mounted && current == revision) {

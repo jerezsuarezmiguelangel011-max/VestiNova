@@ -158,6 +158,38 @@ void main() {
     );
   });
   testWidgets(
+    'CU18 desde CU08 conserva la talla y color elegidos al abrir el vestidor',
+    (tester) async {
+      final api = CatalogApi(
+        config,
+        client: MockClient((request) async {
+          if (request.url.path.endsWith('/vestidor')) return jsonResponse(fitting);
+          if (request.url.path.endsWith('/polera-varon')) return jsonResponse(product);
+          throw StateError('Ruta inesperada del vestidor');
+        }),
+      );
+      addTearDown(api.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GarmentPage(
+            store: store,
+            slug: 'polera-varon',
+            api: api,
+            initialVariantId: 8,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<DropdownButtonFormField<int>>(
+          find.byType(DropdownButtonFormField<int>),
+        ).initialValue,
+        8,
+      );
+      expect(find.text('Probar en vestidor virtual'), findsOneWidget);
+    },
+  );
+  testWidgets(
     'lista, detalle, variantes y alternativa para una prenda sin vestidor',
     (tester) async {
       final api = CatalogApi(

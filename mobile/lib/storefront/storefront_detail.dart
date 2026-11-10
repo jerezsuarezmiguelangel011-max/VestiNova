@@ -18,6 +18,7 @@ class StorefrontDetailPage extends StatefulWidget {
     required this.onRecommendations,
     required this.onLoginRequired,
     required this.onPurchase,
+    required this.onTryOn,
     required this.onAlerts,
     this.selectedBranchId,
   });
@@ -31,6 +32,7 @@ class StorefrontDetailPage extends StatefulWidget {
   final ValueChanged<String> onRecommendations;
   final VoidCallback onLoginRequired;
   final void Function(StoreProduct, StoreVariant, List<StoreStock>) onPurchase;
+  final ValueChanged<int> onTryOn;
   final void Function(StoreProduct, StoreVariant, List<StoreStock>) onAlerts;
   @override
   State<StorefrontDetailPage> createState() => _StorefrontDetailPageState();
@@ -286,6 +288,14 @@ class _StorefrontDetailPageState extends State<StorefrontDetailPage> {
                         },
                   icon: const Icon(Icons.shopping_bag_outlined),
                   label: const Text('Comprar · CU09'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _variantId == null || _busy
+                      ? null
+                      : () => widget.onTryOn(_variantId!),
+                  icon: const Icon(Icons.checkroom_outlined),
+                  label: const Text('Probar en vestidor virtual · CU18'),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(

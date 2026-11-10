@@ -5,6 +5,9 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 
 import '../auth/session_controller.dart';
+import '../auth/auth_models.dart';
+import '../tryon/catalog_api.dart';
+import '../tryon/catalog_page.dart';
 import '../screens/access_page.dart';
 import '../screens/account_page.dart';
 import 'storefront_api.dart';
@@ -261,6 +264,7 @@ class _StorefrontShellState extends State<StorefrontShell>
           onCompare: _addCompare,
           onRecommendations: _openRecommendations,
           onPurchase: _openPurchase,
+          onTryOn: (variantId) => _openTryOn(item.slug, variantId),
           onAlerts: _openAlert,
           onLoginRequired: () {
             Navigator.of(context).popUntil((route) => route.isFirst);
@@ -280,6 +284,22 @@ class _StorefrontShellState extends State<StorefrontShell>
         ),
       ),
     );
+  }
+
+  void _openTryOn(String productSlug, int variantId) {
+    final catalogApi = CatalogApi(widget.controller.api.config);
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute<void>(
+            builder: (_) => GarmentPage(
+              store: Store(slug: widget.slug, name: widget.storeName),
+              slug: productSlug,
+              api: catalogApi,
+              initialVariantId: variantId,
+            ),
+          ),
+        )
+        .whenComplete(catalogApi.dispose);
   }
 
   void _openPurchase(
