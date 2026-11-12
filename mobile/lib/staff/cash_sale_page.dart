@@ -175,6 +175,9 @@ class _StaffCashSalePageState extends State<StaffCashSalePage> with WidgetsBindi
       await store.enqueue(companyId, staffId, branch, payload);
       quantities.clear();
       received.clear();
+      // Cada venta exige una confirmación nueva del efectivo y de la entrega.
+      cashCollected = false;
+      delivered = false;
       final savedOffline = offline;
       if (!savedOffline) {
         await sync.synchronize(token: token!, companyId: companyId, staffId: staffId, branchId: branch);
@@ -232,6 +235,9 @@ class _StaffCashSalePageState extends State<StaffCashSalePage> with WidgetsBindi
       centralSales = [];
       variantId = null;
       quantities.clear();
+      received.clear();
+      cashCollected = false;
+      delivered = false;
       message = null;
       error = null;
     });
@@ -290,6 +296,7 @@ class _StaffCashSalePageState extends State<StaffCashSalePage> with WidgetsBindi
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<int>(
+          key: ValueKey('cantidad:$branch:$variantId'),
           initialValue: quantity,
           decoration: const InputDecoration(labelText: 'Unidades'),
           items: List.generate(10, (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}'))),

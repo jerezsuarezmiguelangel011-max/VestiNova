@@ -175,8 +175,25 @@ class _ReconciliationPageState extends State<ReconciliationPage> {
           Text('Tipo: ${incident['tipo']} · Estado: ${incident['estado']}'),
           Text('Motivo: ${incident['motivo']}'),
           const SizedBox(height: 8),
-          const Text('Captura original (no editable)'),
-          SelectableText('${incident['datos_originales']}'),
+          Text('Resumen de la operación original',
+            style: Theme.of(context).textTheme.titleMedium),
+          if (incident['datos_originales'] case final Map original) ...[
+            Text('UUID de venta: ${incident['operacion_id']}'),
+            Text('Efectivo registrado: Bs ${original['efectivo'] ?? '-'}'),
+            Text('Sucursal: ${original['sucursal_id'] ?? '-'}'),
+            if (original['lineas'] case final List lines)
+              for (final line in lines.whereType<Map>())
+                Text('Variante #${line['variante_id'] ?? '-'} · '
+                  '${line['cantidad'] ?? '-'} unidad(es) · '
+                  'Bs ${line['precio_unitario'] ?? '-'} por unidad'),
+          ],
+          ExpansionTile(
+            title: const Text('Consultar evidencia completa (solo lectura)'),
+            children: [Padding(
+              padding: const EdgeInsets.all(12),
+              child: SelectableText('${incident['datos_originales']}'),
+            )],
+          ),
           if (incident['estado'] == 'CONFLICTO') ...[
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(

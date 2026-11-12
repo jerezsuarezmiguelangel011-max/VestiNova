@@ -69,7 +69,10 @@ export class CashSaleSyncService {
         typeof detail.incidencia_id === 'string' ? detail.incidencia_id : null;
       const reason = detail && typeof detail === 'object' && typeof detail.mensaje === 'string'
         ? detail.mensaje.slice(0, 350) : 'La venta no fue confirmada centralmente.';
-      if (cause.status === 409) await this.store.finish(item.id, 'CONFLICTO', reason, null, incidentId);
+      if (cause.status === 409 && incidentId)
+        await this.store.finish(item.id, 'CONFLICTO', reason, null, incidentId);
+      else if (cause.status === 409)
+        await this.store.finish(item.id, 'RECHAZADA', reason);
       else if ([400, 404, 422].includes(cause.status))
         await this.store.finish(item.id, 'RECHAZADA', 'Solicitud rechazada. Conserva el comprobante provisional.');
       else if ([401, 403].includes(cause.status))

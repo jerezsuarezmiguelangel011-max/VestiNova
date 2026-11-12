@@ -213,6 +213,66 @@ def test_cu15_offline_stock_conflict_keeps_cash_original_and_allows_reconciliati
     assert stock(session_factory, setup) == (5, 0)
 
 
+def test_cu15_dos_dispositivos_ultima_unidad_sin_stock_negativo(
+    client, escenario, session_factory,
+):
+    """Dos dispositivos registraron la misma última unidad sin conexión.
+
+    La prueba representa la sincronización en secuencia; no mide una carrera
+    simultánea de transacciones o dos teléfonos físicos.
+    """
+    setup = escenario
+    with session_factory() as db:
+        balance = db.get(Existencia, (setup["company"], setup["branch"], setup["variant"]))
+        assert balance is not None
+        balance.cantidad = 1
+        db.commit()
+
+    web = venta(setup, qty=1, received="100.00", offline=True)
+    movil = venta(setup, qty=1, received="100.00", offline=True)
+    movil["origen"] = "MOVIL_OFFLINE"
+    assert web["id"] != movil["id"]
+
+    primero = client.post("/api/admin/caja/ventas", json=web,
+                          headers=setup["cashier_headers"])
+    segundo = client.post("/api/admin/caja/ventas", json=movil,
+                          headers=setup["manager_headers"])
+    assert primero.status_code == 201, primero.text
+    assert segundo.status_code == 409, segundo.text
+    incidencia_id = segundo.json()["detail"]["incidencia_id"]
+    assert stock(session_factory, setup) == (0, 0)
+
+    # Los dos reintentos conservan sus UUID y nunca descuentan otra unidad.
+    reenvio_web = client.post("/api/admin/caja/ventas", json=web,
+                             headers=setup["cashier_headers"])
+    reenvio_movil = client.post("/api/admin/caja/ventas", json=movil,
+                               headers=setup["manager_headers"])
+    assert reenvio_web.status_code == 200
+    assert reenvio_web.json()["codigo"] == primero.json()["codigo"]
+    assert reenvio_movil.status_code == 409
+    assert reenvio_movil.json()["detail"]["incidencia_id"] == incidencia_id
+    assert stock(session_factory, setup) == (0, 0)
+
+    with session_factory() as db:
+        assert db.scalar(select(func.count()).select_from(CashSale)) == 1
+        movimientos = db.scalars(select(MovimientoInventario).where(
+            MovimientoInventario.motivo.like("CU15:%"))).all()
+        assert len(movimientos) == 1 and movimientos[0].delta == -1
+        incidente = db.get(SyncIncident, incidencia_id)
+        assert incidente.estado == "CONFLICTO"
+        assert incidente.datos_originales["efectivo"] == "100.00"
+        assert incidente.datos_originales["origen"] == "MOVIL_OFFLINE"
+
+    resuelta = client.post(f"/api/admin/conciliacion/{incidencia_id}/resolver",
+                          json={"decision": "ACUERDO_DOCUMENTADO",
+                                "referencia_constancia": "ACTA-SIMULACION-01",
+                                "observacion": "Resolución simulada en prueba automática de caja."},
+                          headers=setup["manager_headers"])
+    assert resuelta.status_code == 200, resuelta.text
+    assert resuelta.json()["estado"] == "RESUELTO"
+    assert stock(session_factory, setup) == (0, 0)
+
+
 def test_cu15_price_mismatch_offline_remains_conflict(client, escenario, session_factory):
     setup = escenario
     payload = venta(setup, unit="70.00", offline=True)
